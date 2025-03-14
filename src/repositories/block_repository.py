@@ -1,3 +1,4 @@
+from typing import Dict, Any, Optional, List
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
 import os
@@ -11,16 +12,16 @@ class BlockRepository(BaseRepository):
     def __init__(self):
         super().__init__(os.environ.get("BLOCKS_TABLE"))
 
-    def get_block(self, block_id):
+    def get_block(self, block_id: str) -> Optional[Dict[str, Any]]:
         """
-        Retrieves a training blcok by its unique block ID.
+        Retrieves a training block by its unique block ID.
 
         :param block_id: The unique identifier of the block.
         :return: A dictionary containing the block details if found, else None.
         """
         return self.get_by_id("block_id", block_id)
     
-    def get_blocks_by_athlete(self, athlete_id):
+    def get_blocks_by_athlete(self, athlete_id: str) -> List[Dict[str, Any]]:
         """
         Retrieves all blocks associated with a specific athlete using a DynamoDB GSI.
 
@@ -33,7 +34,7 @@ class BlockRepository(BaseRepository):
         )
         return response.get("Items", [])
     
-    def get_blocks_by_coach(self, coach_id):
+    def get_blocks_by_coach(self, coach_id: str) -> List[Dict[str, Any]]:
         """
         Retrieves all blocks associated with a specific coach using a DynamoDB GSI.
 
@@ -46,21 +47,7 @@ class BlockRepository(BaseRepository):
         )
         return response.get("Items", [])
     
-def get_blocks_by_coach_and_athlete(self, coach_id, athlete_id):
-    """
-    Retrieves all blocks for a specific athlete associated by a specific coach.
-
-    :param coach_id: The unique identifier of the coach.
-    :param athlete_id: The unique identifier of the athlete.
-    :return: A list of block dictionaries associated with the given athlete and coach.
-    """
-    response = self.table.query(
-        IndexName="athlete-index", # Query using athlete_id
-        KeyConditionExpression=Key("athlete_id").eq(athlete_id),
-        FilterExpression=Key("coach_id").eq(coach_id) # Filter to match coach_id
-    )
-    
-    def create_block(self, block_dict):
+    def create_block(self, block_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Creates a new training block in the database.
 
@@ -69,7 +56,7 @@ def get_blocks_by_coach_and_athlete(self, coach_id, athlete_id):
         """
         return self.create(block_dict)
     
-    def update_block(self, block_id, update_dict):
+    def update_block(self, block_id: str, update_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Updates an existing block in the database.
 
@@ -93,7 +80,7 @@ def get_blocks_by_coach_and_athlete(self, coach_id, athlete_id):
             expression_values
         )
     
-    def delete_block(self, block_id):
+    def delete_block(self, block_id: str) -> Dict[str, Any]:
         """
         Deletes a training block from the database.
 

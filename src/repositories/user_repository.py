@@ -1,3 +1,4 @@
+from typing import Dict, Any, Optional
 from .base_repository import BaseRepository
 import os
 
@@ -10,7 +11,7 @@ class UserRepository(BaseRepository):
     def __init__(self):
         super().__init__(os.environ.get("USER_TABLE"))
     
-    def get_user(self, user_id):
+    def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
         Retrieves a user from the database using their unique user ID.
 
@@ -19,7 +20,7 @@ class UserRepository(BaseRepository):
         """
         return self.get_by_id("user_id", user_id)
     
-    def create_user(self, user_dict):
+    def create_user(self, user_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Creates a new user in the database
 
@@ -28,7 +29,7 @@ class UserRepository(BaseRepository):
         """
         return self.create(user_dict)
     
-    def update_user(self, user_id, update_dict):
+    def update_user(self, user_id: str, update_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Updates an existing user in the database.
 
