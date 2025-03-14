@@ -1,6 +1,10 @@
 import boto3
 import os
+from typing import Dict, Any, Optional
 from boto3.dynamodb.conditions import Key, Attr
+from boto3.resources.base import ServiceResource
+from boto3.resources.factory import ResourceFactory
+from mypy_boto3_dynamodb.service_resource import Table
 
 class BaseRepository:
     """
@@ -8,14 +12,14 @@ class BaseRepository:
 
     This will be inherited by other entities (e.g., User, Block, etc) to resuse functionalities.
     """
-    def __init__(self, table_name):
+    def __init__(self, table_name: str):
         """
         :param table_name: Name of DynamoDB table.
         """
-        self.dynamodb = boto3.resource("dynamodb")
-        self.table = self.dynamodb.Table(table_name)
+        self.dynamodb: ServiceResource = boto3.resource("dynamodb")
+        self.table: Table = self.dynamodb.Table(table_name)
     
-    def get_by_id(self, id_name, id_value):
+    def get_by_id(self, id_name: str, id_value: str) -> Optional[Dict[str, Any]]:
         """
         Retrieves an item from the table using its primary key.
 
@@ -28,7 +32,7 @@ class BaseRepository:
         )
         return response.get("Item")
     
-    def create(self, item):
+    def create(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """
         Inserts a new item into DynamoDB table. 
         """
@@ -36,7 +40,7 @@ class BaseRepository:
             Item=item
         )
     
-    def update(self, key, update_expression, expression_values):
+    def update(self, key: Dict[str, str], update_expression: str, expression_values: Dict[str, Any]):
         """
         Updates an existing item in the table.
 
@@ -53,7 +57,7 @@ class BaseRepository:
         )
         return response
     
-    def delete(self, key):
+    def delete(self, key: Dict[str, str]) -> Dict[str, Any]:
         """
         Deletes an item from the table.
 
