@@ -5,7 +5,7 @@ import os
 
 class DayRepository(BaseRepository):
     def __init__(self):
-        super().__init__(os.environ.get["DAYS_TABLE", "Days"])
+        super().__init__(os.environ.get("DAYS_TABLE", "Days"))
     
     def get_day(self, day_id: str) -> Optional[Dict[str, Any]]:
         """

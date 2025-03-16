@@ -43,10 +43,10 @@ class RelationshipRepository(BaseRepository):
         :param athlete_id: The ID of the athlete.
         :return: A dictionary containing the relationship data if found, None otherwise.
         """
-        response = self.table.scan(
-            FilterExpression=Attr("coach_id").eq(coach_id) &
-            Attr("athlete_id").eq(athlete_id) &
-            Attr("status").eq("active")
+        response = self.table.query(
+            IndexName="coach-athlete-index",
+            KeyConditionExpression=Key("coach_id").eq(coach_id) & Key("athlete_id").eq(athlete_id),
+            FilterExpression=Attr("status").eq("active")
         )
 
         items = response.get("Items", [])

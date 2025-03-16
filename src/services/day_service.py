@@ -74,7 +74,7 @@ class DayService:
         :return: True if the day was successfully deleted, else False
         """
         # Need to delete all exercises in this day first (cascading delete)
-        self.exercise_repository.delete_exercise_by_day(day_id)
+        self.exercise_repository.delete_exercises_by_day(day_id)
 
         # Delete the day itself
         response = self.day_repository.delete_day(day_id)

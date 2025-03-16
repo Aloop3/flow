@@ -61,7 +61,7 @@ class BlockService:
 
         return block
     
-    def update_blocK(self, block_id: str, update_data: Dict[str, Any]) -> Optional[Block]:
+    def update_block(self, block_id: str, update_data: Dict[str, Any]) -> Optional[Block]:
         """
         Updates an existing training block
 
@@ -80,6 +80,14 @@ class BlockService:
         :param block_id: The ID of the block to delete
         :return: True if the block was successfully deleted, else False
         """
-        return bool(self.block_repository.delete_block(block_id))
-    
+        try:
+            # First delete all weeks associated with this block (which will cascade delete days and exercises)
+            self.week_repository.delete_weeks_by_block(block_id)
+
+            # Then delete the block itself
+            response = self.block_repository.delete_block(block_id)
+            return bool(response)
+        except Exception as e:
+            print(f"Error deleting block: {e}")
+            return False
     

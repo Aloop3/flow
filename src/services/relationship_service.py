@@ -29,8 +29,8 @@ class RelationshipService:
         :param status: Optional status filter for the relationships
         :return: A list of Relationship objects
         """
-        relationships_data = self.relationship_repository.get_relationships_by_coach(coach_id, status)
-        return [Relationship(**relationships_data) for relationship_data in relationships_data]
+        relationships_data = self.relationship_repository.get_relationships_for_coach(coach_id, status)
+        return [Relationship(**relationship_data) for relationship_data in relationships_data]
     
     def get_active_relationship(self, coach_id: str, athlete_id: str) -> Optional[Relationship]:
         """
@@ -53,7 +53,7 @@ class RelationshipService:
         :param athlete_id: The ID of the athlete
         :return: The created Relationship object
         """
-        # Check if there's an active relatinoship
+        # Check if there's an active relationship
         existing = self.get_active_relationship(coach_id, athlete_id)
 
         if existing:

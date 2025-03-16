@@ -33,16 +33,17 @@ class ExerciseService:
         exercises_data.sort(key=lambda x: x.get("order", 999))
         return [Exercise(**exercise_data) for exercise_data in exercises_data]
     
-    def create_exercise(self, day_id: str, exercise_ype: str, sets: int, reps: int, 
-                        weight: Optional[float] = None, 
+    def create_exercise(self, day_id: str, exercise_type: str, sets: int, reps: int, 
+                        weight: float, 
                         rpe: Optional[Union[int, float]] = None, 
                         notes: Optional[str] = None,
-                        order: Optional[int] = None) -> Exercise:
+                        order: Optional[int] = None,
+                        exercise_category: Optional[str] = None) -> Exercise:
         """
         Creates a new exercise
 
         :param day_id: The ID of the day to create the exercise for
-        :param exercise_ype: The type of exercise
+        :param exercise_type: The type of exercise
         :param sets: The number of sets
         :param reps: The number of reps
         :param weight: The weight used 
@@ -59,7 +60,7 @@ class ExerciseService:
         exercise = Exercise(
             exercise_id=str(uuid.uuid4()),
             day_id=day_id,
-            exercise_type=exercise_ype,
+            exercise_type=exercise_type,
             sets=sets,
             reps=reps,
             weight=weight,

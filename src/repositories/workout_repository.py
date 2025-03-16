@@ -23,10 +23,12 @@ class WorkoutRepository(BaseRepository):
         :param athlete_id: The ID of the athlete.
         :return: A list of dictionaries containing the workout data.
         """
-        return self.table.query(
+        response = self.table.query(
             IndexName="athlete-index",
             KeyConditionExpression=Key("athlete_id").eq(athlete_id)
         )
+        
+        return response.get("Items", [])
     
     def get_workout_by_day(self, athlete_id: str, day_id: str) -> Optional[Dict[str, Any]]:
         """
