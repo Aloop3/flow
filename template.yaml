@@ -1,0 +1,1146 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Flow - Powerlifting Tracking App
+  SAM Template for Flow backend services
+
+# Global values that are applied to all resources
+Globals:
+  Function:
+    Timeout: 30  # Lambda function timeout in seconds
+    Runtime: python3.9
+    MemorySize: 256
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        BLOCKS_TABLE: !Ref BlocksTable
+        WEEKS_TABLE: !Ref WeeksTable
+        DAYS_TABLE: !Ref DaysTable
+        EXERCISES_TABLE: !Ref ExercisesTable
+        WORKOUTS_TABLE: !Ref WorkoutsTable
+        COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+        RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+        LOG_LEVEL: INFO
+        REGION: !Ref AWS::Region
+
+Resources:
+  # API Gateway Definition
+  FlowAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt FlowUserPool.Arn
+  
+  # Cognito User Pool for Authentication
+  FlowUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: flow-user-pool
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: custom:role
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+  
+  # Cognito User Pool Client
+  FlowUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: flow-user-pool-client
+      UserPoolId: !Ref FlowUserPool
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      GenerateSecret: false
+  
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
+  RelationshipsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: relationship_id
+          AttributeType: S
+        - AttributeName: coach_id
+          AttributeType: S
+        - AttributeName: athlete_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: relationship_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: coach-index
+          KeySchema:
+            - AttributeName: coach_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: athlete-index
+          KeySchema:
+            - AttributeName: athlete_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
+  BlocksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: block_id
+          AttributeType: S
+        - AttributeName: athlete_id
+          AttributeType: S
+        - AttributeName: coach_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: block_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: athlete-index
+          KeySchema:
+            - AttributeName: athlete_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: coach-index
+          KeySchema:
+            - AttributeName: coach_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
+  WeeksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: week_id
+          AttributeType: S
+        - AttributeName: block_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: week_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: block-index
+          KeySchema:
+            - AttributeName: block_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
+  DaysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: day_id
+          AttributeType: S
+        - AttributeName: week_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: day_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: week-index
+          KeySchema:
+            - AttributeName: week_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
+  ExercisesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: exercise_id
+          AttributeType: S
+        - AttributeName: day_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: exercise_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: day-index
+          KeySchema:
+            - AttributeName: day_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
+  WorkoutsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: workout_id
+          AttributeType: S
+        - AttributeName: athlete_id
+          AttributeType: S
+        - AttributeName: day_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: workout_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: athlete-index
+          KeySchema:
+            - AttributeName: athlete_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: day-index
+          KeySchema:
+            - AttributeName: day_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
+  CompletedExercisesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: completed_id
+          AttributeType: S
+        - AttributeName: workout_id
+          AttributeType: S
+        - AttributeName: exercise_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: completed_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: workout-index
+          KeySchema:
+            - AttributeName: workout_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: exercise-index
+          KeySchema:
+            - AttributeName: exercise_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
+  # Lambda Functions - User Management
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.user_handler.create_user
+      Description: Create a new user
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        CreateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users
+            Method: post
+
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.user_handler.get_user
+      Description: Get user by ID
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users/{user_id}
+            Method: get
+
+  UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.user_handler.update_user
+      Description: Update user
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        UpdateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users/{user_id}
+            Method: put
+  
+  # Lambda Functions - Relationship Management
+  CreateRelationshipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.relationship_handler.create_relationship
+      Description: Create a coach-athlete relationship
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RelationshipsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        CreateRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships
+            Method: post
+
+  AcceptRelationshipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.relationship_handler.accept_relationship
+      Description: Accept a coach-athlete relationship
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RelationshipsTable
+      Events:
+        AcceptRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}/accept
+            Method: post
+
+  EndRelationshipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.relationship_handler.end_relationship
+      Description: End a coach-athlete relationship
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RelationshipsTable
+      Events:
+        EndRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}/end
+            Method: post
+
+  GetCoachRelationshipsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.relationship_handler.get_relationships_for_coach
+      Description: Get all relationships for a coach
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RelationshipsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetCoachRelationships:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /coaches/{coach_id}/relationships
+            Method: get
+
+  
+  # Lambda Functions - Training Block Management
+  CreateBlockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.block_handler.create_block
+      Description: Create a training block
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BLOCKS_TABLE: !Ref BlocksTable
+          RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RelationshipsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        CreateBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks
+            Method: post
+  
+  GetBlockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.block_handler.get_block
+      Description: Get training block by ID
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BLOCKS_TABLE: !Ref BlocksTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+      Events:
+        GetBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: get
+
+  GetBlocksByAthleteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.block_handler.get_blocks_by_athlete
+      Description: Get training blocks by athlete
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BLOCKS_TABLE: !Ref BlocksTable
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetBlocksByAthlete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/blocks
+            Method: get
+
+  UpdateBlockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.block_handler.update_block
+      Description: Update training block
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BLOCKS_TABLE: !Ref BlocksTable
+          RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RelationshipsTable
+      Events:
+        UpdateBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: put
+
+  DeleteBlockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.block_handler.delete_block
+      Description: Delete training block
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BLOCKS_TABLE: !Ref BlocksTable
+          WEEKS_TABLE: !Ref WeeksTable
+          DAYS_TABLE: !Ref DaysTable
+          EXERCISES_TABLE: !Ref ExercisesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
+      Events:
+        DeleteBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: delete
+  
+  # Lambda Functions - Week Management
+  CreateWeekFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.week_handler.create_week
+      Description: Create a week in a training block
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WEEKS_TABLE: !Ref WeeksTable
+          BLOCKS_TABLE: !Ref BlocksTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+      Events:
+        CreateWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks
+            Method: post
+
+  GetWeeksForBlockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.week_handler.get_weeks_for_block
+      Description: Get all weeks for a training block
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WEEKS_TABLE: !Ref WeeksTable
+          BLOCKS_TABLE: !Ref BlocksTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+      Events:
+        GetWeeksForBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}/weeks
+            Method: get
+
+  UpdateWeekFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.week_handler.update_week
+      Description: Update week
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WEEKS_TABLE: !Ref WeeksTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WeeksTable
+      Events:
+        UpdateWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}
+            Method: put
+
+  DeleteWeekFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.week_handler.delete_week
+      Description: Delete week
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WEEKS_TABLE: !Ref WeeksTable
+          DAYS_TABLE: !Ref DaysTable
+          EXERCISES_TABLE: !Ref ExercisesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
+      Events:
+        DeleteWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}
+            Method: delete
+  
+  # Lambda Functions - Day Management
+  CreateDayFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.day_handler.create_day
+      Description: Create a day in a training week
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          DAYS_TABLE: !Ref DaysTable
+          WEEKS_TABLE: !Ref WeeksTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WeeksTable
+      Events:
+        CreateDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days
+            Method: post
+
+  GetDaysForWeekFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.day_handler.get_days_for_week
+      Description: Get all days for a training week
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          DAYS_TABLE: !Ref DaysTable
+          WEEKS_TABLE: !Ref WeeksTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WeeksTable
+      Events:
+        GetDaysForWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}/days
+            Method: get
+
+  UpdateDayFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.day_handler.update_day
+      Description: Update day
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          DAYS_TABLE: !Ref DaysTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+      Events:
+        UpdateDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}
+            Method: put
+
+  DeleteDayFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.day_handler.delete_day
+      Description: Delete day
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          DAYS_TABLE: !Ref DaysTable
+          EXERCISES_TABLE: !Ref ExercisesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
+      Events:
+        DeleteDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}
+            Method: delete
+  
+  # Lambda Functions - Exercise Management
+  CreateExerciseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.exercise_handler.create_exercise
+      Description: Create an exercise for a training day
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          EXERCISES_TABLE: !Ref ExercisesTable
+          DAYS_TABLE: !Ref DaysTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref DaysTable
+      Events:
+        CreateExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises
+            Method: post
+
+  GetExercisesForDayFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.exercise_handler.get_exercises_for_day
+      Description: Get all exercises for a training day
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          EXERCISES_TABLE: !Ref ExercisesTable
+          DAYS_TABLE: !Ref DaysTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ExercisesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref DaysTable
+      Events:
+        GetExercisesForDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}/exercises
+            Method: get
+
+  UpdateExerciseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.exercise_handler.update_exercise
+      Description: Update exercise
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          EXERCISES_TABLE: !Ref ExercisesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
+      Events:
+        UpdateExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}
+            Method: put
+
+  DeleteExerciseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.exercise_handler.delete_exercise
+      Description: Delete exercise
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          EXERCISES_TABLE: !Ref ExercisesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
+      Events:
+        DeleteExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}
+            Method: delete
+
+  ReorderExercisesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.exercise_handler.reorder_exercises
+      Description: Reorder exercises in a training day
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          EXERCISES_TABLE: !Ref ExercisesTable
+          DAYS_TABLE: !Ref DaysTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref DaysTable
+      Events:
+        ReorderExercises:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/reorder
+            Method: post
+  
+  # Lambda Functions - Workout Management
+  CreateWorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.workout_handler.create_workout
+      Description: Log a workout
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+          BLOCKS_TABLE: !Ref BlocksTable
+          WEEKS_TABLE: !Ref WeeksTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RelationshipsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WeeksTable
+      Events:
+        CreateWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts
+            Method: post
+  
+  GetWorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.workout_handler.get_workout
+      Description: Get workout by ID
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CompletedExercisesTable
+      Events:
+        GetWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: get
+  
+  GetWorkoutsByAthleteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.workout_handler.get_workouts_by_athlete
+      Description: Get workouts by athlete
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetWorkoutsByAthlete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/workouts
+            Method: get
+  
+  UpdateWorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.workout_handler.update_workout
+      Description: Update workout
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CompletedExercisesTable
+      Events:
+        UpdateWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: put
+  
+  DeleteWorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.workout_handler.delete_workout
+      Description: Delete workout
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CompletedExercisesTable
+      Events:
+        DeleteWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: delete
+  
+  # Lambda Functions - Analytics
+  GetMaxWeightHistoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.analytics_handler.get_max_weight_history
+      Description: Get max weight history for an exercise
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CompletedExercisesTable
+      Events:
+        GetMaxWeightHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/athletes/{athlete_id}/max-weight
+            Method: get
+
+  CalculateVolumeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.analytics_handler.calculate_volume
+      Description: Calculate training volume
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CompletedExercisesTable
+      Events:
+        CalculateVolume:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/athletes/{athlete_id}/volume
+            Method: get
+
+  CalculateBlockVolumeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.analytics_handler.calculate_block_volume
+      Description: Calculate volume for a training block
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BLOCKS_TABLE: !Ref BlocksTable
+          WEEKS_TABLE: !Ref WeeksTable
+          DAYS_TABLE: !Ref DaysTable
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CompletedExercisesTable
+      Events:
+        CalculateBlockVolume:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/blocks/{block_id}/volume
+            Method: get
+
+  CompareBlocksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: handlers.analytics_handler.compare_blocks
+      Description: Compare two training blocks
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BLOCKS_TABLE: !Ref BlocksTable
+          WEEKS_TABLE: !Ref WeeksTable
+          DAYS_TABLE: !Ref DaysTable
+          WORKOUTS_TABLE: !Ref WorkoutsTable
+          COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CompletedExercisesTable
+      Events:
+        CompareBlocks:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/blocks/compare
+            Method: get
+
+Outputs:
+  FlowApi:
+    Description: API Gateway endpoint URL for dev stage
+    Value: !Sub "https://${FlowAPI}.execute-api.${AWS::Region}.amazonaws.com/dev/"
+  
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref FlowUserPool
+  
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref FlowUserPoolClient
