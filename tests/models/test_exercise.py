@@ -55,7 +55,7 @@ class TestExerciseModel(unittest.TestCase):
         )
 
         self.assertEqual(exercise.exercise_type.name, "Dumbbell Bench Press")
-        self.assertEqual(exercise.exercise_type.category, ExerciseCategory.DUMBBELL)
+        self.assertEqual(exercise.exercise_category, ExerciseCategory.DUMBBELL)
         self.assertTrue(exercise.exercise_type.is_predefined, False)
 
     def test_exercise_initialization_with_custom_exercise(self):
@@ -72,8 +72,8 @@ class TestExerciseModel(unittest.TestCase):
         )
 
         self.assertEqual(exercise.exercise_type.name, "Single Arm Cable Pull")
-        self.assertEqual(exercise.exercise_type.category, ExerciseCategory.CUSTOM)
-        self.assertFalse(exercise.exercise_type.is_predefined)
+        self.assertEqual(exercise.exercise_category, ExerciseCategory.CUSTOM)
+        self.assertFalse(exercise.is_predefined)
 
     def test_to_dict(self):
         """
@@ -127,7 +127,7 @@ class TestExerciseModel(unittest.TestCase):
 
         self.assertEqual(exercise.exercise_id, "ex123")
         self.assertEqual(exercise.exercise_type.name, "Squat")
-        self.assertEqual(exercise.exercise_type.category, ExerciseCategory.BARBELL)
+        self.assertEqual(exercise.exercise_category, ExerciseCategory.BARBELL)
         self.assertTrue(exercise.exercise_type.is_predefined)
         self.assertEqual(exercise.weight, 315.0)
 
@@ -151,6 +151,44 @@ class TestExerciseModel(unittest.TestCase):
         self.assertEqual(exercise.exercise_id, "ex456")
         self.assertEqual(exercise.exercise_type.name, "Custom Exercise")
         self.assertFalse(exercise.exercise_type.is_predefined)
+    
+    def test_exercise_category_assignment(self):
+        """
+        Test that exercise_category is assigned correctly
+        """
+        exercise = Exercise(
+            exercise_id="ex123",
+            day_id="day456",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=315.0,
+            exercise_category="barbell"
+        )
+
+        custom_exercise = Exercise(
+            exercise_id="ex124",
+            day_id="day457",
+            exercise_type="Custom movement",
+            sets=3,
+            reps=5,
+            weight=200.0,
+            exercise_category="random_category"
+        )
+
+        no_category_exercise = Exercise(
+             exercise_id="ex130",
+            day_id="day463",
+            exercise_type="Hex bar deadlift",
+            sets=3,
+            reps=5,
+            weight=405.0,
+            exercise_category=None
+        )
+
+        self.assertEqual(exercise.exercise_category, ExerciseCategory.BARBELL)
+        self.assertEqual(custom_exercise.exercise_category, ExerciseCategory.CUSTOM)
+        self.assertEqual(no_category_exercise.exercise_category, ExerciseCategory.CUSTOM)
 
     def test_empty_exercise_id(self):
         """

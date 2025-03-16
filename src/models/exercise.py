@@ -1,9 +1,12 @@
 from typing import Dict, Any, Optional, Union
-from src.models.exercise_type import ExerciseType, ExerciseCategory
-
+from .exercise_type import ExerciseType, ExerciseCategory
 
 class Exercise:
-    def __init__(self, exercise_id: str, day_id: str, exercise_type: Union[str, ExerciseType], sets: int, reps: int, weight: float, rpe: Optional[Union[int, float]] = None, notes: Optional[str] = None, order: Optional[int] = None):
+    def __init__(self, exercise_id: str, day_id: str, exercise_type: Union[str, ExerciseType], 
+                 sets: int, reps: int, weight: float, rpe: Optional[Union[int, float]] = None, 
+                 notes: Optional[str] = None, order: Optional[int] = None, 
+                 exercise_category: Optional[ExerciseCategory] = None,
+                 is_predefined: Optional[bool] = None):
         # Validate IDs
         if not exercise_id:
             raise ValueError("exercise_id cannot be empty")
@@ -29,7 +32,30 @@ class Exercise:
             self.exercise_type = exercise_type
         else:
             raise TypeError("exercise_type must be a string or ExerciseType object")
+        
 
+        # Use the is_predefined from ExerciseType
+        self.is_predefined = self.exercise_type.is_predefined
+
+        # Handle exercise_category based on the type 
+        if exercise_category is not None:
+            if isinstance(exercise_category, str):
+                # Convert string to ExerciseCategory
+                for category in list(ExerciseCategory):
+                    if category.value == exercise_category:
+                        self.exercise_category = category
+                        break
+                else:
+                    self.exercise_category = ExerciseCategory.CUSTOM
+            else:
+                self.exercise_category = exercise_category
+        elif self.is_predefined:
+            # For predefined exercises, get category from ExerciseType
+            self.exercise_category = self.exercise_type.category
+        else:
+            # For custom exercises
+            self.exercise_category = ExerciseCategory.CUSTOM
+        
         self.exercise_id: str = exercise_id
         self.day_id: str = day_id
         self.sets: int = sets # Planned sets
@@ -43,19 +69,21 @@ class Exercise:
         """
         Convert the Exercise object to a dictionary for storage
         """
-        return {
+        result = {
             "exercise_id": self.exercise_id,
             "day_id": self.day_id,
-            "exercise_type": self.exercise_type.name,
-            "exercise_category": self.exercise_type.category.value,
-            "is_predefined": self.exercise_type.is_predefined,
+            "exercise_type": str(self.exercise_type),
+            "exercise_category": self.exercise_category.value,
             "sets": self.sets,
             "reps": self.reps,
             "weight": self.weight,
             "rpe": self.rpe,
             "notes": self.notes,
-            "order": self.order
+            "order": self.order,
+            "is_predefined": self.is_predefined
         }
+
+        return result
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Exercise":
@@ -65,20 +93,25 @@ class Exercise:
         :param data: Dictionary containing exercise data
         :return: Exercise object
         """
-        # Create ExerciseType instance with category if provided
-        exercise_category = (
-            ExerciseCategory(data["exercise_category"]) if "exercise_category" in data else None
-        )
-        exercise_type = ExerciseType(data["exercise_type"], category=exercise_category)
+        # Handle exercise category if provided
+        exercise_category = None
+        if "exercise_category" in data:
+            category_value = data["exercise_category"]
+            for category in list(ExerciseCategory):
+                if category.value == category_value:
+                    exercise_category = category
+                    break
 
         return cls(
             exercise_id=data["exercise_id"],
             day_id=data["day_id"],
-            exercise_type=exercise_type,
+            exercise_type=data["exercise_type"],
             sets=data["sets"],
             reps=data["reps"],
             weight=data["weight"],
             rpe=data.get("rpe"),
             notes=data.get("notes"),
-            order=data.get("order")
+            order=data.get("order"),
+            exercise_category=exercise_category,
+            is_predefined=data.get("is_predefined")
         )

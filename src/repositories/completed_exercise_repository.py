@@ -62,10 +62,13 @@ class CompletedExerciseRepository(BaseRepository):
         :return: A dictionary containing the updated completed exercise data.
         """
         update_expression = "set "
+        expression_attribute_names = {}
         expression_values = {}
 
+        # Attribute name handling to avoid reserved word conflicts
         for key, value in update_dict.items():
             update_expression += f"#{key} = :{key}, "
+            expression_attribute_names[f"#{key}"] = key
             expression_values[f":{key}"] = value
         
         # Remove trailing comma and space
@@ -74,7 +77,8 @@ class CompletedExerciseRepository(BaseRepository):
         return self.update(
             {"completed_id": completed_id},
             update_expression,
-            expression_values
+            expression_values,
+            expression_attribute_names
         )
     
     def delete_completed_exercise(self, completed_id: str) -> Dict[str, Any]:

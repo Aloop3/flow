@@ -1,9 +1,6 @@
 import boto3
-import os
 from typing import Dict, Any, Optional
-from boto3.dynamodb.conditions import Key, Attr
 from boto3.resources.base import ServiceResource
-from boto3.resources.factory import ResourceFactory
 from mypy_boto3_dynamodb.service_resource import Table
 
 class BaseRepository:
@@ -39,23 +36,33 @@ class BaseRepository:
         response = self.table.put_item(
             Item=item
         )
+        return item
     
-    def update(self, key: Dict[str, str], update_expression: str, expression_values: Dict[str, Any]):
+    def update(self, key: Dict[str, str], update_expression: str, expression_values: Dict[str, Any], expression_attribute_names: Dict[str, str] = None) -> Dict[str, Any]:
         """
         Updates an existing item in the table.
 
         :param key: A dictionary specifying the primary key of the item to update.
         :param update_expression: A DynamoDB update expression defining the update.
         :param expression_values: A dictionary mapping expression attribute names to values.
+        :param expression_attribute_names: 
         :return: The response containing the updated attributes.
         """
-        response = self.table.update_item(
-            Key=key,
-            UpdateExpression=update_expression,
-            ExpressionAttributeValues=expression_values,
-            ReturnValues="UPDATED_NEW"
-        )
-        return response
+        try:
+            update_args = {
+                "Key": key,
+                "UpdateExpression": update_expression,
+                "ExpressionAttributeValues": expression_values,
+                "ReturnValues": "ALL_NEW"
+            }
+            # Only add ExpressionAttributeNames if provided
+            if expression_attribute_names:
+                update_args["ExpressionAttributeNames"] = expression_attribute_names
+            response = self.table.update_item(**update_args)
+            return response.get("Attributes", {})
+        except Exception as e:
+            print(f"Error updating item: {e}")
+            raise 
     
     def delete(self, key: Dict[str, str]) -> Dict[str, Any]:
         """
@@ -64,7 +71,12 @@ class BaseRepository:
         :param key: A dictionary specifying the primary key of the item to delete.
         :return: The response from the delete operation.
         """
-        response = self.table.delete_item(
-            Key=key
-        )
-        return response
+        try:
+            response = self.table.delete_item(
+                Key=key,
+                ReturnValues="ALL_OLD"
+            )
+            return response.get("Attributes", {})
+        except Exception as e:
+            print(f"Error deleting item: {e}")
+            raise

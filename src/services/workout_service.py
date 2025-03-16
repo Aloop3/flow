@@ -73,6 +73,11 @@ class WorkoutService:
         :param status: The status of the workout ("complete", "partial", "skipped")
         :return: The created Workout object
         """
+        VALID_STATUS = {"completed", "partial", "skipped"}
+
+        if status not in VALID_STATUS:
+            raise ValueError(f"Invalid status. Must be one of {VALID_STATUS}")
+        
         existing = self.get_workout_by_day(athlete_id, day_id)
 
         if existing:
