@@ -1,7 +1,5 @@
 import boto3
 from typing import Dict, Any, Optional
-from boto3.resources.base import ServiceResource
-from mypy_boto3_dynamodb.service_resource import Table
 
 class BaseRepository:
     """
@@ -13,8 +11,8 @@ class BaseRepository:
         """
         :param table_name: Name of DynamoDB table.
         """
-        self.dynamodb: ServiceResource = boto3.resource("dynamodb")
-        self.table: Table = self.dynamodb.Table(table_name)
+        self.dynamodb = boto3.resource("dynamodb")
+        self.table = self.dynamodb.Table(table_name)
     
     def get_by_id(self, id_name: str, id_value: str) -> Optional[Dict[str, Any]]:
         """

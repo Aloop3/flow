@@ -271,8 +271,8 @@ Resources:
   CreateUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.user_handler.create_user
+      CodeUri: .
+      Handler: src.handlers.user_handler.create_user
       Description: Create a new user
       MemorySize: 256
       Timeout: 30
@@ -293,8 +293,8 @@ Resources:
   GetUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.user_handler.get_user
+      CodeUri: .
+      Handler: src.handlers.user_handler.get_user
       Description: Get user by ID
       MemorySize: 256
       Timeout: 30
@@ -315,8 +315,8 @@ Resources:
   UpdateUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.user_handler.update_user
+      CodeUri: .
+      Handler: src.handlers.user_handler.update_user
       Description: Update user
       MemorySize: 256
       Timeout: 30
@@ -338,8 +338,8 @@ Resources:
   CreateRelationshipFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.relationship_handler.create_relationship
+      CodeUri: .
+      Handler: src.handlers.relationship_handler.create_relationship
       Description: Create a coach-athlete relationship
       MemorySize: 256
       Timeout: 30
@@ -363,8 +363,8 @@ Resources:
   AcceptRelationshipFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.relationship_handler.accept_relationship
+      CodeUri: .
+      Handler: src.handlers.relationship_handler.accept_relationship
       Description: Accept a coach-athlete relationship
       MemorySize: 256
       Timeout: 30
@@ -385,8 +385,8 @@ Resources:
   EndRelationshipFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.relationship_handler.end_relationship
+      CodeUri: .
+      Handler: src.handlers.relationship_handler.end_relationship
       Description: End a coach-athlete relationship
       MemorySize: 256
       Timeout: 30
@@ -407,8 +407,8 @@ Resources:
   GetCoachRelationshipsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.relationship_handler.get_relationships_for_coach
+      CodeUri: .
+      Handler: src.handlers.relationship_handler.get_relationships_for_coach
       Description: Get all relationships for a coach
       MemorySize: 256
       Timeout: 30
@@ -434,8 +434,8 @@ Resources:
   CreateBlockFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.block_handler.create_block
+      CodeUri: .
+      Handler: src.handlers.block_handler.create_block
       Description: Create a training block
       MemorySize: 256
       Timeout: 30
@@ -462,8 +462,8 @@ Resources:
   GetBlockFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.block_handler.get_block
+      CodeUri: .
+      Handler: src.handlers.block_handler.get_block
       Description: Get training block by ID
       MemorySize: 256
       Timeout: 30
@@ -484,8 +484,8 @@ Resources:
   GetBlocksByAthleteFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.block_handler.get_blocks_by_athlete
+      CodeUri: .
+      Handler: src.handlers.block_handler.get_blocks_by_athlete
       Description: Get training blocks by athlete
       MemorySize: 256
       Timeout: 30
@@ -509,8 +509,8 @@ Resources:
   UpdateBlockFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.block_handler.update_block
+      CodeUri: .
+      Handler: src.handlers.block_handler.update_block
       Description: Update training block
       MemorySize: 256
       Timeout: 30
@@ -534,8 +534,8 @@ Resources:
   DeleteBlockFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.block_handler.delete_block
+      CodeUri: .
+      Handler: src.handlers.block_handler.delete_block
       Description: Delete training block
       MemorySize: 256
       Timeout: 30
@@ -566,8 +566,8 @@ Resources:
   CreateWeekFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.week_handler.create_week
+      CodeUri: .
+      Handler: src.handlers.week_handler.create_week
       Description: Create a week in a training block
       MemorySize: 256
       Timeout: 30
@@ -591,8 +591,8 @@ Resources:
   GetWeeksForBlockFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.week_handler.get_weeks_for_block
+      CodeUri: .
+      Handler: src.handlers.week_handler.get_weeks_for_block
       Description: Get all weeks for a training block
       MemorySize: 256
       Timeout: 30
@@ -616,8 +616,8 @@ Resources:
   UpdateWeekFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.week_handler.update_week
+      CodeUri: .
+      Handler: src.handlers.week_handler.update_week
       Description: Update week
       MemorySize: 256
       Timeout: 30
@@ -638,8 +638,8 @@ Resources:
   DeleteWeekFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.week_handler.delete_week
+      CodeUri: .
+      Handler: src.handlers.week_handler.delete_week
       Description: Delete week
       MemorySize: 256
       Timeout: 30
@@ -667,8 +667,8 @@ Resources:
   CreateDayFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.day_handler.create_day
+      CodeUri: .
+      Handler: src.handlers.day_handler.create_day
       Description: Create a day in a training week
       MemorySize: 256
       Timeout: 30
@@ -692,8 +692,8 @@ Resources:
   GetDaysForWeekFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.day_handler.get_days_for_week
+      CodeUri: .
+      Handler: src.handlers.day_handler.get_days_for_week
       Description: Get all days for a training week
       MemorySize: 256
       Timeout: 30
@@ -717,8 +717,8 @@ Resources:
   UpdateDayFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.day_handler.update_day
+      CodeUri: .
+      Handler: src.handlers.day_handler.update_day
       Description: Update day
       MemorySize: 256
       Timeout: 30
@@ -739,8 +739,8 @@ Resources:
   DeleteDayFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.day_handler.delete_day
+      CodeUri: .
+      Handler: src.handlers.day_handler.delete_day
       Description: Delete day
       MemorySize: 256
       Timeout: 30
@@ -765,8 +765,8 @@ Resources:
   CreateExerciseFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.exercise_handler.create_exercise
+      CodeUri: .
+      Handler: src.handlers.exercise_handler.create_exercise
       Description: Create an exercise for a training day
       MemorySize: 256
       Timeout: 30
@@ -790,8 +790,8 @@ Resources:
   GetExercisesForDayFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.exercise_handler.get_exercises_for_day
+      CodeUri: .
+      Handler: src.handlers.exercise_handler.get_exercises_for_day
       Description: Get all exercises for a training day
       MemorySize: 256
       Timeout: 30
@@ -815,8 +815,8 @@ Resources:
   UpdateExerciseFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.exercise_handler.update_exercise
+      CodeUri: .
+      Handler: src.handlers.exercise_handler.update_exercise
       Description: Update exercise
       MemorySize: 256
       Timeout: 30
@@ -837,8 +837,8 @@ Resources:
   DeleteExerciseFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.exercise_handler.delete_exercise
+      CodeUri: .
+      Handler: src.handlers.exercise_handler.delete_exercise
       Description: Delete exercise
       MemorySize: 256
       Timeout: 30
@@ -859,8 +859,8 @@ Resources:
   ReorderExercisesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.exercise_handler.reorder_exercises
+      CodeUri: .
+      Handler: src.handlers.exercise_handler.reorder_exercises
       Description: Reorder exercises in a training day
       MemorySize: 256
       Timeout: 30
@@ -885,8 +885,8 @@ Resources:
   CreateWorkoutFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.workout_handler.create_workout
+      CodeUri: .
+      Handler: src.handlers.workout_handler.create_workout
       Description: Log a workout
       MemorySize: 256
       Timeout: 30
@@ -916,8 +916,8 @@ Resources:
   GetWorkoutFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.workout_handler.get_workout
+      CodeUri: .
+      Handler: src.handlers.workout_handler.get_workout
       Description: Get workout by ID
       MemorySize: 256
       Timeout: 30
@@ -941,8 +941,8 @@ Resources:
   GetWorkoutsByAthleteFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.workout_handler.get_workouts_by_athlete
+      CodeUri: .
+      Handler: src.handlers.workout_handler.get_workouts_by_athlete
       Description: Get workouts by athlete
       MemorySize: 256
       Timeout: 30
@@ -966,8 +966,8 @@ Resources:
   UpdateWorkoutFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.workout_handler.update_workout
+      CodeUri: .
+      Handler: src.handlers.workout_handler.update_workout
       Description: Update workout
       MemorySize: 256
       Timeout: 30
@@ -991,8 +991,8 @@ Resources:
   DeleteWorkoutFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.workout_handler.delete_workout
+      CodeUri: .
+      Handler: src.handlers.workout_handler.delete_workout
       Description: Delete workout
       MemorySize: 256
       Timeout: 30
@@ -1017,8 +1017,8 @@ Resources:
   GetMaxWeightHistoryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.analytics_handler.get_max_weight_history
+      CodeUri: .
+      Handler: src.handlers.analytics_handler.get_max_weight_history
       Description: Get max weight history for an exercise
       MemorySize: 256
       Timeout: 30
@@ -1042,8 +1042,8 @@ Resources:
   CalculateVolumeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.analytics_handler.calculate_volume
+      CodeUri: .
+      Handler: src.handlers.analytics_handler.calculate_volume
       Description: Calculate training volume
       MemorySize: 256
       Timeout: 30
@@ -1067,8 +1067,8 @@ Resources:
   CalculateBlockVolumeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.analytics_handler.calculate_block_volume
+      CodeUri: .
+      Handler: src.handlers.analytics_handler.calculate_block_volume
       Description: Calculate volume for a training block
       MemorySize: 256
       Timeout: 30
@@ -1101,8 +1101,8 @@ Resources:
   CompareBlocksFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./src
-      Handler: handlers.analytics_handler.compare_blocks
+      CodeUri: .
+      Handler: src.handlers.analytics_handler.compare_blocks
       Description: Compare two training blocks
       MemorySize: 256
       Timeout: 30

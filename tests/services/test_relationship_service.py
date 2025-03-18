@@ -1,7 +1,5 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import uuid
-import datetime as dt
 from src.models.relationship import Relationship
 from src.services.relationship_service import RelationshipService
 
@@ -346,7 +344,7 @@ class TestRelationshipService(unittest.TestCase):
         # Relationship repository returns success
         self.relationship_repository_mock.update_relationship.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}
 
-        # Verify initial status is "pending"
+        # Verify initial status is "ended"
         initial_result = self.relationship_service.get_relationship("rel123")
         self.assertEqual(initial_result.status, "ended")
 
