@@ -9,7 +9,7 @@ class UserRepository(BaseRepository):
     Extends BaseRepository to provide methods for retrieving, creating, and updating user data.
     """
     def __init__(self):
-        super().__init__(os.environ.get("USER_TABLE"))
+        super().__init__(os.environ.get("USERS_TABLE"))
     
     def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
