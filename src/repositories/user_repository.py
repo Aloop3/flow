@@ -2,6 +2,7 @@ from typing import Dict, Any, Optional
 from .base_repository import BaseRepository
 import os
 
+
 class UserRepository(BaseRepository):
     """
     Repository class for handling user-related database operations in DynamoDB.
@@ -38,17 +39,26 @@ class UserRepository(BaseRepository):
         :return: The response from the update operation.
         """
         update_expression = "set "
-        expression_values = {}
+        expression_attribute_values = {}
+        expression_attribute_names = {}
 
         for key, value in update_dict.items():
-            update_expression += f"{key} = :{key}, "
-            expression_values[f":{key}"] = value
-        
+            attribute_placeholder = f"#{key}"
+            value_placeholder = f":{key}"
+
+            update_expression += f"{attribute_placeholder} = {value_placeholder}, "
+            expression_attribute_values[value_placeholder] = value
+            expression_attribute_names[attribute_placeholder] = key
+
         # Remove trailing comma and space
         update_expression = update_expression[:-2]
 
-        return self.update(
-            {"user_id": user_id},
-            update_expression,
-            expression_values
+        response = table.update_item(
+            Key={"user_id": user_id},
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames=expression_attribute_names,
+            ExpressionAttributeValues=expression_attribute_values,
+            ReturnValues="ALL_NEW"
         )
+
+        return response.get("Attributes", {})
