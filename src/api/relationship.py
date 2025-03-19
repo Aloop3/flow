@@ -1,6 +1,7 @@
 import json
 import logging
 from src.services.relationship_service import RelationshipService
+from src.utils.response import create_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,7 +10,7 @@ relationship_service = RelationshipService()
 
 def create_relationship(event, context):
     """
-    Lambda function to create a new coach-athlete relationship
+    Handle POST /relationships request to create a new coach-athlete relationship
     """
     try:
         body = json.loads(event["body"])
@@ -20,29 +21,20 @@ def create_relationship(event, context):
 
         # Validate required fields
         if not coach_id or not athlete_id:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Missing required fields"})
-            }
+            return create_response(400, {"error": "Missing required fields"})
         
         # Create relationship
         relationship = relationship_service.create_relationship(coach_id, athlete_id)
 
-        return {
-            "statusCode": 201,
-            "body": json.dumps(relationship.to_dict())
-        }
+        return create_response(201, relationship.to_dict())
     
     except Exception as e:
         logger.error(f"Error creating relationship: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
     
 def accept_relationship(event, context):
     """
-    Lambda function to accept a coach-athlete relationship
+    Handle POST /relationships/{relationship_id}/accept request to accept a coach-athlete relationship
     """
     try:
         # Extract relationship_id from path parameters
@@ -52,26 +44,17 @@ def accept_relationship(event, context):
         accept_relationship = relationship_service.accept_relationship(relationship_id)
 
         if not accept_relationship:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Relationship not found or already exists"})
-            }
+            return create_response(404, {"error": "Relationship not found or already accepted"})
         
-        return {
-            "statusCode": 200,
-            "body": json.dumps(accept_relationship.to_dict())
-        }
+        return create_response(200, accept_relationship.to_dict())
     
     except Exception as e:
         logger.error(f"Error accepting relationship: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
     
 def end_relationship(event, context):
     """
-    Lambda function to end a coach-athlete relationship
+    Handle POST /relationships/{relationship_id}/end request to end a coach-athlete relationship
     """
     try:
         # Extract relationship_id from path parameters
@@ -81,26 +64,17 @@ def end_relationship(event, context):
         end_relationship = relationship_service.end_relationship(relationship_id)
 
         if not end_relationship:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Relationship not found or already ended"})
-            }
+            return create_response(404, {"error": "Relationship not found or already ended"})
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps(end_relationship.to_dict())
-        }
+        return create_response(200, end_relationship.to_dict())
 
     except Exception as e:
         logger.error(f"Error ending relationship: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def get_relationships_for_coach(event, context):
     """
-    Lambda function to get all relationships for a coach
+    Handle GET /coaches/{coach_id}/relationships request to get all relationships for a coach
     """
     try:
         # Extract coach_id from path parameters
@@ -113,14 +87,8 @@ def get_relationships_for_coach(event, context):
         # Get relationships
         relationships = relationship_service.get_relationships_for_coach(coach_id, status)
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps([relationship.to_dict() for relationship in relationships])
-        }
+        return create_response(200, [relationship.to_dict() for relationship in relationships])
     
     except Exception as e:
         logger.error(f"Error getting relationships: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})

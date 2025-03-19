@@ -1,6 +1,7 @@
 import json
 import logging
 from src.services.exercise_service import ExerciseService
+from src.utils.response import create_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,7 +10,7 @@ exercise_service = ExerciseService()
 
 def create_exercise(event, context):
     """
-    Lambda function to create a new exercise
+    Handle POST /exercises request to create a new exercise
     """
     try:
         body = json.loads(event["body"])
@@ -27,10 +28,7 @@ def create_exercise(event, context):
 
         # Validate required fields
         if not day_id or not exercise_type or sets is None or reps is None:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Missing required fields"})
-            }
+            return create_response(400, {"error": "Missing required fields"})
         
         # Create exercise
         exercise = exercise_service.create_exercise(
@@ -44,21 +42,15 @@ def create_exercise(event, context):
             notes=notes, 
             order=order)
         
-        return {
-            "statusCode": 201,
-            "body": json.dumps(exercise.to_dict())
-        }
+        return create_response(201, exercise.to_dict())
     
     except Exception as e:
         logger.error(f"Error creating exercise: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def get_exercises_for_day(event, context):
     """
-    Lambda function to get all exercises for a training day
+    Handle GET /days/{day_id}/exercises request to get all exercises for a training day
     """
     try:
         # Extract day_id from path parameters
@@ -67,21 +59,15 @@ def get_exercises_for_day(event, context):
         # Get exercises 
         exercises = exercise_service.get_exercises_for_day(day_id)
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps([exercise.to_dict() for exercise in exercises])
-        }
+        return create_response(200, [exercise.to_dict() for exercise in exercises])
     
     except Exception as e:
         logger.error(f"Error getting exercises for day: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def update_exercise(event, context):
     """
-    Lambda function to update an exercise
+    Handle PUT /exercises/{exercise_id} request to update an exercise
     """
     try:
         # Extract exercise_id from path parameters
@@ -89,29 +75,20 @@ def update_exercise(event, context):
         body = json.loads(event["body"])
 
         # Update exercise
-        update_exercise = exercise_service.update_exercise(exercise_id, body)
+        updated_exercise = exercise_service.update_exercise(exercise_id, body)
 
-        if not update_exercise:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Exercise not found"})
-            }
+        if not updated_exercise:
+            return create_response(404, {"error": "Exercise not found"})
         
-        return {
-            "statusCode": 200,
-            "body": json.dumps(update_exercise.to_dict())
-        }
+        return create_response(200, updated_exercise.to_dict())
     
     except Exception as e:
         logger.error(f"Error updating exercise: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def delete_exercise(event, context):
     """
-    Lambda function to delete an exercise
+    Handle DELETE /exercises/{exercise_id} request to delete an exercise
     """
     try:
         # Extract exercise_id from path parameters
@@ -121,26 +98,17 @@ def delete_exercise(event, context):
         delete_exercise = exercise_service.delete_exercise(exercise_id)
 
         if not delete_exercise:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Exercise not found"})
-            }
+            return create_response(404, {"error": "Exercise not found"})
         
-        return {
-            "statusCode": 204,
-            "body": ""
-        }
+        return create_response(204, {})
     
     except Exception as e:
         logger.error(f"Error deleting exercise: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def reorder_exercises(event, context):
     """
-    Lambda function to reorder exercises
+    Handle POST /exercises/reorder request to reorder exercises
     """
     try:
         body = json.loads(event["body"])
@@ -151,23 +119,14 @@ def reorder_exercises(event, context):
 
         # Validate required fields
         if not day_id or not exercise_order:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Missing required fields"})
-            }
+            return create_response(400, {"error": "Missing required fields"})
         
         # Reorder exercises
         reorder_exercises = exercise_service.reorder_exercises(day_id, exercise_order)
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps([exercise.to_dict() for exercise in reorder_exercises])
-        }
+        return create_response(200, [exercise.to_dict() for exercise in reorder_exercises])
     
     except Exception as e:
         logger.error(f"Error reordering exercises: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
     
