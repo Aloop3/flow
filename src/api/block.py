@@ -1,6 +1,7 @@
 import json
 import logging
 from src.services.block_service import BlockService
+from src.utils.response import create_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,7 +10,7 @@ block_service = BlockService()
 
 def create_block(event, context):
     """
-    Lambda function to create a new block
+    Handle POST /blocks request to create a new training block
     """
     try:
         # Extract block details from request
@@ -24,12 +25,9 @@ def create_block(event, context):
         coach_id = body.get("coach_id")
         status = body.get("status")
 
-        # Valudate required fields
+        # Validate required fields
         if not athlete_id or not title or not start_date or not end_date:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Missing required fields"})
-            }
+            return create_response(400, {"error": "Missing required fields"})
         
         # Create block
         block = block_service.create_block(
@@ -42,24 +40,22 @@ def create_block(event, context):
             status=status
         )
 
-        return {
-            "statusCode": 201,
-            "body": json.dumps(block.to_dict())
-        
-        }
+        return create_response(201, block.to_dict())
     
+    except json.JSONDecodeError:
+        return create_response(400, {"error": "Invalid JSON in request body"})
     except Exception as e:
         logger.error(f"Error creating block: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def get_block(event, context):
     """
-    Lambda function to get a block by ID
+    Handle GET /blocks/{block_id} request to get a block by ID
     """
     try:
+        if not event.get("pathParameters") or not event["pathParameters"].get("block_id"):
+            return create_response(400, {"error": "Missing block_id parameter"})
+        
         # Extract block_id from path parameters
         block_id = event["pathParameters"]["block_id"]
 
@@ -67,46 +63,42 @@ def get_block(event, context):
         block = block_service.get_block(block_id)
 
         if not block:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Block not found"})
-            }
+            return create_response(404, {"error": "Block not found"})
         
+        return create_response(200, block.to_dict())
+    
     except Exception as e:
         logger.error(f"Error getting block: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def get_blocks_by_athlete(event, context):
     """
-    Lambda function to get blocks by athlete ID
+    Handle GET/athletes/{athlete_id}/blocks request to get blocks by athlete ID
     """
     try:
+        if not event.get("pathParameters") or not event["pathParameters"].get("athlete_id"):
+            return create_response(400, {"error": "Missing athlete_id parameter"})
+        
         # Extract athlete_id from path parameters
         athlete_id = event["pathParameters"]["athlete_id"]
 
         # Get blocks
         blocks = block_service.get_blocks_for_athlete(athlete_id)
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps([block.to_dict() for block in blocks])
-        }
+        return create_response(200, [block.to_dict() for block in blocks])
     
     except Exception as e:
         logger.error(f"Error getting blocks: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def update_block(event, context):
     """
-    Lambda function to update a block by ID
+    Handle PUT /blocks/{block_id} request to update a block by ID
     """
     try:
+        if not event.get("pathParameters") or not event["pathParameters"].get("block_id"):
+            return create_response(400, {"error": "Missing block_id parameter"})
+
         # Extract block_id from path parameters
         block_id = event["pathParameters"]["block_id"]
         body = json.loads(event["body"])
@@ -115,28 +107,24 @@ def update_block(event, context):
         update_block = block_service.update_block(block_id, body)
 
         if not update_block:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Block not found"})
-            }
+            return create_response(404, {"error": "Block not found"})
         
-        return {
-            "statusCode": 200,
-            "body": json.dumps(update_block.to_dict())
-        }
+        return create_response(200, update_block.to_dict())
     
+    except json.JSONDecodeError:
+        return create_response(400, {"error": "Invalid JSON in request body"})
     except Exception as e:
         logger.error(f"Error updating block: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def delete_block(event, context):
     """
-    Lambda function to delete a block by ID
+    Handle DELETE /blocks/{block_id} request to delete a block by ID
     """
     try:
+        if not event.get("pathParameters") or not event["pathParameters"].get("block_id"):
+            return create_response(400, {"error": "Missing block_id parameter"})
+
         # Extract block_id from path parameters
         block_id = event["pathParameters"]["block_id"]
 
@@ -144,19 +132,10 @@ def delete_block(event, context):
         delete_block = block_service.delete_block(block_id)
 
         if not delete_block:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Block not found"})
-            }
+            return create_response(404, {"error": "Block not found"})
         
-        return {
-            "statusCode": 204,
-            "body": ""
-        }
+        return create_response(204, {})
     
     except Exception as e:
         logger.error(f"Error deleting block: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})

@@ -1,6 +1,7 @@
 import json
 import logging
 from src.services.week_service import WeekService
+from src.utils.response import create_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,7 +10,7 @@ week_service = WeekService()
 
 def create_week(event, context):
     """
-    Lambda function to create a new week in a training block
+    Handle POST /weeks request to create a new week in a training block
     """
     try:
         body = json.loads(event["body"])
@@ -21,29 +22,20 @@ def create_week(event, context):
 
         # Validate required fields
         if not block_id or not week_number:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Missing required fields"})
-            }
+            return create_response(400, {"error": "Missing required fields"})
         
         # Create week
         week = week_service.create_week(block_id=block_id, week_number=week_number, notes=notes)
 
-        return {
-            "statusCode": 201,
-            "body": json.dumps(week.to_dict())
-        }
+        return create_response(201, week.to_dict())
     
     except Exception as e:
         logger.error(f"Error creating week: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def get_weeks_for_block(event, context):
     """
-    Lambda function to get all weeks for a training block
+    Handle GET /blocks/{block_id}/weeks request to get all weeks for a training block
     """
     try:
         block_id = event["pathParameters"]["block_id"]
@@ -51,21 +43,15 @@ def get_weeks_for_block(event, context):
         # Get weeks
         weeks = week_service.get_weeks_for_block(block_id)
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps(weeks.to_dict() for week in weeks)
-        }
+        return create_response(200, [week.to_dict() for week in weeks])
     
     except Exception as e:
         logger.error(f"Error getting weeks for block: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
     
 def update_week(event, context):
     """
-    Lambda function to update a week by ID
+    Handle PUT /weeks/{week_id} request to update a week by ID
     """
     try:
         week_id = event["pathParameters"]["week_id"]
@@ -75,26 +61,17 @@ def update_week(event, context):
         update_week = week_service.update_week(week_id, body)
 
         if not update_week:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Week not found"})
-            }
+            return create_response(404, {"error": "Week not found"})
         
-        return {
-            "statusCode": 200,
-            "body": json.dumps(update_week.to_dict())
-        }
+        return create_response(200, update_week.to_dict())
     
     except Exception as e:
         logger.error(f"Error updating week: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
 
 def delete_week(event, context):
     """
-    Lambda function to delete a week by ID
+    Handle DELETE /weeks/{week_id} request to delete a week by ID
     """
     try:
         week_id = event["pathParameters"]["week_id"]
@@ -103,19 +80,11 @@ def delete_week(event, context):
         delete_week = week_service.delete_week(week_id)
 
         if not delete_week:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Week not found"})
-            }
+            return create_response(404, {"error": "Week not found"})
         
-        return {
-            "statusCode": 204,
-            "body": ""
-        }
+        return create_response(204, {})
     
     except Exception as e:
         logger.error(f"Error deleting week: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return create_response(500, {"error": str(e)})
+    
