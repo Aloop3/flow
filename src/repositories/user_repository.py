@@ -53,7 +53,7 @@ class UserRepository(BaseRepository):
         # Remove trailing comma and space
         update_expression = update_expression[:-2]
 
-        response = table.update_item(
+        response = self.table.update_item(
             Key={"user_id": user_id},
             UpdateExpression=update_expression,
             ExpressionAttributeNames=expression_attribute_names,
