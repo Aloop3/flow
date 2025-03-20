@@ -122,6 +122,15 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
+        - IndexName: coach-athlete-index
+          KeySchema:
+            - AttributeName: coach_id
+              KeyType: HASH
+            - AttributeName: athlete_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
   
   BlocksTable:
     Type: AWS::DynamoDB::Table
