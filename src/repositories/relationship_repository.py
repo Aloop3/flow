@@ -7,7 +7,7 @@ class RelationshipRepository(BaseRepository):
     def __init__(self):
         super().__init__(os.environ.get("RELATIONSHIPS_TABLE", "Relationships"))
 
-    def get_relationships(self, relationship_id: str) -> Optional[Dict[str, Any]]:
+    def get_relationship(self, relationship_id: str) -> Optional[Dict[str, Any]]:
         """
         Retrieves a relationship by its ID.
 
