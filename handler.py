@@ -51,6 +51,7 @@ ROUTE_CONFIG = {
     "POST /relationships/{relationship_id}/accept": relationship.accept_relationship,
     "POST /relationships/{relationship_id}/end": relationship.end_relationship,
     "GET /coaches/{coach_id}/relationships": relationship.get_relationships_for_coach,
+    "GET /relationships/{relationship_id}": relationship.get_relationship,
     
     # Analytics routes
     # "GET /analytics/athletes/{athlete_id}/max-weight": analytics.get_max_weight_history,
