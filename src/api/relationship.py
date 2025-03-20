@@ -92,3 +92,23 @@ def get_relationships_for_coach(event, context):
     except Exception as e:
         logger.error(f"Error getting relationships: {str(e)}")
         return create_response(500, {"error": str(e)})
+
+def get_relationship(event, context):
+    """
+    Handle GET /relationships/{relationship_id} request to retrieve a relationship by ID
+    """
+    try:
+        # Extract relationship_id from path parameters
+        relationship_id = event["pathParameters"]["relationship_id"]
+
+        # Get relationship
+        relationship = relationship_service.get_relationship(relationship_id)
+
+        if not relationship:
+            return create_response(404, {"error": "Relationship not found"})
+        
+        return create_response(200, relationship.to_dict())
+    
+    except Exception as e:
+        logger.error(f"Error getting relationship: {str(e)}")
+        return create_response(500, {"error": str(e)})
