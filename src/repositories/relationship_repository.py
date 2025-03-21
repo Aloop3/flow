@@ -70,20 +70,29 @@ class RelationshipRepository(BaseRepository):
         :return: The updated relationship data.
         """
         update_expression = "set "
-        expression_values = {}
+        expression_attribute_values = {}
+        expression_attribute_names = {}
 
         for key, value in update_dict.items():
-            update_expression += f"{key} = :{key}, "
-            expression_values[f":{key}"] = value
-        
+            attribute_placeholder = f"#{key}"
+            value_placeholder = f":{key}"
+
+            update_expression += f"{attribute_placeholder} = {value_placeholder}, "
+            expression_attribute_values[value_placeholder] = value
+            expression_attribute_names[attribute_placeholder] = key
+
         # Remove trailing comma and space
         update_expression = update_expression[:-2]
 
-        return self.update(
-            {"relationship_id": relationship_id},
-            update_expression,
-            expression_values
+        response = self.table.update_item(
+            Key={"relationship_id": relationship_id},
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames=expression_attribute_names,
+            ExpressionAttributeValues=expression_attribute_values,
+            ReturnValues="ALL_NEW"
         )
+
+        return response.get("Attributes", {})
     
     def delete_relationship(self, relationship_id: str) -> Dict[str, Any]:
         """
