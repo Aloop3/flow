@@ -16,7 +16,7 @@ class RelationshipRepository(BaseRepository):
         """
         return self.get_by_id("relationship_id", relationship_id)
     
-    def get_relationships_by_coach(self, coach_id: str, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_relationships_for_coach(self, coach_id: str, status: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Retrieves relationships by coach ID, optionally filtered by status.
         
