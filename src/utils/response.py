@@ -1,5 +1,12 @@
 import json
 from typing import Dict, Any, Union
+from decimal import Decimal
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super(DecimalEncoder, self).default(obj)
 
 def create_response(status_code: int, body: Union[Dict[str, Any], list]) -> Dict[str, Any]:
     """
@@ -17,5 +24,5 @@ def create_response(status_code: int, body: Union[Dict[str, Any], list]) -> Dict
             "Access-Control_Allow-Methods": "OPTIONS,GET,POST,PUT,DELTE",
             "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key"
         },
-        "body": json.dumps(body)
+        "body": json.dumps(body, cls=DecimalEncoder)
     }
