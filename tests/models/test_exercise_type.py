@@ -49,7 +49,7 @@ class TestExerciseType(unittest.TestCase):
         """
         Test that whitespace is handled correctly in exercise names
         """
-        deadlift = ExerciseType("   Deadlift   ")
+        deadlift = ExerciseType("   DEADLIFT   ")
         self.assertEqual(deadlift.name, "Deadlift")
         self.assertEqual(deadlift.category, ExerciseCategory.BARBELL)
         self.assertTrue(deadlift.is_predefined)
@@ -121,6 +121,41 @@ class TestExerciseType(unittest.TestCase):
 
         # Not equal to other types
         self.assertNotEqual(squat1, "Squat")
+    
+    def test_case_insensitive_predefined_exercise(self):
+        """
+        Test that predefined exercises are recognized regardless of case
+        """
+        # Lowercase
+        squat_lower = ExerciseType("squat")
+        self.assertEqual(squat_lower.name, "Squat")
+        self.assertEqual(squat_lower.category, ExerciseCategory.BARBELL)
+        self.assertTrue(squat_lower.is_predefined)
+
+        # Mixed case
+        bench_mixed = ExerciseType("BEncH prESs")
+        self.assertEqual(bench_mixed.name, "Bench Press")
+        self.assertEqual(bench_mixed.category, ExerciseCategory.BARBELL)
+        self.assertTrue(bench_mixed.is_predefined)
+
+        # All uppercase
+        deadlift_upper = ExerciseType("DEADLIFT")
+        self.assertEqual(deadlift_upper.name, "Deadlift")
+        self.assertEqual(deadlift_upper.category, ExerciseCategory.BARBELL)
+        self.assertTrue(deadlift_upper.is_predefined)
+
+    def test_case_insensitive_is_valid_predefined(self):
+        """
+        Test that is_valid_predefined method works with case-insensitive matching
+        """
+
+        self.assertTrue(ExerciseType.is_valid_predefined("squat"))
+        self.assertTrue(ExerciseType.is_valid_predefined("DEADLIFT"))
+        self.assertTrue(ExerciseType.is_valid_predefined("bENcH PreSS"))
+        self.assertTrue(ExerciseType.is_valid_predefined("pull ups"))
+        self.assertFalse(ExerciseType.is_valid_predefined("Not an exercise"))
+        self.assertTrue(ExerciseType.is_valid_predefined("     seated leg curl     "))
+
 
 if __name__ == "__main__": # pragma: no cover
     unittest.main()

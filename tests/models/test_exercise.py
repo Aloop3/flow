@@ -179,7 +179,7 @@ class TestExerciseModel(unittest.TestCase):
         no_category_exercise = Exercise(
              exercise_id="ex130",
             day_id="day463",
-            exercise_type="Hex bar deadlift",
+            exercise_type="Zercher squat",
             sets=3,
             reps=5,
             weight=405.0,
