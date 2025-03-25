@@ -100,10 +100,27 @@ class ExerciseType:
         # Clean up leading and trailing whitespace
         self.name = name.strip()
 
-        # Check if this is a predefined exercise
-        if self.name in self._ALL_PREDEFINED_NAMES:
-            # Find the category of this predefined exercise
-            self.category = next(cat for cat, exercises in self.PREDEFINED_EXERCISES.items() if self.name in exercises)
+        # Track if we found a match
+        found_match = False
+
+        # Find matching predefined exercise (case-insensitive)
+        normalized_name = self.name.lower()
+        for predefined_name in self._ALL_PREDEFINED_NAMES:
+            if normalized_name == predefined_name.lower():
+                # Use the correcly cased predefined name
+                self.name = predefined_name
+
+                # Find the category of this predefined exercise
+                for exercise_category, exercise_list in self.PREDEFINED_EXERCISES.items():
+                    if predefined_name in exercise_list:
+                        self.category = exercise_category
+                        found_match = True
+                        break
+                
+                if found_match:
+                    break
+        
+        if found_match:
             self.is_predefined = True
         else:
             # Custom exercise
@@ -133,7 +150,8 @@ class ExerciseType:
         
         :param name: Name to check
         """
-        return name.strip() in cls._ALL_PREDEFINED_NAMES
+        normalized_name = name.strip().lower()
+        return any(predefined.lower() == normalized_name for predefined in cls._ALL_PREDEFINED_NAMES)
     
     @staticmethod
     def get_categories() -> List[ExerciseCategory]:
