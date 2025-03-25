@@ -1,5 +1,6 @@
 import boto3
 from typing import Dict, Any, Optional
+from src.utils.decimal_converter import convert_floats_to_decimals
 
 class BaseRepository:
     """
@@ -31,8 +32,11 @@ class BaseRepository:
         """
         Inserts a new item into DynamoDB table. 
         """
-        response = self.table.put_item(
-            Item=item
+        # Convert any  float values to Decimal types for DynamoDB compatibility
+        dynamo_item = convert_floats_to_decimals(item)
+        
+        self.table.put_item(
+            Item=dynamo_item
         )
         return item
     
@@ -47,10 +51,14 @@ class BaseRepository:
         :return: The response containing the updated attributes.
         """
         try:
+            # Convert all float values in expression_values to Decimal
+            decimal_expression_values = convert_floats_to_decimals(expression_values)
+
+
             update_args = {
                 "Key": key,
                 "UpdateExpression": update_expression,
-                "ExpressionAttributeValues": expression_values,
+                "ExpressionAttributeValues": decimal_expression_values,
                 "ReturnValues": "ALL_NEW"
             }
             # Only add ExpressionAttributeNames if provided

@@ -21,7 +21,7 @@ def create_response(status_code: int, body: Union[Dict[str, Any], list]) -> Dict
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control_Allow-Methods": "OPTIONS,GET,POST,PUT,DELTE",
+            "Access-Control_Allow-Methods": "OPTIONS,GET,POST,PUT,DELETE",
             "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key"
         },
         "body": json.dumps(body, cls=DecimalEncoder)
