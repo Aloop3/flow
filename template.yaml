@@ -20,6 +20,7 @@ Globals:
         WORKOUTS_TABLE: !Ref WorkoutsTable
         COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
         RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+        SETS_TABLE: !Ref SetsTable
         LOG_LEVEL: INFO
         REGION: !Ref AWS::Region
 
@@ -276,6 +277,34 @@ Resources:
           Projection:
             ProjectionType: ALL
   
+  SetsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: set_id
+          AttributeType: S
+        - AttributeName: completed_exercise_id
+          AttributeType: S
+        - AttributeName: workout_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: set_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: exercise-index
+          KeySchema:
+            - AttributeName: completed_exercise_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: workout-index
+          KeySchema:
+            - AttributeName: workout_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  
   # Main API Lambda function that handles all requests
   FlowApiFunction:
     Type: AWS::Serverless::Function
@@ -302,6 +331,8 @@ Resources:
             TableName: !Ref CompletedExercisesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref RelationshipsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SetsTable
       Events:
         # User API Routes
         CreateUser:

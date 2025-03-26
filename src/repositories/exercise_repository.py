@@ -12,7 +12,7 @@ class ExerciseRepository(BaseRepository):
     
     def get_exercises_by_day(self, day_id: str) -> List[Dict[str, Any]]:
         """
-        Get all exxercises for a given day_id
+        Get all exercises for a given day_id
         
         :param day_id: The day_id to filter exercises by
         :return: A list of exercises for the given day_id
