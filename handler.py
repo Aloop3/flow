@@ -1,6 +1,6 @@
 import json
 import logging
-from src.api import user, block, week, day, exercise, workout, relationship
+from src.api import user, block, week, day, exercise, workout, relationship, set
 from src.utils.response import create_response
 
 logger = logging.getLogger()
@@ -34,7 +34,7 @@ ROUTE_CONFIG = {
     
     # Exercise routes
     "POST /exercises": exercise.create_exercise,
-    "GET /days/{day_id}/exercises": exercise.get_exercises_for_day,
+    "GET /days/{day_id}/exercises": exercise.get_exercises_for_workout,
     "PUT /exercises/{exercise_id}": exercise.update_exercise,
     "DELETE /exercises/{exercise_id}": exercise.delete_exercise,
     "POST /exercises/reorder": exercise.reorder_exercises,
@@ -43,6 +43,7 @@ ROUTE_CONFIG = {
     "POST /workouts": workout.create_workout,
     "GET /workouts/{workout_id}": workout.get_workout,
     "GET /athletes/{athlete_id}/workouts": workout.get_workouts_by_athlete,
+    "GET /athletes/{athlete_id}/days/{day_id}/workout": workout.get_workout_by_day,
     "PUT /workouts/{workout_id}": workout.update_workout,
     "DELETE /workouts/{workout_id}": workout.delete_workout,
     
@@ -53,6 +54,13 @@ ROUTE_CONFIG = {
     "GET /coaches/{coach_id}/relationships": relationship.get_relationships_for_coach,
     "GET /relationships/{relationship_id}": relationship.get_relationship,
     
+    # Set routes - NEW
+    "GET /sets/{set_id}": set.get_set,
+    "GET /exercises/{exercise_id}/sets": set.get_sets_for_exercise,
+    "POST /exercises/{exercise_id}/sets": set.create_set,
+    "PUT /sets/{set_id}": set.update_set,
+    "DELETE /sets/{set_id}": set.delete_set,
+
     # Analytics routes
     # "GET /analytics/athletes/{athlete_id}/max-weight": analytics.get_max_weight_history,
     # "GET /analytics/athletes/{athlete_id}/volume": analytics.calculate_volume,

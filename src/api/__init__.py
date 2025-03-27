@@ -9,3 +9,4 @@ from src.api import day
 from src.api import exercise
 from src.api import workout
 from src.api import relationship
+from src.api import set

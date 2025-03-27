@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import os
-import boto3
 
 class BaseTest(unittest.TestCase):
     """Base test class that handles setting up mocks for DynamoDB and other AWS services"""
