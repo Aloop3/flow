@@ -6,7 +6,7 @@ from src.repositories.exercise_repository import ExerciseRepository
 from src.services.set_service import SetService
 from src.models.workout import Workout
 from src.models.completed_exercise import CompletedExercise
-from src.models.exercise_set import ExerciseSet
+from src.models.set import Set
 
 class WorkoutService:
     def __init__(self):
@@ -44,7 +44,7 @@ class WorkoutService:
                 # Add sets if they exist
                 if "sets" in exercise_data:
                     for set_data in exercise_data["sets"]:
-                        exercise_set = ExerciseSet(
+                        exercise_set = Set(
                             set_id=set_data.get("set_id"),
                             completed_exercise_id=set_data.get("completed_exercise_id"),
                             workout_id=set_data.get("workout_id"),
@@ -91,7 +91,7 @@ class WorkoutService:
                 # Add sets if they exist
                 if "sets" in exercise_data:
                     for set_data in exercise_data["sets"]:
-                        exercise_set = ExerciseSet(
+                        exercise_set = Set(
                             set_id=set_data.get("set_id"),
                             completed_exercise_id=set_data.get("completed_exercise_id"),
                             workout_id=set_data.get("workout_id"),
@@ -170,7 +170,7 @@ class WorkoutService:
                     set_number = set_data.get("set_number", j + 1)
                     
                     # Create the exercise set
-                    exercise_set = ExerciseSet(
+                    exercise_set = Set(
                         set_id=str(uuid.uuid4()),
                         completed_exercise_id=completed_id,
                         workout_id=workout.workout_id,
@@ -265,7 +265,7 @@ class WorkoutService:
                             set_number = set_data.get("set_number", j + 1)
                             
                             # Create the exercise set
-                            exercise_set = ExerciseSet(
+                            exercise_set = Set(
                                 set_id=str(uuid.uuid4()),
                                 completed_exercise_id=completed_id,
                                 workout_id=workout_id,
@@ -292,14 +292,14 @@ class WorkoutService:
         return self.get_workout(workout_id)
     
     def add_set_to_exercise(self, workout_id: str, exercise_id: str, 
-                           set_data: Dict[str, Any]) -> Optional[ExerciseSet]:
+                           set_data: Dict[str, Any]) -> Optional[Set]:
         """
         Adds a new set to an exercise in a workout
 
         :param workout_id: The ID of the workout
         :param exercise_id: The ID of the exercise to add the set to
         :param set_data: The data for the new set
-        :return: The created ExerciseSet if successful, else None
+        :return: The created Set if successful, else None
         """
         # Get the workout and exercise
         workout = self.get_workout(workout_id)
@@ -334,13 +334,13 @@ class WorkoutService:
         
         return exercise_set
     
-    def update_set(self, set_id: str, update_data: Dict[str, Any]) -> Optional[ExerciseSet]:
+    def update_set(self, set_id: str, update_data: Dict[str, Any]) -> Optional[Set]:
         """
         Updates an existing set
 
         :param set_id: The ID of the set to update
         :param update_data: The data to update the set with
-        :return: The updated ExerciseSet if successful, else None
+        :return: The updated Set if successful, else None
         """
         # Update the set using set service
         return self.set_service.update_set(set_id, update_data)
@@ -369,7 +369,7 @@ class WorkoutService:
         
         return result
     
-    def get_workout_sets(self, workout_id: str) -> Dict[str, List[ExerciseSet]]:
+    def get_workout_sets(self, workout_id: str) -> Dict[str, List[Set]]:
         """
         Gets all sets for a workout, organized by exercise
 
@@ -387,7 +387,7 @@ class WorkoutService:
         
         return result
     
-    def get_exercise_sets(self, exercise_id: str) -> List[ExerciseSet]:
+    def get_exercise_sets(self, exercise_id: str) -> List[Set]:
         """
         Gets all sets for a specific exercise
 

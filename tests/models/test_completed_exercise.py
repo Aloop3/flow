@@ -1,6 +1,6 @@
 import unittest
 from src.models.completed_exercise import CompletedExercise
-from src.models.exercise_set import ExerciseSet
+from src.models.set import Set
 
 class TestCompletedExerciseModel(unittest.TestCase):
     """
@@ -26,7 +26,7 @@ class TestCompletedExerciseModel(unittest.TestCase):
 
     def test_add_set(self):
         """
-        Test adding an ExerciseSet to the CompletedExercise
+        Test adding an Set to the CompletedExercise
         """ 
 
         exercise = CompletedExercise(
@@ -35,7 +35,7 @@ class TestCompletedExerciseModel(unittest.TestCase):
             exercise_id="ex789"
         )
 
-        set_obj = ExerciseSet(
+        set_obj = Set(
             set_id="set123",
             completed_exercise_id=exercise.completed_id,
             workout_id=exercise.workout_id,
@@ -52,7 +52,7 @@ class TestCompletedExerciseModel(unittest.TestCase):
     
     def test_update_set(self):
         """
-        Test updating a ExerciseSet in a completed exercise
+        Test updating a Set in a completed exercise
         """
 
         exercise = CompletedExercise(
@@ -61,7 +61,7 @@ class TestCompletedExerciseModel(unittest.TestCase):
             exercise_id="ex789"
         )
 
-        set_obj = ExerciseSet(
+        set_obj = Set(
             set_id="set123",
             completed_exercise_id=exercise.completed_id,
             workout_id=exercise.workout_id,
@@ -116,7 +116,7 @@ class TestCompletedExerciseModel(unittest.TestCase):
         )
         
         # Add a set
-        set_obj = ExerciseSet(
+        set_obj = Set(
             set_id="set123",
             completed_exercise_id=exercise.completed_id,
             workout_id=exercise.workout_id,

@@ -1,16 +1,16 @@
 import unittest
-from src.models.exercise_set import ExerciseSet
+from src.models.set import Set
 
-class TestExerciseSetModel(unittest.TestCase):
+class TestSetModel(unittest.TestCase):
     """
-    Test suite for the ExerciseSet model
+    Test suite for the Set model
     """
 
     def test_exercise_set_initialization(self):
         """
-        Test ExerciseSet model initialization with all attributes
+        Test Set model initialization with all attributes
         """
-        set_obj = ExerciseSet(
+        set_obj = Set(
             set_id="set123",
             completed_exercise_id="comp456",
             workout_id="workout123",
@@ -34,9 +34,9 @@ class TestExerciseSetModel(unittest.TestCase):
     
     def test_exercise_set_initialization_without_optional(self):
         """
-        Test ExerciseSet model initialization without optional attributes
+        Test Set model initialization without optional attributes
         """
-        set_obj = ExerciseSet(
+        set_obj = Set(
             set_id="set123",
             completed_exercise_id="comp456",
             workout_id="workout123",
@@ -59,7 +59,7 @@ class TestExerciseSetModel(unittest.TestCase):
         """
         Test to_dict method
         """
-        set_obj = ExerciseSet(
+        set_obj = Set(
             set_id="set123",
             completed_exercise_id="comp456",
             workout_id="workout123",
@@ -88,7 +88,7 @@ class TestExerciseSetModel(unittest.TestCase):
         Test that empty set_id raises ValueError
         """
         with self.assertRaises(ValueError):
-            ExerciseSet(
+            Set(
                 set_id="",  # Invalid empty ID
                 completed_exercise_id="comp456",
                 workout_id="workout789",
@@ -102,7 +102,7 @@ class TestExerciseSetModel(unittest.TestCase):
         Test that empty completed_exercise_id raises ValueError
         """
         with self.assertRaises(ValueError):
-            ExerciseSet(
+            Set(
                 set_id="set123",
                 completed_exercise_id="",  # Invalid empty ID
                 workout_id="workout789",
@@ -116,7 +116,7 @@ class TestExerciseSetModel(unittest.TestCase):
         Test that empty workout_id raises ValueError
         """
         with self.assertRaises(ValueError):
-            ExerciseSet(
+            Set(
                 set_id="set123",
                 completed_exercise_id="comp456",
                 workout_id="",  # Invalid empty ID
@@ -130,7 +130,7 @@ class TestExerciseSetModel(unittest.TestCase):
         Test that non-positive set_number raises ValueError
         """
         with self.assertRaises(ValueError):
-            ExerciseSet(
+            Set(
                 set_id="set123",
                 completed_exercise_id="comp456",
                 workout_id="workout789",
@@ -144,7 +144,7 @@ class TestExerciseSetModel(unittest.TestCase):
         Test that non-positive reps raises ValueError
         """
         with self.assertRaises(ValueError):
-            ExerciseSet(
+            Set(
                 set_id="set123",
                 completed_exercise_id="comp456",
                 workout_id="workout789",
@@ -158,7 +158,7 @@ class TestExerciseSetModel(unittest.TestCase):
         Test that non-positive weight raises ValueError
         """
         with self.assertRaises(ValueError):
-            ExerciseSet(
+            Set(
                 set_id="set123",
                 completed_exercise_id="comp456",
                 workout_id="workout789",
@@ -173,7 +173,7 @@ class TestExerciseSetModel(unittest.TestCase):
         """
         # RPE too low
         with self.assertRaises(ValueError):
-            ExerciseSet(
+            Set(
                 set_id="set123",
                 completed_exercise_id="comp456",
                 workout_id="workout789",
@@ -185,7 +185,7 @@ class TestExerciseSetModel(unittest.TestCase):
         
         # RPE too high
         with self.assertRaises(ValueError):
-            ExerciseSet(
+            Set(
                 set_id="set123",
                 completed_exercise_id="comp456",
                 workout_id="workout789",

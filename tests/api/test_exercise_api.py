@@ -21,7 +21,7 @@ class TestExerciseAPI(BaseTest):
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
             "exercise_id": "ex123",
-            "day_id": "day456",
+            "workout_id": "workout456",
             "exercise_type": "Squat",
             "exercise_category": "barbell",
             "sets": 5,
@@ -35,7 +35,7 @@ class TestExerciseAPI(BaseTest):
         
         event = {
             "body": json.dumps({
-                "day_id": "day456",
+                "workout_id": "workout456",
                 "exercise_type": "Squat",
                 "exercise_category": "barbell",
                 "sets": 5,
@@ -55,11 +55,11 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response["statusCode"], 201)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["exercise_id"], "ex123")
-        self.assertEqual(response_body["day_id"], "day456")
+        self.assertEqual(response_body["workout_id"], "workout456")
         self.assertEqual(response_body["exercise_type"], "Squat")
         self.assertEqual(response_body["sets"], 5)
         mock_create_exercise.assert_called_once_with(
-            day_id="day456",
+            workout_id="workout456",
             exercise_type="Squat",
             exercise_category="barbell",
             sets=5,
@@ -79,7 +79,7 @@ class TestExerciseAPI(BaseTest):
         # Setup
         event = {
             "body": json.dumps({
-                "day_id": "day456",
+                "workout_id": "workout456",
                 "exercise_type": "Squat",
                 # Missing sets
                 "reps": 5
@@ -97,17 +97,17 @@ class TestExerciseAPI(BaseTest):
         self.assertIn("Missing required fields", response_body["error"])
         mock_create_exercise.assert_not_called()
     
-    @patch('src.services.exercise_service.ExerciseService.get_exercises_for_day')
-    def test_get_exercises_for_day_success(self, mock_get_exercises):
+    @patch('src.services.exercise_service.ExerciseService.get_exercises_for_workout')
+    def test_get_exercises_for_workout_success(self, mock_get_exercises):
         """
-        Test successful retrieval of exercises for a day
+        Test successful retrieval of exercises for a workout
         """
 
         # Setup
         mock_exercise1 = MagicMock()
         mock_exercise1.to_dict.return_value = {
             "exercise_id": "ex1",
-            "day_id": "day456",
+            "workout_id": "workout456",
             "exercise_type": "Squat",
             "sets": 5,
             "reps": 5,
@@ -117,7 +117,7 @@ class TestExerciseAPI(BaseTest):
         mock_exercise2 = MagicMock()
         mock_exercise2.to_dict.return_value = {
             "exercise_id": "ex2",
-            "day_id": "day456",
+            "workout_id": "workout456",
             "exercise_type": "Bench Press",
             "sets": 5,
             "reps": 5,
@@ -128,13 +128,13 @@ class TestExerciseAPI(BaseTest):
         
         event = {
             "pathParameters": {
-                "day_id": "day456"
+                "workout_id": "workout456"
             }
         }
         context = {}
         
         # Call API
-        response = exercise.get_exercises_for_day(event, context)
+        response = exercise.get_exercises_for_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -144,7 +144,7 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body[0]["exercise_type"], "Squat")
         self.assertEqual(response_body[1]["exercise_id"], "ex2")
         self.assertEqual(response_body[1]["exercise_type"], "Bench Press")
-        mock_get_exercises.assert_called_once_with("day456")
+        mock_get_exercises.assert_called_once_with("workout456")
     
     @patch('src.services.exercise_service.ExerciseService.update_exercise')
     def test_update_exercise_success(self, mock_update_exercise):
@@ -156,7 +156,7 @@ class TestExerciseAPI(BaseTest):
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
             "exercise_id": "ex123",
-            "day_id": "day456",
+            "workout_id": "workout456",
             "exercise_type": "Squat",
             "sets": 3,  # Updated
             "reps": 5,
@@ -292,7 +292,7 @@ class TestExerciseAPI(BaseTest):
         
         event = {
             "body": json.dumps({
-                "day_id": "day456",
+                "workout_id": "workout456",
                 "exercise_order": ["ex2", "ex1"]  # New order
             })
         }
@@ -309,7 +309,7 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body[0]["order"], 1)
         self.assertEqual(response_body[1]["exercise_id"], "ex1")
         self.assertEqual(response_body[1]["order"], 2)
-        mock_reorder_exercises.assert_called_once_with("day456", ["ex2", "ex1"])
+        mock_reorder_exercises.assert_called_once_with("workout456", ["ex2", "ex1"])
     
     @patch('src.services.exercise_service.ExerciseService.reorder_exercises')
     def test_reorder_exercises_missing_fields(self, mock_reorder_exercises):
@@ -320,7 +320,7 @@ class TestExerciseAPI(BaseTest):
         # Setup
         event = {
             "body": json.dumps({
-                # Missing day_id
+                # Missing workout_id
                 "exercise_order": ["ex2", "ex1"]
             })
         }

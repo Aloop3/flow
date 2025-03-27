@@ -1,59 +1,57 @@
-from typing import Dict, Any, Optional, Union, List
-from .exercise_set import ExerciseSet
+from typing import Dict, List, Any, Optional
+from .set import Set
 
 class CompletedExercise:
     """
-    Represents a completed exercise in a workout, with support for individual sets.
+    Represents a completed exercise within a workout.
+    
+    This model tracks an exercise that has been performed as part of a workout,
+    including all the individual sets performed.
     """
-    def __init__(self, completed_id: str, workout_id: str, exercise_id: str, 
-                 notes: Optional[str] = None):
-        # Validation
+    def __init__(self, completed_id: str, workout_id: str, exercise_id: str, notes: Optional[str] = None):
+        """
+        Initialize a CompletedExercise instance.
+        
+        :param completed_id: Unique identifier for this completed exercise
+        :param workout_id: ID of the workout this exercise belongs to
+        :param exercise_id: ID of the exercise template/definition this is based on
+        :param notes: Optional notes about the exercise performance
+        """
         if not completed_id:
             raise ValueError("completed_id cannot be empty")
         if not workout_id:
             raise ValueError("workout_id cannot be empty")
         if not exercise_id:
             raise ValueError("exercise_id cannot be empty")
-
+            
         self.completed_id: str = completed_id
         self.workout_id: str = workout_id
         self.exercise_id: str = exercise_id
         self.notes: Optional[str] = notes
-        
-        # Field for set-level tracking
-        self.sets: List[ExerciseSet] = []
-
-    def add_set(self, exercise_set: ExerciseSet) -> None:
+        self.sets: List[Set] = []
+    
+    def add_set(self, set_obj: Set) -> None:
         """
-        Add an ExerciseSet to this completed exercise
+        Add a set to this completed exercise
         
-        :param exercise_set: The ExerciseSet to add
+        :param set_obj: The Set object to add
         """
-        # Validate the set belongs to this exercise
-        if exercise_set.completed_exercise_id != self.completed_id:
-            raise ValueError("Set does not belong to this exercise")
-            
-        # Add the set
-        self.sets.append(exercise_set)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert the CompletedExercise object to a dictionary for storage
+        self.sets.append(set_obj)
         
-        :return: Dictionary representation of the CompletedExercise
+        # Sort sets by set_number to maintain order
+        self.sets.sort(key=lambda s: s.set_number)
+    
+    def get_set(self, set_id: str) -> Optional[Set]:
         """
-        result = {
-            "completed_id": self.completed_id,
-            "workout_id": self.workout_id,
-            "exercise_id": self.exercise_id,
-            "notes": self.notes
-        }
+        Get a set by its ID
         
-        # Include sets if available
-        if self.sets:
-            result["sets"] = [exercise_set.to_dict() for exercise_set in self.sets]
-            
-        return result
+        :param set_id: The ID of the set to find
+        :return: The Set if found, None otherwise
+        """
+        for set_obj in self.sets:
+            if set_obj.set_id == set_id:
+                return set_obj
+        return None
     
     def update_set(self, set_id: str, **update_data) -> bool:
         """
@@ -71,7 +69,35 @@ class CompletedExercise:
                         setattr(exercise_set, key, value)
                 return True
         return False
-
+    
+    def remove_set(self, set_id: str) -> bool:
+        """
+        Remove a set by its ID
+        
+        :param set_id: The ID of the set to remove
+        :return: True if the set was found and removed, False otherwise
+        """
+        for i, set_obj in enumerate(self.sets):
+            if set_obj.set_id == set_id:
+                self.sets.pop(i)
+                return True
+        return False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert the CompletedExercise to a dictionary
+        
+        :return: Dictionary representation of the CompletedExercise
+        """
+        result = {
+            "completed_id": self.completed_id,
+            "workout_id": self.workout_id,
+            "exercise_id": self.exercise_id,
+            "notes": self.notes,
+            "sets": [set_obj.to_dict() for set_obj in self.sets]
+        }
+        return result
+    
     def calculate_volume(self) -> float:
         """
         Calculate the total volume for this exercise based on sets

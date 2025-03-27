@@ -1,28 +1,28 @@
 import uuid
 from typing import List, Dict, Any, Optional, Union
 from src.repositories.set_repository import SetRepository
-from src.models.exercise_set import ExerciseSet
+from src.models.set import Set
 
 class SetService:
     """
-    Service for managing exercise sets
+    Service for managing  sets
     """
     def __init__(self):
         self.set_repository: SetRepository = SetRepository()
     
-    def get_set(self, set_id: str) -> Optional[ExerciseSet]:
+    def get_set(self, set_id: str) -> Optional[Set]:
         """
         Retrieve a set by ID
         
         :param set_id: ID of the set to retrieve
-        :return: ExerciseSet object if found, else None
+        :return: Set object if found, else None
         """
         set_data = self.set_repository.get_set(set_id)
         
         if not set_data:
             return None
             
-        return ExerciseSet(
+        return Set(
             set_id=set_data["set_id"],
             completed_exercise_id=set_data["completed_exercise_id"],
             workout_id=set_data["workout_id"],
@@ -34,18 +34,18 @@ class SetService:
             completed=set_data.get("completed")
         )
     
-    def get_sets_for_exercise(self, completed_exercise_id: str) -> List[ExerciseSet]:
+    def get_sets_for_exercise(self, completed_exercise_id: str) -> List[Set]:
         """
         Retrieve all sets for a specific exercise
         
         :param completed_exercise_id: ID of the completed exercise
-        :return: List of ExerciseSet objects
+        :return: List of Set objects
         """
         sets_data = self.set_repository.get_sets_by_exercise(completed_exercise_id)
         
         result = []
         for set_data in sets_data:
-            result.append(ExerciseSet(
+            result.append(Set(
                 set_id=set_data["set_id"],
                 completed_exercise_id=set_data["completed_exercise_id"],
                 workout_id=set_data["workout_id"],
@@ -66,9 +66,9 @@ class SetService:
                    set_number: int, reps: int, weight: float,
                    rpe: Optional[Union[int, float]] = None,
                    notes: Optional[str] = None,
-                   completed: Optional[bool] = None) -> ExerciseSet:
+                   completed: Optional[bool] = None) -> Set:
         """
-        Create a new exercise set
+        Create a new set
         
         :param completed_exercise_id: ID of the completed exercise this set belongs to
         :param workout_id: ID of the workout this set belongs to
@@ -78,11 +78,11 @@ class SetService:
         :param rpe: Rate of Perceived Exertion (RPE)
         :param notes: Optional notes for this set
         :param completed: Whether this set was completed
-        :return: Created ExerciseSet object
+        :return: Created Set object
         """
         set_id = str(uuid.uuid4())
         
-        exercise_set = ExerciseSet(
+        exercise_set = Set(
             set_id=set_id,
             completed_exercise_id=completed_exercise_id,
             workout_id=workout_id,
@@ -98,13 +98,13 @@ class SetService:
         
         return exercise_set
     
-    def update_set(self, set_id: str, update_data: Dict[str, Any]) -> Optional[ExerciseSet]:
+    def update_set(self, set_id: str, update_data: Dict[str, Any]) -> Optional[Set]:
         """
-        Update an existing exercise set
+        Update an existing set
         
         :param set_id: ID of the set to update
         :param update_data: Dictionary of attributes to update
-        :return: Updated ExerciseSet object if found, else None
+        :return: Updated Set object if found, else None
         """
         # Get the existing set
         existing_set = self.get_set(set_id)
@@ -120,7 +120,7 @@ class SetService:
     
     def delete_set(self, set_id: str) -> bool:
         """
-        Delete an exercise set
+        Delete a set
         
         :param set_id: ID of the set to delete
         :return: True if successful, False otherwise

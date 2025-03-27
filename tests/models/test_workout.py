@@ -1,7 +1,7 @@
 import unittest
 from src.models.workout import Workout
 from src.models.completed_exercise import CompletedExercise
-from src.models.exercise_set import ExerciseSet
+from src.models.set import Set
 
 class TestWorkoutModel(unittest.TestCase):
     """
@@ -171,7 +171,7 @@ class TestWorkoutModel(unittest.TestCase):
         )
 
         # Add a completed exercise
-        set1 = ExerciseSet(
+        set1 = Set(
             set_id="set1",
             completed_exercise_id="comp1",
             workout_id="workout123",
@@ -197,7 +197,7 @@ class TestWorkoutModel(unittest.TestCase):
             exercise_id="ex2"
         )
         
-        set2 = ExerciseSet(
+        set2 = Set(
             set_id="set2",
             completed_exercise_id="comp2",
             workout_id="workout123",
@@ -232,7 +232,7 @@ class TestWorkoutModel(unittest.TestCase):
             exercise_id="ex1"
         )
         
-        set1 = ExerciseSet(
+        set1 = Set(
             set_id="set1",
             completed_exercise_id="comp1",
             workout_id="workout123",
@@ -279,7 +279,7 @@ class TestWorkoutModel(unittest.TestCase):
         
         # 3 sets of bench, 5 reps at 225 = 3375 total volume
         for i in range(1, 4):
-            bench_set = ExerciseSet(
+            bench_set = Set(
                 set_id=f"set{i}",
                 completed_exercise_id="comp1",
                 workout_id="workout123",
@@ -298,7 +298,7 @@ class TestWorkoutModel(unittest.TestCase):
         )
         
         # 2 completed sets + 1 incomplete set of squats
-        squat_set1 = ExerciseSet(
+        squat_set1 = Set(
             set_id="squat1",
             completed_exercise_id="comp2",
             workout_id="workout123",
@@ -308,7 +308,7 @@ class TestWorkoutModel(unittest.TestCase):
             completed=True
         )
         
-        squat_set2 = ExerciseSet(
+        squat_set2 = Set(
             set_id="squat2",
             completed_exercise_id="comp2",
             workout_id="workout123",
@@ -318,7 +318,7 @@ class TestWorkoutModel(unittest.TestCase):
             completed=True
         )
         
-        squat_set3 = ExerciseSet(
+        squat_set3 = Set(
             set_id="squat3",
             completed_exercise_id="comp2",
             workout_id="workout123",
@@ -359,7 +359,7 @@ class TestWorkoutModel(unittest.TestCase):
         )
         
         # Add a set to the exercise
-        exercise_set = ExerciseSet(
+        exercise_set = Set(
             set_id="set1",
             completed_exercise_id="comp1",
             workout_id="workout123",

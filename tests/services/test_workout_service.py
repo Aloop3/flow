@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from src.models.workout import Workout
 from src.models.completed_exercise import CompletedExercise
-from src.models.exercise_set import ExerciseSet
+from src.models.set import Set
 from src.services.workout_service import WorkoutService
 
 class TestWorkoutService(unittest.TestCase):
@@ -99,7 +99,7 @@ class TestWorkoutService(unittest.TestCase):
         
         # Check that sets were correctly loaded
         self.assertEqual(len(result.exercises[0].sets), 1)
-        self.assertIsInstance(result.exercises[0].sets[0], ExerciseSet)
+        self.assertIsInstance(result.exercises[0].sets[0], Set)
         self.assertEqual(result.exercises[0].sets[0].set_id, "set1")
         self.assertEqual(result.exercises[0].sets[0].reps, 5)
         self.assertEqual(result.exercises[0].sets[0].weight, 225.0)
@@ -337,7 +337,7 @@ class TestWorkoutService(unittest.TestCase):
             )
             
             # Add sets to the exercise
-            exercise_set1 = ExerciseSet(
+            exercise_set1 = Set(
                 set_id="new-set1",
                 completed_exercise_id="updated-exercise",
                 workout_id="existing-workout",
@@ -347,7 +347,7 @@ class TestWorkoutService(unittest.TestCase):
                 rpe=8.0
             )
             
-            exercise_set2 = ExerciseSet(
+            exercise_set2 = Set(
                 set_id="new-set2",
                 completed_exercise_id="updated-exercise",
                 workout_id="existing-workout",
@@ -490,7 +490,7 @@ class TestWorkoutService(unittest.TestCase):
         self.workout_repository_mock.get_workout.return_value = workout_data
         
         # Mock the set service
-        self.set_service_mock.create_set.return_value = ExerciseSet(
+        self.set_service_mock.create_set.return_value = Set(
             set_id="set2",
             completed_exercise_id="comp1",
             workout_id="workout123",
@@ -517,7 +517,7 @@ class TestWorkoutService(unittest.TestCase):
         self.workout_repository_mock.update_workout.assert_called_once()
         
         # Assert the returned object is the new set
-        self.assertIsInstance(result, ExerciseSet)
+        self.assertIsInstance(result, Set)
         self.assertEqual(result.set_id, "set2")
         self.assertEqual(result.set_number, 2)
         self.assertEqual(result.reps, 5)
@@ -529,7 +529,7 @@ class TestWorkoutService(unittest.TestCase):
         Test updating a set in a workout
         """
         # Mock set data
-        updated_set = ExerciseSet(
+        updated_set = Set(
             set_id="set1",
             completed_exercise_id="comp1",
             workout_id="workout123",
@@ -556,7 +556,7 @@ class TestWorkoutService(unittest.TestCase):
         self.set_service_mock.update_set.assert_called_once_with("set1", update_data)
         
         # Assert the returned object is the updated set
-        self.assertIsInstance(result, ExerciseSet)
+        self.assertIsInstance(result, Set)
         self.assertEqual(result.set_id, "set1")
         self.assertEqual(result.reps, 6)
         self.assertEqual(result.weight, 235.0)
@@ -567,7 +567,7 @@ class TestWorkoutService(unittest.TestCase):
         Test deleting a set from a workout
         """
         # Mock set data
-        set_data = ExerciseSet(
+        set_data = Set(
             set_id="set1",
             completed_exercise_id="comp1",
             workout_id="workout123",
@@ -685,7 +685,7 @@ class TestWorkoutService(unittest.TestCase):
         """
         # Mock set data
         sets_data = [
-            ExerciseSet(
+            Set(
                 set_id="set1",
                 completed_exercise_id="comp1",
                 workout_id="workout123",
@@ -694,7 +694,7 @@ class TestWorkoutService(unittest.TestCase):
                 weight=225.0,
                 rpe=8.0
             ),
-            ExerciseSet(
+            Set(
                 set_id="set2",
                 completed_exercise_id="comp1",
                 workout_id="workout123",
@@ -716,7 +716,7 @@ class TestWorkoutService(unittest.TestCase):
         
         # Assert the result is a list of sets
         self.assertEqual(len(result), 2)
-        self.assertIsInstance(result[0], ExerciseSet)
+        self.assertIsInstance(result[0], Set)
         self.assertEqual(result[0].set_id, "set1")
         self.assertEqual(result[1].set_id, "set2")
 

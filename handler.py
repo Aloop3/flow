@@ -34,7 +34,7 @@ ROUTE_CONFIG = {
     
     # Exercise routes
     "POST /exercises": exercise.create_exercise,
-    "GET /days/{day_id}/exercises": exercise.get_exercises_for_workout,
+    "GET /workout/{workout_id}/exercises": exercise.get_exercises_for_workout,
     "PUT /exercises/{exercise_id}": exercise.update_exercise,
     "DELETE /exercises/{exercise_id}": exercise.delete_exercise,
     "POST /exercises/reorder": exercise.reorder_exercises,

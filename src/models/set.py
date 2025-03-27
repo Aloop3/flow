@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional, Union
 
-class ExerciseSet:
+class Set:
     """
     Represents a single set within a completed exercise.
     
@@ -44,9 +44,9 @@ class ExerciseSet:
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convert the ExerciseSet object to a dictionary for storage
+        Convert the Set object to a dictionary for storage
         
-        :return: Dictionary representation of the ExerciseSet
+        :return: Dictionary representation of the Set
         """
         result = {
             "set_id": self.set_id,

@@ -1,6 +1,6 @@
 from typing import Dict, List, Literal, Any, Optional
 from .completed_exercise import CompletedExercise
-from.exercise_set import ExerciseSet
+from .set import Set
 
 class Workout:
     def __init__(self, workout_id: str, athlete_id: str, day_id: str, date: str, notes: Optional[str] = None, status: Literal["completed", "partial", "skipped"] = None):
@@ -48,12 +48,12 @@ class Workout:
 
         self.exercises.append(exercise)
 
-    def add_set_to_exercise(self, exercise_id: str, exercise_set: ExerciseSet) -> bool:
+    def add_set_to_exercise(self, exercise_id: str, exercise_set: Set) -> bool:
         """
         Add a set to a specific exercise in this workout
         
         :param exercise_id: ID of the exercise to add the set to
-        :param exercise_set: The ExerciseSet to add
+        :param exercise_set: The Set to add
         :return: True if the set was added, False if the exercise wasn't found
         """
         exercise = next((ex for ex in self.exercises if ex.completed_id == exercise_id), None)
