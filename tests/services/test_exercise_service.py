@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import uuid
 from src.models.exercise import Exercise
 from src.services.exercise_service import ExerciseService
 
@@ -37,7 +36,7 @@ class TestExerciseService(unittest.TestCase):
         # Mock data that would be returned from the repository
         mock_exercise_data = {
             "exercise_id": "ex123",
-            "day_id": "day456",
+            "workout_id": "workout456",
             "exercise_type": "Squat",
             "exercise_category": "barbell",
             "is_predefined": True,
@@ -61,7 +60,7 @@ class TestExerciseService(unittest.TestCase):
         # Assert the result is an Exercise instance with correct data
         self.assertIsInstance(result, Exercise)
         self.assertEqual(result.exercise_id, "ex123")
-        self.assertEqual(result.day_id, "day456")
+        self.assertEqual(result.workout_id, "workout456")
         self.assertEqual(result.exercise_type.name, "Squat")
         self.assertEqual(result.exercise_category.value, "barbell")
         self.assertEqual(result.sets, 5)
@@ -87,15 +86,15 @@ class TestExerciseService(unittest.TestCase):
         # Assert the result is None
         self.assertIsNone(result)
     
-    def test_get_exercises_for_day(self):
+    def test_get_exercises_for_workout(self):
         """
-        Test retrieving all exercises for a day
+        Test retrieving all exercises for a workout
         """
         # Mock data that would be returned from the repository
         mock_exercises_data = [
             {
                 "exercise_id": "ex1",
-                "day_id": "day123",
+                "workout_id": "workout123",
                 "exercise_type": "Squat",
                 "exercise_category": "barbell",
                 "is_predefined": True,
@@ -106,7 +105,7 @@ class TestExerciseService(unittest.TestCase):
             },
             {
                 "exercise_id": "ex2",
-                "day_id": "day123",
+                "workout_id": "workout123",
                 "exercise_type": "Bench Press",
                 "exercise_category": "barbell",
                 "is_predefined": True,
@@ -118,13 +117,13 @@ class TestExerciseService(unittest.TestCase):
         ]
         
         # Configure mock to return our test data
-        self.exercise_repository_mock.get_exercises_by_day.return_value = mock_exercises_data
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = mock_exercises_data
         
         # Call the service method
-        result = self.exercise_service.get_exercises_for_day("day123")
+        result = self.exercise_service.get_exercises_for_workout("workout123")
         
-        # Assert repository was called with correct day ID
-        self.exercise_repository_mock.get_exercises_by_day.assert_called_once_with("day123")
+        # Assert repository was called with correct workout ID
+        self.exercise_repository_mock.get_exercises_by_workout.assert_called_once_with("workout123")
         
         # Assert the result is a list of Exercise instances with correct data
         self.assertEqual(len(result), 2)
@@ -140,7 +139,7 @@ class TestExerciseService(unittest.TestCase):
         """
         # Call the service method
         result = self.exercise_service.create_exercise(
-            day_id="day123",
+            workout_id="workout123",
             exercise_type="Squat",
             sets=5,
             reps=5,
@@ -159,7 +158,7 @@ class TestExerciseService(unittest.TestCase):
         # Assert the returned object is an Exercise with correct data
         self.assertIsInstance(result, Exercise)
         self.assertEqual(result.exercise_id, "test-uuid")
-        self.assertEqual(result.day_id, "day123")
+        self.assertEqual(result.workout_id, "workout123")
         self.assertEqual(result.exercise_type.name, "Squat")
         self.assertEqual(result.sets, 5)
         self.assertEqual(result.reps, 5)
@@ -179,11 +178,11 @@ class TestExerciseService(unittest.TestCase):
         ]
         
         # Configure mock to return the existing exercises
-        self.exercise_repository_mock.get_exercises_by_day.return_value = existing_exercises
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = existing_exercises
         
         # Call the service method without order
         result = self.exercise_service.create_exercise(
-            day_id="day123",
+            workout_id="workout123",
             exercise_type="Deadlift",
             sets=3,
             reps=5,
@@ -191,7 +190,7 @@ class TestExerciseService(unittest.TestCase):
         )
         
         # Assert repository was called to get existing exercises
-        self.exercise_repository_mock.get_exercises_by_day.assert_called_once_with("day123")
+        self.exercise_repository_mock.get_exercises_by_workout.assert_called_once_with("workout123")
         
         # Assert the exercise was created with the next order number (3)
         self.assertEqual(result.order, 3)
@@ -206,7 +205,7 @@ class TestExerciseService(unittest.TestCase):
         # Mock data for the updated exercise
         updated_exercise_data = {
             "exercise_id": "ex123",
-            "day_id": "day456",
+            "workout_id": "workout456",
             "exercise_type": "Squat",
             "exercise_category": "barbell",
             "is_predefined": True,
@@ -246,7 +245,7 @@ class TestExerciseService(unittest.TestCase):
         
         # Assert the other values remain unchanged
         self.assertEqual(result.exercise_id, "ex123")
-        self.assertEqual(result.day_id, "day456")
+        self.assertEqual(result.workout_id, "workout456")
         self.assertEqual(result.exercise_type.name, "Squat")
     
     def test_delete_exercise(self):
@@ -264,7 +263,7 @@ class TestExerciseService(unittest.TestCase):
         self.assertTrue(result)
     
     def test_reorder_exercises(self):
-        """Test reordering exercises for a day"""
+        """Test reordering exercises for a workout"""
         # New order for exercises
         exercise_order = ["ex3", "ex1", "ex2"]
         
@@ -272,7 +271,7 @@ class TestExerciseService(unittest.TestCase):
         mock_exercises = [
             {
                 "exercise_id": "ex1",
-                "day_id": "day123",
+                "workout_id": "workout123",
                 "exercise_type": "Squat",
                 "exercise_category": "barbell",
                 "is_predefined": True,
@@ -283,7 +282,7 @@ class TestExerciseService(unittest.TestCase):
             },
             {
                 "exercise_id": "ex2",
-                "day_id": "day123",
+                "workout_id": "workout123",
                 "exercise_type": "Bench Press",
                 "exercise_category": "barbell",
                 "is_predefined": True,
@@ -294,7 +293,7 @@ class TestExerciseService(unittest.TestCase):
             },
             {
                 "exercise_id": "ex3",
-                "day_id": "day123",
+                "workout_id": "workout123",
                 "exercise_type": "Deadlift",
                 "exercise_category": "barbell",
                 "is_predefined": True,
@@ -305,14 +304,14 @@ class TestExerciseService(unittest.TestCase):
             }
         ]
         
-        # Configure mock to return exercises for get_exercises_for_day
+        # Configure mock to return exercises for get_exercises_for_workout
         # We need to return this twice: once for initially loading, once after reordering
-        self.exercise_repository_mock.get_exercises_by_day.return_value = mock_exercises
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = mock_exercises
         
         # Mock the update_exercise method to avoid having to set up complex return behavior
         with patch.object(self.exercise_service, 'update_exercise') as mock_update_exercise:
             # Call the service method
-            self.exercise_service.reorder_exercises("day123", exercise_order)
+            self.exercise_service.reorder_exercises("workout123", exercise_order)
             
             # Assert update_exercise was called for each exercise with the correct order
             # First call: update ex3 to order 1
@@ -334,7 +333,7 @@ class TestExerciseService(unittest.TestCase):
         mock_exercises = [
             {
                 "exercise_id": "ex1",
-                "day_id": "day123",
+                "workout_id": "workout123",
                 "exercise_type": "Squat",
                 "exercise_category": "barbell",
                 "is_predefined": True,
@@ -345,7 +344,7 @@ class TestExerciseService(unittest.TestCase):
             },
             {
                 "exercise_id": "ex2",
-                "day_id": "day123",
+                "workout_id": "workout123",
                 "exercise_type": "Bench Press",
                 "exercise_category": "barbell",
                 "is_predefined": True,
@@ -356,13 +355,13 @@ class TestExerciseService(unittest.TestCase):
             }
         ]
         
-        # Configure mock for get_exercises_for_day
-        self.exercise_repository_mock.get_exercises_by_day.return_value = mock_exercises
+        # Configure mock for get_exercises_for_workout
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = mock_exercises
         
         # Mock the update_exercise method
         with patch.object(self.exercise_service, 'update_exercise') as mock_update_exercise:
             # Call the service method
-            self.exercise_service.reorder_exercises("day123", exercise_order)
+            self.exercise_service.reorder_exercises("workout123", exercise_order)
             
             # Assert update_exercise was called for valid IDs with the correct order
             mock_update_exercise.assert_any_call("ex1", {"order": 1})
@@ -371,16 +370,16 @@ class TestExerciseService(unittest.TestCase):
             # Assert update_exercise was called only for valid IDs (2 times, not 3)
             self.assertEqual(mock_update_exercise.call_count, 2)
     
-    def test_get_exercises_for_day_empty(self):
-        """Test retrieving exercises for a day that has no exercises"""
+    def test_get_exercises_for_workout_empty(self):
+        """Test retrieving exercises for a workout that has no exercises"""
         # Configure mock to return an empty list
-        self.exercise_repository_mock.get_exercises_by_day.return_value = []
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = []
         
         # Call the service method
-        result = self.exercise_service.get_exercises_for_day("empty-day")
+        result = self.exercise_service.get_exercises_for_workout("empty-workout")
         
-        # Assert repository was called with correct day ID
-        self.exercise_repository_mock.get_exercises_by_day.assert_called_once_with("empty-day")
+        # Assert repository was called with correct workout ID
+        self.exercise_repository_mock.get_exercises_by_workout.assert_called_once_with("empty-workout")
         
         # Assert the result is an empty list
         self.assertEqual(result, [])

@@ -13,7 +13,7 @@ class TestExerciseModel(unittest.TestCase):
         """
         exercise = Exercise(
             exercise_id="ex123",
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",  # Predefined exercise as string
                 sets=3,
                 reps=5,
@@ -24,7 +24,7 @@ class TestExerciseModel(unittest.TestCase):
         )
 
         self.assertEqual(exercise.exercise_id, "ex123")
-        self.assertEqual(exercise.day_id, "day456")
+        self.assertEqual(exercise.workout_id, "workout456")
         self.assertIsInstance(exercise.exercise_type, ExerciseType)
         self.assertEqual(exercise.exercise_type.name, "Squat")
         self.assertEqual(exercise.exercise_type.category, ExerciseCategory.BARBELL)
@@ -44,7 +44,7 @@ class TestExerciseModel(unittest.TestCase):
 
         exercise = Exercise(
             exercise_id="ex123",
-            day_id="day456",
+            workout_id="workout456",
             exercise_type=ex_type,  # ExerciseType object
             sets=4,
             reps=10,
@@ -64,7 +64,7 @@ class TestExerciseModel(unittest.TestCase):
         """
         exercise = Exercise(
             exercise_id="ex123",
-            day_id="day456",
+            workout_id="workout456",
             exercise_type="Single Arm Cable Pull", # Custom exercise
             sets=3,
             reps=12,
@@ -81,7 +81,7 @@ class TestExerciseModel(unittest.TestCase):
         """
         exercise = Exercise(
             exercise_id="ex123",
-            day_id="day456",
+            workout_id="workout456",
             exercise_type="Squat",
             sets=5,
             reps=5,
@@ -94,7 +94,7 @@ class TestExerciseModel(unittest.TestCase):
         exercise_dict = exercise.to_dict()
         
         self.assertEqual(exercise_dict["exercise_id"], "ex123")
-        self.assertEqual(exercise_dict["day_id"], "day456")
+        self.assertEqual(exercise_dict["workout_id"], "workout456")
         self.assertEqual(exercise_dict["exercise_type"], "Squat")
         self.assertEqual(exercise_dict["exercise_category"], "barbell")
         self.assertTrue(exercise_dict["is_predefined"])
@@ -111,7 +111,7 @@ class TestExerciseModel(unittest.TestCase):
         """
         data = {
             "exercise_id": "ex123",
-            "day_id": "day456",
+            "workout_id": "workout456",
             "exercise_type": "Squat",
             "exercise_category": "barbell",
             "is_predefined": True,
@@ -137,7 +137,7 @@ class TestExerciseModel(unittest.TestCase):
         """
         data = {
             "exercise_id": "ex456",
-            "day_id": "day789",
+            "workout_id": "workout789",
             "exercise_type": "Custom Exercise",
             "exercise_category": "custom",
             "is_predefined": False,
@@ -158,7 +158,7 @@ class TestExerciseModel(unittest.TestCase):
         """
         exercise = Exercise(
             exercise_id="ex123",
-            day_id="day456",
+            workout_id="workout456",
             exercise_type="Squat",
             sets=3,
             reps=5,
@@ -168,7 +168,7 @@ class TestExerciseModel(unittest.TestCase):
 
         custom_exercise = Exercise(
             exercise_id="ex124",
-            day_id="day457",
+            workout_id="workout457",
             exercise_type="Custom movement",
             sets=3,
             reps=5,
@@ -178,7 +178,7 @@ class TestExerciseModel(unittest.TestCase):
 
         no_category_exercise = Exercise(
              exercise_id="ex130",
-            day_id="day463",
+            workout_id="workout463",
             exercise_type="Zercher squat",
             sets=3,
             reps=5,
@@ -197,21 +197,21 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="",  # Empty ID should raise ValueError
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=3,
                 reps=5,
                 weight=315.0
             )
     
-    def test_empty_day_id(self):
+    def test_empty_workout_id(self):
         """
-        Test Exercise with empty day_id
+        Test Exercise with empty workout_id
         """
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123",
-                day_id="", # Empty ID should raise ValueError
+                workout_id="", # Empty ID should raise ValueError
                 exercise_type="Squat",
                 sets=3,
                 reps=5,
@@ -225,7 +225,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(TypeError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type=231, # Not a string or ExerciseType
                 sets=3,
                 reps=5,
@@ -239,7 +239,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=-3, # Negative sets should raise ValueError
                 reps=5,
@@ -253,7 +253,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=0, # Zero sets should raise ValueError
                 reps=5,
@@ -267,7 +267,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=3, 
                 reps=-5, # Negative reps should raise ValueError
@@ -281,7 +281,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=3, 
                 reps=0, # Zero reps should raise ValueError
@@ -295,7 +295,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=3, 
                 reps=5, 
@@ -309,7 +309,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=3, 
                 reps=5, 
@@ -323,7 +323,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(TypeError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=3, 
                 reps=5 
@@ -337,7 +337,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123", 
-                day_id="day456",
+                workout_id="workout456",
                 exercise_type="Squat",
                 sets=3, 
                 reps=5, 
@@ -352,7 +352,7 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
             exercise_id="ex123",
-            day_id="day456",
+            workout_id="workout456",
             exercise_type="Squat",
             sets=3,
             reps=5,

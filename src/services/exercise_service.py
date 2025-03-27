@@ -20,20 +20,20 @@ class ExerciseService:
             return Exercise(**exercise_data)
         return None
     
-    def get_exercises_for_day(self, day_id: str) -> List[Exercise]:
+    def get_exercises_for_workout(self, workout_id: str) -> List[Exercise]:
         """
-        Retrieves all exercises for a given day_id
+        Retrieves all exercises for a given workout_id
 
-        :param day_id: The ID of the day to retrieve exercises for
+        :param workout_id: The ID of the workout to retrieve exercises for
         :return: A list of Exercise objects
         """
-        exercises_data = self.exercise_repository.get_exercises_by_day(day_id)
+        exercises_data = self.exercise_repository.get_exercises_by_workout(workout_id)
         
         # Sort by order
         exercises_data.sort(key=lambda x: x.get("order", 999))
         return [Exercise(**exercise_data) for exercise_data in exercises_data]
     
-    def create_exercise(self, day_id: str, exercise_type: str, sets: int, reps: int, 
+    def create_exercise(self, workout_id: str, exercise_type: str, sets: int, reps: int, 
                         weight: float, 
                         rpe: Optional[Union[int, float]] = None, 
                         notes: Optional[str] = None,
@@ -42,7 +42,7 @@ class ExerciseService:
         """
         Creates a new exercise
 
-        :param day_id: The ID of the day to create the exercise for
+        :param workout_id: The ID of the workout to create the exercise for
         :param exercise_type: The type of exercise
         :param sets: The number of sets
         :param reps: The number of reps
@@ -54,12 +54,12 @@ class ExerciseService:
         """
         # Find the highest order if not specified 
         if order is None:
-            existing_exercises = self.exercise_repository.get_exercises_by_day(day_id)
+            existing_exercises = self.exercise_repository.get_exercises_by_workout(workout_id)
             order = max([ex.get("order", 0) for ex in existing_exercises], default=0) + 1
         
         exercise = Exercise(
             exercise_id=str(uuid.uuid4()),
-            day_id=day_id,
+            workout_id=workout_id,
             exercise_type=exercise_type,
             sets=sets,
             reps=reps,
@@ -94,16 +94,16 @@ class ExerciseService:
         response = self.exercise_repository.delete_exercise(exercise_id)
         return bool(response)
     
-    def reorder_exercises(self, day_id: str, exercise_order: List[str]) -> List[Exercise]:
+    def reorder_exercises(self, workout_id: str, exercise_order: List[str]) -> List[Exercise]:
         """
-        Reorder exercises for a day 
+        Reorder exercises for a workout 
 
-        :param day_id: The ID of the day to reorder exercises for
+        :param workout_id: The ID of the workout to reorder exercises for
         :param exercise_order: A list of exercise IDs in the desired order
         :return: A list of reordered Exercise objects
         """
-        # Get all exercises for the day
-        exercises = self.get_exercises_for_day(day_id)
+        # Get all exercises for the workout
+        exercises = self.get_exercises_for_workout(workout_id)
         exercise_dict = {ex.exercise_id: ex for ex in exercises}
 
         # Update order for each exercise
@@ -111,5 +111,23 @@ class ExerciseService:
             if exercise_id in exercise_dict:
                 self.update_exercise(exercise_id, {"order": i + 1})
 
-        return self.get_exercises_for_day(day_id)
+        return self.get_exercises_for_workout(workout_id)
+    
+    def delete_exercises_by_workout(self, workout_id: str) -> int:
+        """
+        Delete all exercises associated with a given workout_id (cascading delete)
+
+        :param workout_id: The workout_id to filter exercises by
+        :return: The number of exercises deleted
+        """
+        exercises = self.get_exercises_by_workout(workout_id)
+
+        # Batch delete all exercises
+        with self.table.batch_writer() as batch:
+            for exercise in exercises:
+                batch.delete_item(
+                    Key={"exercise_id": exercise["exercise_id"]}
+                )
+        
+        return len(exercises)
     
