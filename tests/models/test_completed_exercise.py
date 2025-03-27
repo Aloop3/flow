@@ -37,7 +37,8 @@ class TestCompletedExerciseModel(unittest.TestCase):
 
         set_obj = ExerciseSet(
             set_id="set123",
-            completed_id="comp123",
+            completed_exercise_id=exercise.completed_id,
+            workout_id=exercise.workout_id,
             set_number=1,
             reps=5,
             weight=220.46,
@@ -62,7 +63,8 @@ class TestCompletedExerciseModel(unittest.TestCase):
 
         set_obj = ExerciseSet(
             set_id="set123",
-            completed_id="comp123",
+            completed_exercise_id=exercise.completed_id,
+            workout_id=exercise.workout_id,
             set_number=1,
             reps=5,
             weight=220.46,
@@ -97,7 +99,7 @@ class TestCompletedExerciseModel(unittest.TestCase):
             exercise_id="ex789"
         )
         
-        result = exercise.update_set("nonexistent", True)
+        result = exercise.update_set("nonexistent set", completed=True)
         
         self.assertFalse(result)
     
@@ -116,7 +118,8 @@ class TestCompletedExerciseModel(unittest.TestCase):
         # Add a set
         set_obj = ExerciseSet(
             set_id="set123",
-            completed_id="comp123",
+            completed_exercise_id=exercise.completed_id,
+            workout_id=exercise.workout_id,
             set_number=1,
             reps=5,
             weight=225.0,
