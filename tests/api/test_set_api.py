@@ -1,4 +1,5 @@
 import json
+import unittest
 from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 
@@ -257,3 +258,7 @@ class TestSetAPI(BaseTest):
         self.assertEqual(response["statusCode"], 404)
         self.assertEqual(body["error"], "Set not found")
         self.workout_service_mock.delete_set.assert_called_once_with("nonexistent")
+
+
+if __name__ == "__main__": # pragma: no cover
+    unittest.main()
