@@ -1,197 +1,318 @@
 import json
-import unittest
 from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 
+# Import set_api after the mocks are set up in BaseTest
+with patch('boto3.resource'):
+    from src.api import set_api as set_module
+
 class TestSetAPI(BaseTest):
-    """Test suite for Set API handlers"""
-    
-    def setUp(self):
-        """Set up test environment before each test method"""
-        # Create service mocks
-        self.set_service_patch = patch('src.api.set.set_service')
-        self.workout_service_patch = patch('src.api.set.workout_service')
-        
-        self.set_service_mock = self.set_service_patch.start()
-        self.workout_service_mock = self.workout_service_patch.start()
-        
-        # Import the handlers after patching services
-        # Make sure the filename is correct here - it should match your actual implementation
-        from api.set_api import get_set, get_sets_for_exercise, create_set, update_set, delete_set
-        
-        self.get_set = get_set
-        self.get_sets_for_exercise = get_sets_for_exercise
-        self.create_set = create_set
-        self.update_set = update_set
-        self.delete_set = delete_set
+    """Test suite for the Set API module"""
 
-    def tearDown(self):
-        """Clean up after each test"""
-        self.set_service_patch.stop()
-        self.workout_service_patch.stop()
-
-    def test_get_set(self):
-        """Test getting a set by ID"""
-        # Configure mock
+    @patch('src.api.set_api.set_service')
+    def test_get_set_success(self, mock_set_service):
+        """Test successful set retrieval"""
+        # Setup
         mock_set = MagicMock()
         mock_set.to_dict.return_value = {
             "set_id": "set123",
-            "completed_exercise_id": "exercise456",
+            "exercise_id": "exercise456",
             "workout_id": "workout789",
             "set_number": 1,
             "reps": 5,
-            "weight": 225.0
+            "weight": 225.0,
+            "rpe": 8.5,
+            "notes": "Good set"
         }
-        self.set_service_mock.get_set.return_value = mock_set
+        mock_set_service.get_set.return_value = mock_set
         
-        # Create test event
         event = {
             "pathParameters": {
                 "set_id": "set123"
             }
         }
+        context = {}
         
-        # Call handler
-        response = self.get_set(event, {})
-        
-        # Parse response body
-        body = json.loads(response["body"])
+        # Call API
+        response = set_module.get_set(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
-        self.assertEqual(body["set_id"], "set123")
-        self.assertEqual(body["reps"], 5)
-        self.assertEqual(body["weight"], 225.0)
-        self.set_service_mock.get_set.assert_called_once_with("set123")
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["set_id"], "set123")
+        self.assertEqual(response_body["exercise_id"], "exercise456")
+        self.assertEqual(response_body["reps"], 5)
+        mock_set_service.get_set.assert_called_once_with("set123")
+    
+    @patch('src.api.set_api.set_service')
+    def test_get_set_not_found(self, mock_set_service):
+        """Test set retrieval when set not found"""
+        # Setup
+        mock_set_service.get_set.return_value = None
         
-    def test_get_set_not_found(self):
-        """Test getting a set that doesn't exist"""
-        # Configure mock
-        self.set_service_mock.get_set.return_value = None
-        
-        # Create test event
         event = {
             "pathParameters": {
                 "set_id": "nonexistent"
             }
         }
+        context = {}
         
-        # Call handler
-        response = self.get_set(event, {})
-        
-        # Parse response body
-        body = json.loads(response["body"])
+        # Call API
+        response = set_module.get_set(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
-        self.assertEqual(body["error"], "Set not found")
-        self.set_service_mock.get_set.assert_called_once_with("nonexistent")
-
-    def test_get_sets_for_exercise(self):
-        """Test getting all sets for an exercise"""
-        # Configure mock
+        response_body = json.loads(response["body"])
+        self.assertIn("Set not found", response_body["error"])
+        mock_set_service.get_set.assert_called_once_with("nonexistent")
+    
+    @patch('src.api.set_api.set_service')
+    def test_get_set_exception(self, mock_set_service):
+        """Test set retrieval with an exception"""
+        # Setup
+        mock_set_service.get_set.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "set_id": "set123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.get_set(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertIn("Test exception", response_body["error"])
+    
+    @patch('src.api.set_api.set_service')
+    def test_get_sets_for_exercise_success(self, mock_set_service):
+        """Test successful retrieval of sets for an exercise"""
+        # Setup
         mock_set1 = MagicMock()
         mock_set1.to_dict.return_value = {
             "set_id": "set1",
-            "completed_exercise_id": "exercise123",
-            "workout_id": "workout456",
+            "exercise_id": "exercise123",
             "set_number": 1,
             "reps": 5,
             "weight": 225.0
         }
-        
         mock_set2 = MagicMock()
         mock_set2.to_dict.return_value = {
             "set_id": "set2",
-            "completed_exercise_id": "exercise123",
-            "workout_id": "workout456",
+            "exercise_id": "exercise123",
             "set_number": 2,
             "reps": 5,
             "weight": 235.0
         }
+        mock_set_service.get_sets_for_exercise.return_value = [mock_set1, mock_set2]
         
-        self.set_service_mock.get_sets_for_exercise.return_value = [mock_set1, mock_set2]
-        
-        # Create test event
         event = {
             "pathParameters": {
                 "exercise_id": "exercise123"
             }
         }
+        context = {}
         
-        # Call handler
-        response = self.get_sets_for_exercise(event, {})
-        
-        # Parse response body
-        body = json.loads(response["body"])
+        # Call API
+        response = set_module.get_sets_for_exercise(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
-        self.assertEqual(body["exercise_id"], "exercise123")
-        self.assertEqual(len(body["sets"]), 2)
-        self.assertEqual(body["sets"][0]["set_id"], "set1")
-        self.assertEqual(body["sets"][1]["set_id"], "set2")
-        self.set_service_mock.get_sets_for_exercise.assert_called_once_with("exercise123")
-
-    def test_create_set(self):
-        """Test creating a new set"""
-        # Configure mock
-        mock_set = MagicMock()
-        mock_set.to_dict.return_value = {
-            "set_id": "new-set",
-            "completed_exercise_id": "exercise123",
-            "workout_id": "workout456",
-            "set_number": 3,
-            "reps": 5,
-            "weight": 245.0,
-            "rpe": 8.5
-        }
-        self.workout_service_mock.add_set_to_exercise.return_value = mock_set
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["exercise_id"], "exercise123")
+        self.assertEqual(len(response_body["sets"]), 2)
+        self.assertEqual(response_body["sets"][0]["set_id"], "set1")
+        self.assertEqual(response_body["sets"][1]["set_id"], "set2")
+        mock_set_service.get_sets_for_exercise.assert_called_once_with("exercise123")
+    
+    @patch('src.api.set_api.set_service')
+    def test_get_sets_for_exercise_exception(self, mock_set_service):
+        """Test retrieval of sets for an exercise with an exception"""
+        # Setup
+        mock_set_service.get_sets_for_exercise.side_effect = Exception("Test exception")
         
-        # Create test event
         event = {
             "pathParameters": {
                 "exercise_id": "exercise123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.get_sets_for_exercise(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertIn("Test exception", response_body["error"])
+    
+    @patch('src.api.set_api.workout_service')
+    def test_create_set_success(self, mock_workout_service):
+        """Test successful set creation"""
+        # Setup
+        mock_set = MagicMock()
+        mock_set.to_dict.return_value = {
+            "set_id": "newset123",
+            "exercise_id": "exercise456",
+            "workout_id": "workout789",
+            "set_number": 3,
+            "reps": 5,
+            "weight": 245.0,
+            "rpe": 8.5,
+            "notes": "Good set",
+            "completed": True
+        }
+        mock_workout_service.add_set_to_exercise.return_value = mock_set
+        
+        event = {
+            "pathParameters": {
+                "exercise_id": "exercise456"
             },
             "body": json.dumps({
-                "workout_id": "workout456",
+                "workout_id": "workout789",
                 "set_number": 3,
                 "reps": 5,
                 "weight": 245.0,
-                "rpe": 8.5
+                "rpe": 8.5,
+                "notes": "Good set",
+                "completed": True
             })
         }
+        context = {}
         
-        # Call handler
-        response = self.create_set(event, {})
-        
-        # Parse response body
-        body = json.loads(response["body"])
+        # Call API
+        response = set_module.create_set(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
-        self.assertEqual(body["set_id"], "new-set")
-        self.assertEqual(body["reps"], 5)
-        self.assertEqual(body["weight"], 245.0)
-        self.assertEqual(body["rpe"], 8.5)
-        self.workout_service_mock.add_set_to_exercise.assert_called_once()
-
-    def test_update_set(self):
-        """Test updating a set"""
-        # Configure mock
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["set_id"], "newset123")
+        self.assertEqual(response_body["exercise_id"], "exercise456")
+        self.assertEqual(response_body["reps"], 5)
+        mock_workout_service.add_set_to_exercise.assert_called_once()
+    
+    @patch('src.api.set_api.workout_service')
+    def test_create_set_missing_fields(self, mock_workout_service):
+        """Test set creation with missing required fields"""
+        # Setup
+        event = {
+            "pathParameters": {
+                "exercise_id": "exercise456"
+            },
+            "body": json.dumps({
+                "workout_id": "workout789",
+                # Missing reps
+                "weight": 245.0
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.create_set(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Missing required field", response_body["error"])
+        mock_workout_service.add_set_to_exercise.assert_not_called()
+    
+    @patch('src.api.set_api.workout_service')
+    def test_create_set_failed(self, mock_workout_service):
+        """Test set creation when it fails"""
+        # Setup
+        mock_workout_service.add_set_to_exercise.return_value = None
+        
+        event = {
+            "pathParameters": {
+                "exercise_id": "exercise456"
+            },
+            "body": json.dumps({
+                "workout_id": "workout789",
+                "reps": 5,
+                "weight": 245.0
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.create_set(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Failed to create set", response_body["error"])
+    
+    @patch('src.api.set_api.workout_service')
+    def test_create_set_value_error(self, mock_workout_service):
+        """Test set creation with a ValueError"""
+        # Setup
+        mock_workout_service.add_set_to_exercise.side_effect = ValueError("Invalid data")
+        
+        event = {
+            "pathParameters": {
+                "exercise_id": "exercise456"
+            },
+            "body": json.dumps({
+                "workout_id": "workout789",
+                "reps": 5,
+                "weight": 245.0
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.create_set(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid data", response_body["error"])
+    
+    @patch('src.api.set_api.workout_service')
+    def test_create_set_exception(self, mock_workout_service):
+        """Test set creation with an exception"""
+        # Setup
+        mock_workout_service.add_set_to_exercise.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "exercise_id": "exercise456"
+            },
+            "body": json.dumps({
+                "workout_id": "workout789",
+                "reps": 5,
+                "weight": 245.0
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.create_set(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertIn("Test exception", response_body["error"])
+    
+    @patch('src.api.set_api.workout_service')
+    def test_update_set_success(self, mock_workout_service):
+        """Test successful set update"""
+        # Setup
         mock_set = MagicMock()
         mock_set.to_dict.return_value = {
             "set_id": "set123",
-            "completed_exercise_id": "exercise456",
+            "exercise_id": "exercise456",
             "workout_id": "workout789",
             "set_number": 1,
-            "reps": 6,  # Updated value
-            "weight": 235.0,  # Updated value
-            "rpe": 9.0
+            "reps": 6,  # Updated
+            "weight": 235.0,  # Updated
+            "rpe": 9.0  # Updated
         }
-        self.workout_service_mock.update_set.return_value = mock_set
+        mock_workout_service.update_set.return_value = mock_set
         
-        # Create test event
         event = {
             "pathParameters": {
                 "set_id": "set123"
@@ -202,63 +323,129 @@ class TestSetAPI(BaseTest):
                 "rpe": 9.0
             })
         }
+        context = {}
         
-        # Call handler
-        response = self.update_set(event, {})
-        
-        # Parse response body
-        body = json.loads(response["body"])
+        # Call API
+        response = set_module.update_set(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
-        self.assertEqual(body["set_id"], "set123")
-        self.assertEqual(body["reps"], 6)
-        self.assertEqual(body["weight"], 235.0)
-        self.assertEqual(body["rpe"], 9.0)
-        self.workout_service_mock.update_set.assert_called_once()
-
-    def test_delete_set(self):
-        """Test deleting a set"""
-        # Configure mock
-        self.workout_service_mock.delete_set.return_value = True
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["set_id"], "set123")
+        self.assertEqual(response_body["reps"], 6)
+        self.assertEqual(response_body["weight"], 235.0)
+        self.assertEqual(response_body["rpe"], 9.0)
+        mock_workout_service.update_set.assert_called_once()
+    
+    @patch('src.api.set_api.workout_service')
+    def test_update_set_not_found(self, mock_workout_service):
+        """Test set update when set not found"""
+        # Setup
+        mock_workout_service.update_set.return_value = None
         
-        # Create test event
+        event = {
+            "pathParameters": {
+                "set_id": "nonexistent"
+            },
+            "body": json.dumps({
+                "reps": 6
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.update_set(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertIn("Set not found", response_body["error"])
+    
+    @patch('src.api.set_api.workout_service')
+    def test_update_set_exception(self, mock_workout_service):
+        """Test set update with an exception"""
+        # Setup
+        mock_workout_service.update_set.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "set_id": "set123"
+            },
+            "body": json.dumps({
+                "reps": 6
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.update_set(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertIn("Test exception", response_body["error"])
+    
+    @patch('src.api.set_api.workout_service')
+    def test_delete_set_success(self, mock_workout_service):
+        """Test successful set deletion"""
+        # Setup
+        mock_workout_service.delete_set.return_value = True
+        
         event = {
             "pathParameters": {
                 "set_id": "set123"
             }
         }
+        context = {}
         
-        # Call handler
-        response = self.delete_set(event, {})
+        # Call API
+        response = set_module.delete_set(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 204)
-        self.workout_service_mock.delete_set.assert_called_once_with("set123")
-
-    def test_delete_set_not_found(self):
-        """Test deleting a set that doesn't exist"""
-        # Configure mock
-        self.workout_service_mock.delete_set.return_value = False
+        mock_workout_service.delete_set.assert_called_once_with("set123")
+    
+    @patch('src.api.set_api.workout_service')
+    def test_delete_set_not_found(self, mock_workout_service):
+        """Test set deletion when set not found"""
+        # Setup
+        mock_workout_service.delete_set.return_value = False
         
-        # Create test event
         event = {
             "pathParameters": {
                 "set_id": "nonexistent"
             }
         }
+        context = {}
         
-        # Call handler
-        response = self.delete_set(event, {})
-        
-        # Parse response body
-        body = json.loads(response["body"])
+        # Call API
+        response = set_module.delete_set(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
-        self.assertEqual(body["error"], "Set not found")
-        self.workout_service_mock.delete_set.assert_called_once_with("nonexistent")
-
+        response_body = json.loads(response["body"])
+        self.assertIn("Set not found", response_body["error"])
+    
+    @patch('src.api.set_api.workout_service')
+    def test_delete_set_exception(self, mock_workout_service):
+        """Test set deletion with an exception"""
+        # Setup
+        mock_workout_service.delete_set.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "set_id": "set123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = set_module.delete_set(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertIn("Test exception", response_body["error"])
 
 if __name__ == "__main__": # pragma: no cover
     unittest.main()
