@@ -75,6 +75,23 @@ class TestWeekAPI(BaseTest):
         self.assertIn("Missing required fields", response_body["error"])
         mock_create_week.assert_not_called()
     
+    @patch('src.services.week_service.WeekService.create_week')
+    def test_create_week_invalid_json(self, mock_create_week):
+        """
+        Test week creation with invalid JSON
+        """
+        event = {
+            "body": "{invalid_json}"
+        } 
+        context = {}
+        
+        # Call API
+        response = week_api.create_week(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        self.assertIn("error", json.loads(response["body"]))
+    
     @patch('src.services.week_service.WeekService.get_weeks_for_block')
     def test_get_weeks_for_block_success(self, mock_get_weeks):
         """
@@ -113,6 +130,21 @@ class TestWeekAPI(BaseTest):
         self.assertEqual(response_body[0]["week_id"], "week1")
         self.assertEqual(response_body[1]["week_id"], "week2")
         mock_get_weeks.assert_called_once_with("block456")
+    
+    @patch('src.services.week_service.WeekService.get_weeks_for_block')
+    def test_get_weeks_for_block_no_path_param(self, mock_get_weeks):
+        """
+        Test get_weeks_for_block with missing path parameter
+        """
+        event = {}  # No pathParameters
+        context = {}
+
+        # Call API
+        response = week_api.get_weeks_for_block(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        self.assertIn("error", json.loads(response["body"]))
     
     @patch('src.services.week_service.WeekService.update_week')
     def test_update_week_success(self, mock_update_week):
@@ -177,6 +209,24 @@ class TestWeekAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Week not found", response_body["error"])
     
+    @patch('src.services.week_service.WeekService.update_week')
+    def test_update_week_missing_path_param(self, mock_update_week):
+        """
+        Test update_week with missing path parameter
+        """
+        event = {
+            "body": json.dumps({"notes": "Updated"}) # No pathParameters
+            }  
+        
+        context = {}
+        
+        # Call API
+        response = week_api.update_week(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        self.assertIn("error", json.loads(response["body"]))
+    
     @patch('src.services.week_service.WeekService.delete_week')
     def test_delete_week_success(self, mock_delete_week):
         """
@@ -223,6 +273,22 @@ class TestWeekAPI(BaseTest):
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertIn("Week not found", response_body["error"])
+    
+    @patch('src.services.week_service.WeekService.delete_week')
+    def test_delete_week_missing_path_param(self, mock_delete_week):
+        """
+        Test delete_week with missing path parameter
+        """
+        event = {}  # No pathParameters
+        context = {}
+
+        # Call API
+        response = week_api.delete_week(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        self.assertIn("error", json.loads(response["body"]))
+
 
 if __name__ == "__main__":
     unittest.main()
