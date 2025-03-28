@@ -171,7 +171,7 @@ class WorkoutRepository(BaseRepository):
         workouts = self.get_workouts_by_athlete(athlete_id)
 
         # Filter for completed exercises of the requested type
-        completed_exercises = List[Dict[str, Any]] = []
+        completed_exercises: List[Dict[str, Any]] = []
 
         for workout in workouts:
             for exercise in workout.get("exercises", []):
@@ -268,13 +268,8 @@ class WorkoutRepository(BaseRepository):
         expression_values = {}
 
         for key, value in update_dict.items():
-            # Handle special case for nested exercises list
-            if key == "exercises":
-                update_expression += "exercises = :exercises, "
-                expression_values[":exercises"] = value
-            else:
-                update_expression += f"{key} = :{key}, "
-                expression_values[f":{key}"] = value
+            update_expression += f"{key} = :{key}, "
+            expression_values[f":{key}"] = value
             
         # Remove trailing comma and space
         update_expression = update_expression[:-2]
