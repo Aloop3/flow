@@ -79,6 +79,57 @@ class TestDayAPI(BaseTest):
         self.assertIn("Missing required fields", response_body["error"])
         mock_create_day.assert_not_called()
     
+    @patch('src.services.day_service.DayService.create_day')
+    def test_create_day_invalid_json(self, mock_create_day):
+        """
+        Test day creation with invalid JSON
+        """
+        event = {
+            "body": "invalid json"
+        }
+        context = {}
+        
+        # Call API
+        response = day_api.create_day(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid JSON", response_body["error"])
+        mock_create_day.assert_not_called()
+
+    @patch('src.services.day_service.DayService.create_day')
+    def test_create_day_service_exception(self, mock_create_day):
+        """Test day creation when the service layer raises an exception"""
+        # Setup - simulate a DynamoDB throttling error
+        mock_create_day.side_effect = Exception("DynamoDB throttling occurred")
+        
+        event = {
+            "body": json.dumps({
+                "week_id": "week456",
+                "day_number": 1,
+                "date": "2025-03-15",
+                "focus": "squat",
+                "notes": "Heavy squat day"
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = day_api.create_day(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "DynamoDB throttling occurred")
+        mock_create_day.assert_called_once_with(
+            week_id="week456",
+            day_number=1,
+            date="2025-03-15",
+            focus="squat",
+            notes="Heavy squat day"
+        )
+
     @patch('src.services.day_service.DayService.get_days_for_week')
     def test_get_days_for_week_success(self, mock_get_days):
         """
@@ -119,6 +170,29 @@ class TestDayAPI(BaseTest):
         self.assertEqual(response_body[0]["day_id"], "day1")
         self.assertEqual(response_body[1]["day_id"], "day2")
         mock_get_days.assert_called_once_with("week456")
+    
+    @patch('src.services.day_service.DayService.get_days_for_week')
+    def test_get_days_for_week_exception(self, mock_get_days):
+        """
+        Test exception handling in get_days_for_week
+        """
+        # Setup
+        mock_get_days.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "week_id": "week456"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = day_api.get_days_for_week(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
     
     @patch('src.services.day_service.DayService.update_day')
     def test_update_day_success(self, mock_update_day):
@@ -190,6 +264,32 @@ class TestDayAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Day not found", response_body["error"])
     
+    @patch('src.services.day_service.DayService.update_day')
+    def test_update_day_exception(self, mock_update_day):
+        """
+        Test exception handling in update_day
+        """
+        # Setup
+        mock_update_day.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "day_id": "day123"
+            },
+            "body": json.dumps({
+                "focus": "deadlift"
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = day_api.update_day(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
+    
     @patch('src.services.day_service.DayService.delete_day')
     def test_delete_day_success(self, mock_delete_day):
         """
@@ -235,6 +335,29 @@ class TestDayAPI(BaseTest):
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertIn("Day not found", response_body["error"])
+    
+    @patch('src.services.day_service.DayService.delete_day')
+    def test_delete_day_exception(self, mock_delete_day):
+        """
+        Test exception handling in delete_day
+        """
+        # Setup
+        mock_delete_day.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "day_id": "day123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = day_api.delete_day(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
 
 if __name__ == "__main__":
     unittest.main()
