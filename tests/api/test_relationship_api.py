@@ -4,7 +4,7 @@ from tests.base_test import BaseTest
 
 # Import relationship after the mocks are set up in BaseTest
 with patch('boto3.resource'):
-    from src.api import relationship
+    from src.api import relationship_api
 
 class TestRelationshipAPI(BaseTest):
     """
@@ -37,7 +37,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.create_relationship(event, context)
+        response = relationship_api.create_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
@@ -64,7 +64,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.create_relationship(event, context)
+        response = relationship_api.create_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -97,7 +97,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.accept_relationship(event, context)
+        response = relationship_api.accept_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -123,7 +123,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.accept_relationship(event, context)
+        response = relationship_api.accept_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -155,7 +155,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.end_relationship(event, context)
+        response = relationship_api.end_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -181,7 +181,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.end_relationship(event, context)
+        response = relationship_api.end_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -222,7 +222,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.get_relationships_for_coach(event, context)
+        response = relationship_api.get_relationships_for_coach(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -257,7 +257,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.get_relationships_for_coach(event, context)
+        response = relationship_api.get_relationships_for_coach(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)

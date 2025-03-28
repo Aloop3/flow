@@ -17,7 +17,7 @@ class TestSetAPI(BaseTest):
         
         # Import the handlers after patching services
         # Make sure the filename is correct here - it should match your actual implementation
-        from src.api.set import get_set, get_sets_for_exercise, create_set, update_set, delete_set
+        from api.set_api import get_set, get_sets_for_exercise, create_set, update_set, delete_set
         
         self.get_set = get_set
         self.get_sets_for_exercise = get_sets_for_exercise

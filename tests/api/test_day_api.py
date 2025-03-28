@@ -4,7 +4,7 @@ from tests.base_test import BaseTest
 
 # Import day after the mocks are set up in BaseTest
 with patch('boto3.resource'):
-    from src.api import day
+    from src.api import day_api
 
 class TestDayAPI(BaseTest):
     """
@@ -38,7 +38,7 @@ class TestDayAPI(BaseTest):
         context = {}
         
         # Call API
-        response = day.create_day(event, context)
+        response = day_api.create_day(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
@@ -71,7 +71,7 @@ class TestDayAPI(BaseTest):
         context = {}
         
         # Call API
-        response = day.create_day(event, context)
+        response = day_api.create_day(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -110,7 +110,7 @@ class TestDayAPI(BaseTest):
         context = {}
         
         # Call API
-        response = day.get_days_for_week(event, context)
+        response = day_api.get_days_for_week(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -150,7 +150,7 @@ class TestDayAPI(BaseTest):
         context = {}
         
         # Call API
-        response = day.update_day(event, context)
+        response = day_api.update_day(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -183,7 +183,7 @@ class TestDayAPI(BaseTest):
         context = {}
         
         # Call API
-        response = day.update_day(event, context)
+        response = day_api.update_day(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -207,7 +207,7 @@ class TestDayAPI(BaseTest):
         context = {}
         
         # Call API
-        response = day.delete_day(event, context)
+        response = day_api.delete_day(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 204)
@@ -229,7 +229,7 @@ class TestDayAPI(BaseTest):
         context = {}
         
         # Call API
-        response = day.delete_day(event, context)
+        response = day_api.delete_day(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)

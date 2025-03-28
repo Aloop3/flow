@@ -4,7 +4,7 @@ from tests.base_test import BaseTest
 
 # Import exercise after the mocks are set up in BaseTest
 with patch('boto3.resource'):
-    from src.api import exercise
+    from src.api import exercise_api
 
 class TestExerciseAPI(BaseTest):
     """
@@ -49,7 +49,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.create_exercise(event, context)
+        response = exercise_api.create_exercise(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
@@ -89,7 +89,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.create_exercise(event, context)
+        response = exercise_api.create_exercise(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -134,7 +134,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.get_exercises_for_workout(event, context)
+        response = exercise_api.get_exercises_for_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -180,7 +180,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.update_exercise(event, context)
+        response = exercise_api.update_exercise(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -217,7 +217,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.update_exercise(event, context)
+        response = exercise_api.update_exercise(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -241,7 +241,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.delete_exercise(event, context)
+        response = exercise_api.delete_exercise(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 204)
@@ -264,7 +264,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.delete_exercise(event, context)
+        response = exercise_api.delete_exercise(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -299,7 +299,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.reorder_exercises(event, context)
+        response = exercise_api.reorder_exercises(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -327,7 +327,7 @@ class TestExerciseAPI(BaseTest):
         context = {}
         
         # Call API
-        response = exercise.reorder_exercises(event, context)
+        response = exercise_api.reorder_exercises(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)

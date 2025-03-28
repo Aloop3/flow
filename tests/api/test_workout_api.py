@@ -4,7 +4,7 @@ from tests.base_test import BaseTest
 
 # Import workout after the mocks are set up in BaseTest
 with patch('boto3.resource'):
-    from src.api import workout
+    from src.api import workout_api
 
 class TestWorkoutAPI(BaseTest):
     """
@@ -60,7 +60,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.create_workout(event, context)
+        response = workout_api.create_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
@@ -106,7 +106,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.create_workout(event, context)
+        response = workout_api.create_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -142,7 +142,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.create_workout(event, context)
+        response = workout_api.create_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -183,7 +183,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.get_workout(event, context)
+        response = workout_api.get_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -210,7 +210,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.get_workout(event, context)
+        response = workout_api.get_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -248,7 +248,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.get_workouts_by_athlete(event, context)
+        response = workout_api.get_workouts_by_athlete(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -306,7 +306,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.update_workout(event, context)
+        response = workout_api.update_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -337,7 +337,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.update_workout(event, context)
+        response = workout_api.update_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -361,7 +361,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.delete_workout(event, context)
+        response = workout_api.delete_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 204)
@@ -384,7 +384,7 @@ class TestWorkoutAPI(BaseTest):
         context = {}
         
         # Call API
-        response = workout.delete_workout(event, context)
+        response = workout_api.delete_workout(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)

@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 
 with patch('boto3.resource'):
-    from src.api import block
+    from src.api import block_api
 
 class TestBlockAPI(BaseTest):
     """
@@ -44,7 +44,7 @@ class TestBlockAPI(BaseTest):
         context = {}
         
         # Call API
-        response = block.create_block(event, context)
+        response = block_api.create_block(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
@@ -80,7 +80,7 @@ class TestBlockAPI(BaseTest):
         context = {}
         
         # Call API
-        response = block.create_block(event, context)
+        response = block_api.create_block(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -116,7 +116,7 @@ class TestBlockAPI(BaseTest):
         context = {}
         
         # Call API
-        response = block.get_block(event, context)
+        response = block_api.get_block(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -142,7 +142,7 @@ class TestBlockAPI(BaseTest):
         context = {}
         
         # Call API
-        response = block.get_block(event, context)
+        response = block_api.get_block(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -178,7 +178,7 @@ class TestBlockAPI(BaseTest):
         context = {}
         
         # Call API
-        response = block.get_blocks_by_athlete(event, context)
+        response = block_api.get_blocks_by_athlete(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -220,7 +220,7 @@ class TestBlockAPI(BaseTest):
         context = {}
         
         # Call API
-        response = block.update_block(event, context)
+        response = block_api.update_block(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -246,7 +246,7 @@ class TestBlockAPI(BaseTest):
         context = {}
         
         # Call API
-        response = block.delete_block(event, context)
+        response = block_api.delete_block(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 204)
@@ -269,7 +269,7 @@ class TestBlockAPI(BaseTest):
         context = {}
         
         # Call API
-        response = block.delete_block(event, context)
+        response = block_api.delete_block(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)

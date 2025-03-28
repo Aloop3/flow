@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 
 with patch("boto3.resource"):
-    from src.api import user
+    from src.api import user_api
 
 class TestUserAPI(BaseTest):
     """Test suite for the User API module"""
@@ -34,7 +34,7 @@ class TestUserAPI(BaseTest):
         context = {}
         
         # Call API
-        response = user.create_user(event, context)
+        response = user_api.create_user(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
@@ -64,7 +64,7 @@ class TestUserAPI(BaseTest):
         context = {}
         
         # Call API
-        response = user.create_user(event, context)
+        response = user_api.create_user(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -89,7 +89,7 @@ class TestUserAPI(BaseTest):
         context = {}
         
         # Call API
-        response = user.create_user(event, context)
+        response = user_api.create_user(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -121,7 +121,7 @@ class TestUserAPI(BaseTest):
         context = {}
         
         # Call API
-        response = user.get_user(event, context)
+        response = user_api.get_user(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -146,7 +146,7 @@ class TestUserAPI(BaseTest):
         context = {}
         
         # Call API
-        response = user.get_user(event, context)
+        response = user_api.get_user(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -182,7 +182,7 @@ class TestUserAPI(BaseTest):
         context = {}
         
         # Call API
-        response = user.update_user(event, context)
+        response = user_api.update_user(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -210,7 +210,7 @@ class TestUserAPI(BaseTest):
         context = {}
         
         # Call API
-        response = user.update_user(event, context)
+        response = user_api.update_user(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)

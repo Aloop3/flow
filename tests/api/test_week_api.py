@@ -4,7 +4,7 @@ from tests.base_test import BaseTest
 
 # Import week after the mocks are set up in BaseTest
 with patch('boto3.resource'):
-    from src.api import week
+    from src.api import week_api
 
 class TestWeekAPI(BaseTest):
     """
@@ -37,7 +37,7 @@ class TestWeekAPI(BaseTest):
         context = {}
         
         # Call API
-        response = week.create_week(event, context)
+        response = week_api.create_week(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
@@ -67,7 +67,7 @@ class TestWeekAPI(BaseTest):
         context = {}
         
         # Call API
-        response = week.create_week(event, context)
+        response = week_api.create_week(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
@@ -104,7 +104,7 @@ class TestWeekAPI(BaseTest):
         context = {}
         
         # Call API
-        response = week.get_weeks_for_block(event, context)
+        response = week_api.get_weeks_for_block(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -141,7 +141,7 @@ class TestWeekAPI(BaseTest):
         context = {}
         
         # Call API
-        response = week.update_week(event, context)
+        response = week_api.update_week(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -170,7 +170,7 @@ class TestWeekAPI(BaseTest):
         context = {}
         
         # Call API
-        response = week.update_week(event, context)
+        response = week_api.update_week(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
@@ -194,7 +194,7 @@ class TestWeekAPI(BaseTest):
         context = {}
         
         # Call API
-        response = week.delete_week(event, context)
+        response = week_api.delete_week(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 204)
@@ -217,7 +217,7 @@ class TestWeekAPI(BaseTest):
         context = {}
         
         # Call API
-        response = week.delete_week(event, context)
+        response = week_api.delete_week(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
