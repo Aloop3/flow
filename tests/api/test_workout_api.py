@@ -149,6 +149,52 @@ class TestWorkoutAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Invalid status value", response_body["error"])
     
+    @patch('src.services.workout_service.WorkoutService.log_workout')
+    def test_create_workout_invalid_json(self, mock_log_workout):
+        """
+        Test workout creation with invalid JSON
+        """
+        event = {
+            "body": "invalid json"
+        }
+        context = {}
+        
+        # Call API
+        response = workout_api.create_workout(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Expecting value", response_body["error"])
+        mock_log_workout.assert_not_called()
+    
+    @patch('src.services.workout_service.WorkoutService.log_workout')
+    def test_create_workout_general_exception(self, mock_log_workout):
+        """
+        Test workout creation when a general exception occurs
+        """
+        # Setup - simulate a DynamoDB error
+        mock_log_workout.side_effect = Exception("DynamoDB error occurred")
+        
+        event = {
+            "body": json.dumps({
+                "athlete_id": "athlete456",
+                "day_id": "day789",
+                "date": "2025-03-15",
+                "exercises": []
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = workout_api.create_workout(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "DynamoDB error occurred")
+        mock_log_workout.assert_called_once()
+    
     @patch('src.services.workout_service.WorkoutService.get_workout')
     def test_get_workout_success(self, mock_get_workout):
         """
@@ -258,6 +304,133 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body[1]["workout_id"], "workout2")
         mock_get_workouts.assert_called_once_with("athlete456")
     
+    @patch('src.repositories.workout_repository.WorkoutRepository.get_workouts_by_athlete')
+    def test_get_workouts_by_athlete_exception(self, mock_get_workouts):
+        """
+        Test exception handling in get_workouts_by_athlete
+        """
+        # Setup
+        mock_get_workouts.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "athlete_id": "athlete456"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = workout_api.get_workouts_by_athlete(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
+    
+    @patch('src.services.workout_service.WorkoutService.get_workout')
+    def test_get_workout_exception(self, mock_get_workout):
+        """
+        Test exception handling in get_workout
+        """
+        # Setup
+        mock_get_workout.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "workout_id": "workout123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = workout_api.get_workout(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
+    
+    @patch('src.services.workout_service.WorkoutService.get_workout_by_day')
+    def test_get_workout_by_day_success(self, mock_get_workout):
+        """
+        Test successful workout retrieval by day
+        """
+        # Setup
+        mock_workout = MagicMock()
+        mock_workout.to_dict.return_value = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789"
+        }
+        mock_get_workout.return_value = mock_workout
+        
+        event = {
+            "pathParameters": {
+                "athlete_id": "athlete456",
+                "day_id": "day789"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = workout_api.get_workout_by_day(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["workout_id"], "workout123")
+        mock_get_workout.assert_called_once_with("athlete456", "day789")
+    
+    @patch('src.services.workout_service.WorkoutService.get_workout_by_day')
+    def test_get_workout_by_day_not_found(self, mock_get_workout):
+        """
+        Test workout by day not found returns 404 with proper error message
+        """
+        # Setup
+        mock_get_workout.return_value = None
+        
+        event = {
+            "pathParameters": {
+                "athlete_id": "athlete456",
+                "day_id": "day789"
+            }
+        }
+        context = {}
+        
+        # Execute
+        response = workout_api.get_workout_by_day(event, context)
+        
+        # Verify
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Workout not found")
+        
+        # Verify service was called with correct parameters
+        mock_get_workout.assert_called_once_with("athlete456", "day789")
+    
+    @patch('src.services.workout_service.WorkoutService.get_workout_by_day')
+    def test_get_workout_by_day_exception(self, mock_get_workout):
+        """Test exception handling when getting workout by day"""
+        # Setup
+        mock_get_workout.side_effect = Exception("Service error")
+        
+        event = {
+            "pathParameters": {
+                "athlete_id": "athlete456",
+                "day_id": "day789"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = workout_api.get_workout_by_day(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Service error")
+        mock_get_workout.assert_called_once_with("athlete456", "day789")
+    
     @patch('src.services.workout_service.WorkoutService.update_workout')
     def test_update_workout_success(self, mock_update_workout):
         """
@@ -344,6 +517,31 @@ class TestWorkoutAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Workout not found", response_body["error"])
     
+    @patch('src.services.workout_service.WorkoutService.update_workout')
+    def test_update_workout_exception(self, mock_update_workout):
+        """Test exception handling when updating a workout"""
+        # Setup
+        mock_update_workout.side_effect = Exception("Update error")
+        
+        event = {
+            "pathParameters": {
+                "workout_id": "workout123"
+            },
+            "body": json.dumps({
+                "notes": "Updated notes"
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = workout_api.update_workout(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Update error")
+        mock_update_workout.assert_called_once()
+    
     @patch('src.services.workout_service.WorkoutService.delete_workout')
     def test_delete_workout_success(self, mock_delete_workout):
         """
@@ -390,6 +588,29 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertIn("Workout not found", response_body["error"])
+    
+    @patch('src.services.workout_service.WorkoutService.delete_workout')
+    def test_delete_workout_exception(self, mock_delete_workout):
+        """Test exception handling when deleting a workout"""
+        # Setup
+        mock_delete_workout.side_effect = Exception("Delete error")
+        
+        event = {
+            "pathParameters": {
+                "workout_id": "workout123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = workout_api.delete_workout(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Delete error")
+        mock_delete_workout.assert_called_once_with("workout123")
+
 
 if __name__ == "__main__":
     unittest.main()
