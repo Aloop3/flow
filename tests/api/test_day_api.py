@@ -1,4 +1,5 @@
 import json
+import unittest
 from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 

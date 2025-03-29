@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import uuid
 from src.services.set_service import SetService
 from src.models.set import Set
 
