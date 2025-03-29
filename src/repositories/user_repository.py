@@ -9,9 +9,10 @@ class UserRepository(BaseRepository):
 
     Extends BaseRepository to provide methods for retrieving, creating, and updating user data.
     """
+
     def __init__(self):
         super().__init__(os.environ.get("USERS_TABLE"))
-    
+
     def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
         Retrieves a user from the database using their unique user ID.
@@ -20,7 +21,7 @@ class UserRepository(BaseRepository):
         :return: A dictionary containing user details if found, else None.
         """
         return self.get_by_id("user_id", user_id)
-    
+
     def create_user(self, user_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Creates a new user in the database
@@ -29,7 +30,7 @@ class UserRepository(BaseRepository):
         :return: The response from the create operation
         """
         return self.create(user_dict)
-    
+
     def update_user(self, user_id: str, update_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Updates an existing user in the database.
@@ -58,7 +59,7 @@ class UserRepository(BaseRepository):
             UpdateExpression=update_expression,
             ExpressionAttributeNames=expression_attribute_names,
             ExpressionAttributeValues=expression_attribute_values,
-            ReturnValues="ALL_NEW"
+            ReturnValues="ALL_NEW",
         )
 
         return response.get("Attributes", {})

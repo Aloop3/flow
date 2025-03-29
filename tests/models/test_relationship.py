@@ -1,6 +1,7 @@
 import unittest
 from src.models.relationship import Relationship
 
+
 class TestRelationshipModel(unittest.TestCase):
     """
     Test suit for the Relationship Model
@@ -15,7 +16,7 @@ class TestRelationshipModel(unittest.TestCase):
             coach_id="coach456",
             athlete_id="athlete789",
             status="pending",
-            created_at="2025-03-13T12:00:00"
+            created_at="2025-03-13T12:00:00",
         )
 
         self.assertEqual(relationship.relationship_id, "rel123")
@@ -23,7 +24,7 @@ class TestRelationshipModel(unittest.TestCase):
         self.assertEqual(relationship.athlete_id, "athlete789")
         self.assertEqual(relationship.status, "pending")
         self.assertEqual(relationship.created_at, "2025-03-13T12:00:00")
-    
+
     def test_relationship_with_active_status(self):
         """
         Test Relationship with active status
@@ -33,7 +34,7 @@ class TestRelationshipModel(unittest.TestCase):
             coach_id="coach456",
             athlete_id="athlete789",
             status="active",
-            created_at="2025-03-13T12:00:00"
+            created_at="2025-03-13T12:00:00",
         )
 
         self.assertEqual(relationship.status, "active")
@@ -47,11 +48,11 @@ class TestRelationshipModel(unittest.TestCase):
             coach_id="coach456",
             athlete_id="athlete789",
             status="ended",
-            created_at="2025-03-13T12:00:00"
+            created_at="2025-03-13T12:00:00",
         )
 
         self.assertEqual(relationship.status, "ended")
-    
+
     def test_relationship_to_dict(self):
         """
         Test Relationship model to_dict method for serialization
@@ -61,7 +62,7 @@ class TestRelationshipModel(unittest.TestCase):
             coach_id="coach456",
             athlete_id="athlete789",
             status="pending",
-            created_at="2025-03-13T12:00:00"
+            created_at="2025-03-13T12:00:00",
         )
 
         relationship_dict = relationship.to_dict()
@@ -73,5 +74,5 @@ class TestRelationshipModel(unittest.TestCase):
         self.assertEqual(relationship_dict["created_at"], "2025-03-13T12:00:00")
 
 
-if __name__ == "__main__": # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

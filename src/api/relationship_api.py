@@ -8,6 +8,7 @@ logger.setLevel(logging.INFO)
 
 relationship_service = RelationshipService()
 
+
 def create_relationship(event, context):
     """
     Handle POST /relationships request to create a new coach-athlete relationship
@@ -22,16 +23,17 @@ def create_relationship(event, context):
         # Validate required fields
         if not coach_id or not athlete_id:
             return create_response(400, {"error": "Missing required fields"})
-        
+
         # Create relationship
         relationship = relationship_service.create_relationship(coach_id, athlete_id)
 
         return create_response(201, relationship.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error creating relationship: {str(e)}")
         return create_response(500, {"error": str(e)})
-    
+
+
 def accept_relationship(event, context):
     """
     Handle POST /relationships/{relationship_id}/accept request to accept a coach-athlete relationship
@@ -44,14 +46,17 @@ def accept_relationship(event, context):
         accept_relationship = relationship_service.accept_relationship(relationship_id)
 
         if not accept_relationship:
-            return create_response(404, {"error": "Relationship not found or already accepted"})
-        
+            return create_response(
+                404, {"error": "Relationship not found or already accepted"}
+            )
+
         return create_response(200, accept_relationship.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error accepting relationship: {str(e)}")
         return create_response(500, {"error": str(e)})
-    
+
+
 def end_relationship(event, context):
     """
     Handle POST /relationships/{relationship_id}/end request to end a coach-athlete relationship
@@ -64,13 +69,16 @@ def end_relationship(event, context):
         end_relationship = relationship_service.end_relationship(relationship_id)
 
         if not end_relationship:
-            return create_response(404, {"error": "Relationship not found or already ended"})
+            return create_response(
+                404, {"error": "Relationship not found or already ended"}
+            )
 
         return create_response(200, end_relationship.to_dict())
 
     except Exception as e:
         logger.error(f"Error ending relationship: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def get_relationships_for_coach(event, context):
     """
@@ -85,13 +93,18 @@ def get_relationships_for_coach(event, context):
         status = query_params.get("status")
 
         # Get relationships
-        relationships = relationship_service.get_relationships_for_coach(coach_id, status)
+        relationships = relationship_service.get_relationships_for_coach(
+            coach_id, status
+        )
 
-        return create_response(200, [relationship.to_dict() for relationship in relationships])
-    
+        return create_response(
+            200, [relationship.to_dict() for relationship in relationships]
+        )
+
     except Exception as e:
         logger.error(f"Error getting relationships: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def get_relationship(event, context):
     """
@@ -106,9 +119,9 @@ def get_relationship(event, context):
 
         if not relationship:
             return create_response(404, {"error": "Relationship not found"})
-        
+
         return create_response(200, relationship.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error getting relationship: {str(e)}")
         return create_response(500, {"error": str(e)})

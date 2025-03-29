@@ -9,11 +9,12 @@ logger.setLevel(logging.INFO)
 
 workout_service = WorkoutService()
 
+
 def create_workout(event, context):
     """
     Handle POST /workouts request to create a new workout
     """
-    try: 
+    try:
         body = json.loads(event["body"])
 
         # Extract workout details from request
@@ -27,15 +28,15 @@ def create_workout(event, context):
         # Validate required fields
         if not athlete_id or not day_id or not date:
             return create_response(400, {"error": "Missing required fields"})
-        
+
         # Log workout
         workout = workout_service.log_workout(
-            athlete_id=athlete_id, 
+            athlete_id=athlete_id,
             day_id=day_id,
             date=date,
             completed_exercises=completed_exercises,
             notes=notes,
-            status=status
+            status=status,
         )
 
         return create_response(201, workout.to_dict())
@@ -45,6 +46,7 @@ def create_workout(event, context):
     except Exception as e:
         logger.error(f"Error creating workout: {e}")
         return create_response(500, {"error": str(e)})
+
 
 def get_workout(event, context):
     """
@@ -61,10 +63,11 @@ def get_workout(event, context):
             return create_response(404, {"error": "Workout not found"})
 
         return create_response(200, workout.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error getting workout: {e}")
         return create_response(500, {"error": str(e)})
+
 
 def get_workouts_by_athlete(event, context):
     """
@@ -80,10 +83,11 @@ def get_workouts_by_athlete(event, context):
         workouts = workout_repo.get_workouts_by_athlete(athlete_id)
 
         return create_response(200, workouts)
-    
+
     except Exception as e:
         logger.error(f"Error getting workouts: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def get_workout_by_day(event, context):
     """
@@ -93,18 +97,19 @@ def get_workout_by_day(event, context):
         # Extract parameters
         athlete_id = event["pathParameters"]["athlete_id"]
         day_id = event["pathParameters"]["day_id"]
-        
+
         # Get workout
         workout = workout_service.get_workout_by_day(athlete_id, day_id)
-        
+
         if not workout:
             return create_response(404, {"error": "Workout not found"})
-            
+
         return create_response(200, workout.to_dict())
-        
+
     except Exception as e:
         logger.error(f"Error getting workout by day: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def update_workout(event, context):
     """
@@ -120,12 +125,13 @@ def update_workout(event, context):
 
         if not workout:
             return create_response(404, {"error": "Workout not found"})
-        
+
         return create_response(200, workout.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error updating workout: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def delete_workout(event, context):
     """
@@ -136,14 +142,13 @@ def delete_workout(event, context):
         workout_id = event["pathParameters"]["workout_id"]
 
         # Delete workout
-        result =  workout_service.delete_workout(workout_id)
+        result = workout_service.delete_workout(workout_id)
 
         if not result:
             return create_response(404, {"error": "Workout not found"})
-        
+
         return create_response(204, {})
-    
+
     except Exception as e:
         logger.error(f"Error deleting workout: {str(e)}")
         return create_response(500, {"error": str(e)})
-    

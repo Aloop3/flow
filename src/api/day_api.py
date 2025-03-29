@@ -8,6 +8,7 @@ logger.setLevel(logging.INFO)
 
 day_service = DayService()
 
+
 def create_day(event, context):
     """
     Handle POST /days request to create a new day
@@ -25,10 +26,12 @@ def create_day(event, context):
         # Validate required fields
         if not week_id or day_number is None or not date:
             return create_response(400, {"error": "Missing required fields"})
-        
+
         # Create day
-        day = day_service.create_day(week_id=week_id, day_number=day_number, date=date, focus=focus, notes=notes)
-        
+        day = day_service.create_day(
+            week_id=week_id, day_number=day_number, date=date, focus=focus, notes=notes
+        )
+
         return create_response(201, day.to_dict())
 
     except json.JSONDecodeError:
@@ -36,6 +39,7 @@ def create_day(event, context):
     except Exception as e:
         logger.error(f"Error creating day: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def get_days_for_week(event, context):
     """
@@ -45,14 +49,15 @@ def get_days_for_week(event, context):
         # Extract week_id from path parameters
         week_id = event["pathParameters"]["week_id"]
 
-        # Get days 
+        # Get days
         days = day_service.get_days_for_week(week_id)
 
         return create_response(200, [day.to_dict() for day in days])
-    
+
     except Exception as e:
         logger.error(f"Error getting days for week: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def update_day(event, context):
     """
@@ -63,23 +68,24 @@ def update_day(event, context):
         day_id = event["pathParameters"]["day_id"]
         body = json.loads(event["body"])
 
-        # Update day 
+        # Update day
         update_day = day_service.update_day(day_id, body)
 
         if not update_day:
             return create_response(404, {"error": "Day not found"})
-        
+
         return create_response(200, update_day.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error updating day: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def delete_day(event, context):
     """
     Handle DELETE /days/{day_id} request to delete day
     """
-    try: 
+    try:
         # Extract day_id from path parameters
         day_id = event["pathParameters"]["day_id"]
 
@@ -88,9 +94,9 @@ def delete_day(event, context):
 
         if not delete_day:
             return create_response(404, {"error": "Day not found"})
-        
+
         return create_response(204, {})
-    
+
     except Exception as e:
         logger.error(f"Error deleting day: {str(e)}")
         return create_response(500, {"error": str(e)})

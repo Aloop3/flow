@@ -8,6 +8,7 @@ logger.setLevel(logging.INFO)
 
 week_service = WeekService()
 
+
 def create_week(event, context):
     """
     Handle POST /weeks request to create a new week in a training block
@@ -23,15 +24,18 @@ def create_week(event, context):
         # Validate required fields
         if not block_id or not week_number:
             return create_response(400, {"error": "Missing required fields"})
-        
+
         # Create week
-        week = week_service.create_week(block_id=block_id, week_number=week_number, notes=notes)
+        week = week_service.create_week(
+            block_id=block_id, week_number=week_number, notes=notes
+        )
 
         return create_response(201, week.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error creating week: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def get_weeks_for_block(event, context):
     """
@@ -44,11 +48,12 @@ def get_weeks_for_block(event, context):
         weeks = week_service.get_weeks_for_block(block_id)
 
         return create_response(200, [week.to_dict() for week in weeks])
-    
+
     except Exception as e:
         logger.error(f"Error getting weeks for block: {str(e)}")
         return create_response(500, {"error": str(e)})
-    
+
+
 def update_week(event, context):
     """
     Handle PUT /weeks/{week_id} request to update a week by ID
@@ -62,12 +67,13 @@ def update_week(event, context):
 
         if not update_week:
             return create_response(404, {"error": "Week not found"})
-        
+
         return create_response(200, update_week.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error updating week: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def delete_week(event, context):
     """
@@ -81,10 +87,9 @@ def delete_week(event, context):
 
         if not delete_week:
             return create_response(404, {"error": "Week not found"})
-        
+
         return create_response(204, {})
-    
+
     except Exception as e:
         logger.error(f"Error deleting week: {str(e)}")
         return create_response(500, {"error": str(e)})
-    

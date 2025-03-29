@@ -8,6 +8,7 @@ logger.setLevel(logging.INFO)
 
 block_service = BlockService()
 
+
 def create_block(event, context):
     """
     Handle POST /blocks request to create a new training block
@@ -28,7 +29,7 @@ def create_block(event, context):
         # Validate required fields
         if not athlete_id or not title or not start_date or not end_date:
             return create_response(400, {"error": "Missing required fields"})
-        
+
         # Create block
         block = block_service.create_block(
             athlete_id=athlete_id,
@@ -37,16 +38,17 @@ def create_block(event, context):
             start_date=start_date,
             end_date=end_date,
             coach_id=coach_id,
-            status=status
+            status=status,
         )
 
         return create_response(201, block.to_dict())
-    
+
     except json.JSONDecodeError:
         return create_response(400, {"error": "Invalid JSON in request body"})
     except Exception as e:
         logger.error(f"Error creating block: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def get_block(event, context):
     """
@@ -55,7 +57,7 @@ def get_block(event, context):
     # Validate required parameters upfront
     if not event.get("pathParameters") or not event["pathParameters"].get("block_id"):
         return create_response(400, {"error": "Missing block_id parameter"})
-    
+
     try:
         # Extract block_id from path parameters
         block_id = event["pathParameters"]["block_id"]
@@ -66,22 +68,25 @@ def get_block(event, context):
         # Handle not found case
         if not block:
             return create_response(404, {"error": "Block not found"})
-        
+
         # Return successful response
         return create_response(200, block.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error getting block: {str(e)}")
         return create_response(500, {"error": f"Internal server error: {str(e)}"})
+
 
 def get_blocks_by_athlete(event, context):
     """
     Handle GET/athletes/{athlete_id}/blocks request to get blocks by athlete ID
     """
     try:
-        if not event.get("pathParameters") or not event["pathParameters"].get("athlete_id"):
+        if not event.get("pathParameters") or not event["pathParameters"].get(
+            "athlete_id"
+        ):
             return create_response(400, {"error": "Missing athlete_id parameter"})
-        
+
         # Extract athlete_id from path parameters
         athlete_id = event["pathParameters"]["athlete_id"]
 
@@ -89,10 +94,11 @@ def get_blocks_by_athlete(event, context):
         blocks = block_service.get_blocks_for_athlete(athlete_id)
 
         return create_response(200, [block.to_dict() for block in blocks])
-    
+
     except Exception as e:
         logger.error(f"Error getting blocks: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def update_block(event, context):
     """
@@ -101,14 +107,14 @@ def update_block(event, context):
     # Validate required parameters upfront
     if not event.get("pathParameters") or not event["pathParameters"].get("block_id"):
         return create_response(400, {"error": "Missing block_id parameter"})
-    
+
     if not event.get("body"):
         return create_response(400, {"error": "Missing request body"})
 
     try:
         # Extract block_id from path parameters
         block_id = event["pathParameters"]["block_id"]
-        
+
         # Parse JSON body
         try:
             body = json.loads(event["body"])
@@ -121,20 +127,23 @@ def update_block(event, context):
         # Handle not found case
         if not updated_block:
             return create_response(404, {"error": "Block not found"})
-        
+
         # Return successful response
         return create_response(200, updated_block.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error updating block: {str(e)}")
         return create_response(500, {"error": f"Internal server error: {str(e)}"})
+
 
 def delete_block(event, context):
     """
     Handle DELETE /blocks/{block_id} request to delete a block by ID
     """
     try:
-        if not event.get("pathParameters") or not event["pathParameters"].get("block_id"):
+        if not event.get("pathParameters") or not event["pathParameters"].get(
+            "block_id"
+        ):
             return create_response(400, {"error": "Missing block_id parameter"})
 
         # Extract block_id from path parameters
@@ -145,9 +154,9 @@ def delete_block(event, context):
 
         if not delete_block:
             return create_response(404, {"error": "Block not found"})
-        
+
         return create_response(204, {})
-    
+
     except Exception as e:
         logger.error(f"Error deleting block: {str(e)}")
         return create_response(500, {"error": str(e)})

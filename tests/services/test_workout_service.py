@@ -5,6 +5,7 @@ from src.models.completed_exercise import CompletedExercise
 from src.models.set import Set
 from src.services.workout_service import WorkoutService
 
+
 class TestWorkoutService(unittest.TestCase):
     """
     Test suite for the WorkoutService
@@ -24,15 +25,31 @@ class TestWorkoutService(unittest.TestCase):
         self.uuid_mock = self.uuid_patcher.start()
 
         # Configure uuid4 to return different values
-        self.uuid_mock.side_effect = ["workout-uuid", "exercise1-uuid", "exercise2-uuid", "set1-uuid", "set2-uuid", "set3-uuid"]
+        self.uuid_mock.side_effect = [
+            "workout-uuid",
+            "exercise1-uuid",
+            "exercise2-uuid",
+            "set1-uuid",
+            "set2-uuid",
+            "set3-uuid",
+        ]
 
         # Initialize service with mocked repositories
-        with patch("src.services.workout_service.WorkoutRepository", return_value=self.workout_repository_mock), \
-             patch("src.services.workout_service.DayRepository", return_value=self.day_repository_mock), \
-             patch("src.services.workout_service.ExerciseRepository", return_value=self.exercise_repository_mock), \
-             patch("src.services.workout_service.SetService", return_value=self.set_service_mock):
+        with patch(
+            "src.services.workout_service.WorkoutRepository",
+            return_value=self.workout_repository_mock,
+        ), patch(
+            "src.services.workout_service.DayRepository",
+            return_value=self.day_repository_mock,
+        ), patch(
+            "src.services.workout_service.ExerciseRepository",
+            return_value=self.exercise_repository_mock,
+        ), patch(
+            "src.services.workout_service.SetService",
+            return_value=self.set_service_mock,
+        ):
             self.workout_service = WorkoutService()
-    
+
     def tearDown(self):
         """
         Clean up after each test method
@@ -67,11 +84,11 @@ class TestWorkoutService(unittest.TestCase):
                             "weight": 225.0,
                             "rpe": 8.0,
                             "notes": "Good form",
-                            "completed": True
+                            "completed": True,
                         }
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
 
         # Configure mock to return test data
@@ -96,7 +113,7 @@ class TestWorkoutService(unittest.TestCase):
         self.assertIsInstance(result.exercises[0], CompletedExercise)
         self.assertEqual(result.exercises[0].completed_id, "comp1")
         self.assertEqual(result.exercises[0].exercise_id, "ex1")
-        
+
         # Check that sets were correctly loaded
         self.assertEqual(len(result.exercises[0].sets), 1)
         self.assertIsInstance(result.exercises[0].sets[0], Set)
@@ -119,7 +136,7 @@ class TestWorkoutService(unittest.TestCase):
 
         # Assert the result is None
         self.assertIsNone(result)
-    
+
     def test_get_workout_by_day(self):
         """
         Test retrieving a workout by athlete and day
@@ -132,7 +149,7 @@ class TestWorkoutService(unittest.TestCase):
             "date": "2025-03-15",
             "notes": "Solid session",
             "status": "completed",
-            "exercises": []
+            "exercises": [],
         }
 
         # Configure mock to return our test data
@@ -142,14 +159,16 @@ class TestWorkoutService(unittest.TestCase):
         result = self.workout_service.get_workout_by_day("athlete456", "day789")
 
         # Assert the repository was called with correct IDs
-        self.workout_repository_mock.get_workout_by_day.assert_called_once_with("athlete456", "day789")
+        self.workout_repository_mock.get_workout_by_day.assert_called_once_with(
+            "athlete456", "day789"
+        )
 
         # Assert the result is a Workout instance with correct data
         self.assertIsInstance(result, Workout)
         self.assertEqual(result.workout_id, "workout123")
         self.assertEqual(result.athlete_id, "athlete456")
         self.assertEqual(result.day_id, "day789")
-    
+
     def test_get_workout_by_day_not_found(self):
         """
         Test retrieving a non-existent workout by day returns None
@@ -158,10 +177,14 @@ class TestWorkoutService(unittest.TestCase):
         self.workout_repository_mock.get_workout_by_day.return_value = None
 
         # Call the service method
-        result = self.workout_service.get_workout_by_day("athlete456", "nonexistent-day-id")
+        result = self.workout_service.get_workout_by_day(
+            "athlete456", "nonexistent-day-id"
+        )
 
         # Assert the repository was called with correct IDs
-        self.workout_repository_mock.get_workout_by_day.assert_called_once_with("athlete456", "nonexistent-day-id")
+        self.workout_repository_mock.get_workout_by_day.assert_called_once_with(
+            "athlete456", "nonexistent-day-id"
+        )
 
         # Assert the result is None
         self.assertIsNone(result)
@@ -179,32 +202,15 @@ class TestWorkoutService(unittest.TestCase):
                 "exercise_id": "ex123",
                 "notes": "Felt good",
                 "sets": [
-                    {
-                        "set_number": 1,
-                        "reps": 5,
-                        "weight": 225.0,
-                        "rpe": 8.0
-                    },
-                    {
-                        "set_number": 2,
-                        "reps": 5,
-                        "weight": 225.0,
-                        "rpe": 8.5
-                    }
-                ]
+                    {"set_number": 1, "reps": 5, "weight": 225.0, "rpe": 8.0},
+                    {"set_number": 2, "reps": 5, "weight": 225.0, "rpe": 8.5},
+                ],
             },
             {
                 "exercise_id": "ex456",
                 "notes": "Hard work",
-                "sets": [
-                    {
-                        "set_number": 1,
-                        "reps": 10,
-                        "weight": 135.0,
-                        "rpe": 7.0
-                    }
-                ]
-            }
+                "sets": [{"set_number": 1, "reps": 10, "weight": 135.0, "rpe": 7.0}],
+            },
         ]
 
         # Call the service method
@@ -214,14 +220,18 @@ class TestWorkoutService(unittest.TestCase):
             date="2025-03-15",
             completed_exercises=completed_exercises,
             notes="Good workout",
-            status="completed"
+            status="completed",
         )
 
         # Check UUIDs were generated for all elements (don't check exact values)
-        self.assertEqual(self.uuid_mock.call_count, 6)  # 1 workout + 2 exercises + 3 sets
+        self.assertEqual(
+            self.uuid_mock.call_count, 6
+        )  # 1 workout + 2 exercises + 3 sets
 
         # Assert repository methods were called correctly
-        self.workout_repository_mock.get_workout_by_day.assert_called_once_with("athlete123", "day456")
+        self.workout_repository_mock.get_workout_by_day.assert_called_once_with(
+            "athlete123", "day456"
+        )
         self.workout_repository_mock.create_workout.assert_called_once()
 
         # Check the workout data passed to create_workout
@@ -257,7 +267,7 @@ class TestWorkoutService(unittest.TestCase):
             self.assertIn("set_number", set_data)
             self.assertIn("reps", set_data)
             self.assertIn("weight", set_data)
-    
+
     def test_log_workout_update_existing(self):
         """
         Test logging a workout that already exists (update case)
@@ -284,11 +294,11 @@ class TestWorkoutService(unittest.TestCase):
                             "set_number": 1,
                             "reps": 5,
                             "weight": 205.0,
-                            "rpe": 9.0
+                            "rpe": 9.0,
                         }
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
 
         # Configure mock to return the existing workout
@@ -300,24 +310,16 @@ class TestWorkoutService(unittest.TestCase):
                 "exercise_id": "ex123",
                 "notes": "Improved effort",
                 "sets": [
-                    {
-                        "set_number": 1,
-                        "reps": 5,
-                        "weight": 225.0,
-                        "rpe": 8.0
-                    },
-                    {
-                        "set_number": 2,
-                        "reps": 5,
-                        "weight": 225.0,
-                        "rpe": 8.5
-                    }
-                ]
+                    {"set_number": 1, "reps": 5, "weight": 225.0, "rpe": 8.0},
+                    {"set_number": 2, "reps": 5, "weight": 225.0, "rpe": 8.5},
+                ],
             }
         ]
 
         # Mock the updated_workout method to return a workout object
-        with patch.object(self.workout_service, "update_workout") as mock_update_workout:
+        with patch.object(
+            self.workout_service, "update_workout"
+        ) as mock_update_workout:
             # Setup the mock to return a Workout object
             updated_workout = Workout(
                 workout_id="existing-workout",
@@ -325,17 +327,17 @@ class TestWorkoutService(unittest.TestCase):
                 day_id="day456",
                 date="2025-03-15",
                 notes="Good workout",
-                status="completed"
+                status="completed",
             )
-            
+
             # Add a completed exercise with sets to the workout
             completed_exercise = CompletedExercise(
                 completed_id="updated-exercise",
                 workout_id="existing-workout",
                 exercise_id="ex123",
-                notes="Improved effort"
+                notes="Improved effort",
             )
-            
+
             # Add sets to the exercise
             exercise_set1 = Set(
                 set_id="new-set1",
@@ -344,9 +346,9 @@ class TestWorkoutService(unittest.TestCase):
                 set_number=1,
                 reps=5,
                 weight=225.0,
-                rpe=8.0
+                rpe=8.0,
             )
-            
+
             exercise_set2 = Set(
                 set_id="new-set2",
                 completed_exercise_id="updated-exercise",
@@ -354,13 +356,13 @@ class TestWorkoutService(unittest.TestCase):
                 set_number=2,
                 reps=5,
                 weight=225.0,
-                rpe=8.5
+                rpe=8.5,
             )
-            
+
             completed_exercise.add_set(exercise_set1)
             completed_exercise.add_set(exercise_set2)
             updated_workout.add_exercise(completed_exercise)
-            
+
             mock_update_workout.return_value = updated_workout
 
             # Call the service method
@@ -370,11 +372,13 @@ class TestWorkoutService(unittest.TestCase):
                 date="2025-03-15",
                 completed_exercises=updated_exercises,
                 notes="Good workout",
-                status="completed"
+                status="completed",
             )
 
             # Assert repository methods were called correctly
-            self.workout_repository_mock.get_workout_by_day.assert_called_once_with("athlete123", "day456")
+            self.workout_repository_mock.get_workout_by_day.assert_called_once_with(
+                "athlete123", "day456"
+            )
 
             # Assert update_workout was called with correct parameters
             mock_update_workout.assert_called_once_with(
@@ -383,20 +387,20 @@ class TestWorkoutService(unittest.TestCase):
                     "date": "2025-03-15",
                     "notes": "Good workout",
                     "status": "completed",
-                    "exercises": updated_exercises
-                }
+                    "exercises": updated_exercises,
+                },
             )
 
             # Assert the returned object is the updated workout
             self.assertIsInstance(result, Workout)
             self.assertEqual(result.workout_id, "existing-workout")
             self.assertEqual(result.status, "completed")
-            
+
             # Check that exercises and sets were correctly updated
             self.assertEqual(len(result.exercises), 1)
             self.assertEqual(result.exercises[0].notes, "Improved effort")
             self.assertEqual(len(result.exercises[0].sets), 2)
-    
+
     def test_update_workout(self):
         """
         Test updating a workout with new information
@@ -409,7 +413,7 @@ class TestWorkoutService(unittest.TestCase):
             "date": "2025-03-15",
             "notes": "Initial notes",
             "status": "partial",
-            "exercises": []
+            "exercises": [],
         }
 
         # Mock updated workout data
@@ -420,27 +424,28 @@ class TestWorkoutService(unittest.TestCase):
             "date": "2025-03-15",
             "notes": "Updated notes",
             "status": "completed",  # Changed from partial to completed
-            "exercises": []
+            "exercises": [],
         }
 
         # Configure mocks
         self.workout_repository_mock.get_workout.side_effect = [
             initial_workout_data,  # First call to check if workout exists
-            updated_workout_data   # Second call to get updated workout
+            updated_workout_data,  # Second call to get updated workout
         ]
-        self.workout_repository_mock.update_workout.return_value = {"Attributes": {"status": "completed", "notes": "Updated notes"}}
+        self.workout_repository_mock.update_workout.return_value = {
+            "Attributes": {"status": "completed", "notes": "Updated notes"}
+        }
 
         # Update data to send
-        update_data = {
-            "notes": "Updated notes",
-            "status": "completed"
-        }
+        update_data = {"notes": "Updated notes", "status": "completed"}
 
         # Call the service method
         result = self.workout_service.update_workout("workout123", update_data)
 
         # Assert repository methods were called correctly
-        self.workout_repository_mock.update_workout.assert_called_once_with("workout123", update_data)
+        self.workout_repository_mock.update_workout.assert_called_once_with(
+            "workout123", update_data
+        )
         self.assertEqual(self.workout_repository_mock.get_workout.call_count, 2)
 
         # Assert the returned object has the updated values
@@ -479,16 +484,16 @@ class TestWorkoutService(unittest.TestCase):
                             "set_number": 1,
                             "reps": 5,
                             "weight": 225.0,
-                            "rpe": 8.0
+                            "rpe": 8.0,
                         }
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
-        
+
         # Configure mocks
         self.workout_repository_mock.get_workout.return_value = workout_data
-        
+
         # Mock the set service
         self.set_service_mock.create_set.return_value = Set(
             set_id="set2",
@@ -497,25 +502,22 @@ class TestWorkoutService(unittest.TestCase):
             set_number=2,
             reps=5,
             weight=235.0,
-            rpe=9.0
+            rpe=9.0,
         )
-        
+
         # Set data to add
-        set_data = {
-            "set_number": 2,
-            "reps": 5,
-            "weight": 235.0,
-            "rpe": 9.0
-        }
-        
+        set_data = {"set_number": 2, "reps": 5, "weight": 235.0, "rpe": 9.0}
+
         # Call the service method
-        result = self.workout_service.add_set_to_exercise("workout123", "comp1", set_data)
-        
+        result = self.workout_service.add_set_to_exercise(
+            "workout123", "comp1", set_data
+        )
+
         # Assert repository and service methods were called correctly
         self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
         self.set_service_mock.create_set.assert_called_once()
         self.workout_repository_mock.update_workout.assert_called_once()
-        
+
         # Assert the returned object is the new set
         self.assertIsInstance(result, Set)
         self.assertEqual(result.set_id, "set2")
@@ -536,25 +538,21 @@ class TestWorkoutService(unittest.TestCase):
             set_number=1,
             reps=6,
             weight=235.0,
-            rpe=9.0
+            rpe=9.0,
         )
-        
+
         # Configure mock
         self.set_service_mock.update_set.return_value = updated_set
-        
+
         # Set data to update
-        update_data = {
-            "reps": 6,
-            "weight": 235.0,
-            "rpe": 9.0
-        }
-        
+        update_data = {"reps": 6, "weight": 235.0, "rpe": 9.0}
+
         # Call the service method
         result = self.workout_service.update_set("set1", update_data)
-        
+
         # Assert service methods were called correctly
         self.set_service_mock.update_set.assert_called_once_with("set1", update_data)
-        
+
         # Assert the returned object is the updated set
         self.assertIsInstance(result, Set)
         self.assertEqual(result.set_id, "set1")
@@ -574,32 +572,32 @@ class TestWorkoutService(unittest.TestCase):
             set_number=1,
             reps=5,
             weight=225.0,
-            rpe=8.0
+            rpe=8.0,
         )
-        
+
         # Mock workout data
         workout_data = {
             "workout_id": "workout123",
             "athlete_id": "athlete456",
             "day_id": "day789",
             "date": "2025-03-15",
-            "status": "completed"
+            "status": "completed",
         }
-        
+
         # Configure mocks
         self.set_service_mock.get_set.return_value = set_data
         self.set_service_mock.delete_set.return_value = True
         self.workout_repository_mock.get_workout.return_value = workout_data
-        
+
         # Call the service method
         result = self.workout_service.delete_set("set1")
-        
+
         # Assert service methods were called correctly
         self.set_service_mock.get_set.assert_called_once_with("set1")
         self.set_service_mock.delete_set.assert_called_once_with("set1")
         self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
         self.workout_repository_mock.update_workout.assert_called_once()
-        
+
         # Assert the result is True (successful deletion)
         self.assertTrue(result)
 
@@ -629,7 +627,7 @@ class TestWorkoutService(unittest.TestCase):
                             "set_number": 1,
                             "reps": 5,
                             "weight": 225.0,
-                            "rpe": 8.0
+                            "rpe": 8.0,
                         },
                         {
                             "set_id": "set2",
@@ -638,9 +636,9 @@ class TestWorkoutService(unittest.TestCase):
                             "set_number": 2,
                             "reps": 5,
                             "weight": 235.0,
-                            "rpe": 8.5
-                        }
-                    ]
+                            "rpe": 8.5,
+                        },
+                    ],
                 },
                 {
                     "completed_id": "comp2",
@@ -655,22 +653,22 @@ class TestWorkoutService(unittest.TestCase):
                             "set_number": 1,
                             "reps": 5,
                             "weight": 315.0,
-                            "rpe": 9.0
+                            "rpe": 9.0,
                         }
-                    ]
-                }
-            ]
+                    ],
+                },
+            ],
         }
-        
+
         # Configure mock
         self.workout_repository_mock.get_workout.return_value = workout_data
-        
+
         # Call the service method
         result = self.workout_service.get_workout_sets("workout123")
-        
+
         # Assert repository methods were called correctly
         self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
-        
+
         # Assert the result is a dictionary mapping exercise IDs to sets
         self.assertIsInstance(result, dict)
         self.assertEqual(len(result), 2)
@@ -692,7 +690,7 @@ class TestWorkoutService(unittest.TestCase):
                 set_number=1,
                 reps=5,
                 weight=225.0,
-                rpe=8.0
+                rpe=8.0,
             ),
             Set(
                 set_id="set2",
@@ -701,19 +699,19 @@ class TestWorkoutService(unittest.TestCase):
                 set_number=2,
                 reps=5,
                 weight=235.0,
-                rpe=8.5
-            )
+                rpe=8.5,
+            ),
         ]
-        
+
         # Configure mock
         self.set_service_mock.get_sets_for_exercise.return_value = sets_data
-        
+
         # Call the service method
         result = self.workout_service.get_exercise_sets("comp1")
-        
+
         # Assert service methods were called correctly
         self.set_service_mock.get_sets_for_exercise.assert_called_once_with("comp1")
-        
+
         # Assert the result is a list of sets
         self.assertEqual(len(result), 2)
         self.assertIsInstance(result[0], Set)
@@ -726,7 +724,7 @@ class TestWorkoutService(unittest.TestCase):
         """
         # Configure mock to return None (no existing workout)
         self.workout_repository_mock.get_workout_by_day.return_value = None
-        
+
         # Prepare minimal completed exercises data with minimal set data
         completed_exercises = [
             {
@@ -738,10 +736,10 @@ class TestWorkoutService(unittest.TestCase):
                         "weight": 225.0
                         # No RPE or notes
                     }
-                ]
+                ],
             }
         ]
-        
+
         # Call the service method with minimal data
         result = self.workout_service.log_workout(
             athlete_id="athlete123",
@@ -750,20 +748,22 @@ class TestWorkoutService(unittest.TestCase):
             completed_exercises=completed_exercises
             # No notes or status
         )
-        
+
         # Assert repository methods were called correctly
-        self.workout_repository_mock.get_workout_by_day.assert_called_once_with("athlete123", "day456")
+        self.workout_repository_mock.get_workout_by_day.assert_called_once_with(
+            "athlete123", "day456"
+        )
         self.workout_repository_mock.create_workout.assert_called_once()
-        
+
         # Check the workout data uses default values where missing
         workout_dict = self.workout_repository_mock.create_workout.call_args[0][0]
         self.assertEqual(workout_dict["status"], "completed")  # Default status
         self.assertIsNone(workout_dict["notes"])  # Default None for notes
-        
+
         # Check the exercise has None for optional fields
         exercise_dict = workout_dict["exercises"][0]
         self.assertIsNone(exercise_dict.get("notes"))
-        
+
         # Check the set has None for optional fields
         set_dict = exercise_dict["sets"][0]
         self.assertIsNone(set_dict.get("rpe"))
@@ -775,21 +775,15 @@ class TestWorkoutService(unittest.TestCase):
         """
         # Configure mock to return None (no existing workout)
         self.workout_repository_mock.get_workout_by_day.return_value = None
-        
+
         # Prepare completed exercises data
         completed_exercises = [
             {
                 "exercise_id": "ex123",
-                "sets": [
-                    {
-                        "set_number": 1,
-                        "reps": 5,
-                        "weight": 225.0
-                    }
-                ]
+                "sets": [{"set_number": 1, "reps": 5, "weight": 225.0}],
             }
         ]
-        
+
         # Call the service method with invalid status
         with self.assertRaises(ValueError):
             self.workout_service.log_workout(
@@ -797,28 +791,32 @@ class TestWorkoutService(unittest.TestCase):
                 day_id="day456",
                 date="2025-03-15",
                 completed_exercises=completed_exercises,
-                status="invalid_status"  # Not one of: completed, partial, skipped
+                status="invalid_status",  # Not one of: completed, partial, skipped
             )
-        
+
         # Assert repository methods were not called
         self.workout_repository_mock.create_workout.assert_not_called()
-    
+
     def test_delete_workout(self):
         """
         Test deleting a workout
         """
         # Configure mock to return a successful response
-        self.workout_repository_mock.delete_workout.return_value = {"Attributes": {"workout_id": "workout123"}}
+        self.workout_repository_mock.delete_workout.return_value = {
+            "Attributes": {"workout_id": "workout123"}
+        }
 
         # Call the service method
         result = self.workout_service.delete_workout("workout123")
 
         # Assert repository was called with the correct ID
-        self.workout_repository_mock.delete_workout.assert_called_once_with("workout123")
+        self.workout_repository_mock.delete_workout.assert_called_once_with(
+            "workout123"
+        )
 
         # Assert the result is True (successful deletion)
         self.assertTrue(result)
-    
+
     def test_update_workout_with_exercises_and_sets(self):
         """
         Test updating a workout with exercises and sets (both existing and new)
@@ -829,30 +827,30 @@ class TestWorkoutService(unittest.TestCase):
             athlete_id="athlete456",
             day_id="day789",
             date="2025-03-15",
-            status="partial"
+            status="partial",
         )
-        
+
         # Add an existing exercise with sets
         existing_exercise = CompletedExercise(
             completed_id="existing-exercise",
             workout_id="workout123",
             exercise_id="ex1",
-            notes="Initial notes"
+            notes="Initial notes",
         )
-        
+
         # Add a set to the existing exercise
         existing_set = Set(
             set_id="existing-set",
             completed_exercise_id="existing-exercise",
-            workout_id="workout123", 
+            workout_id="workout123",
             set_number=1,
             reps=5,
-            weight=315.0
+            weight=315.0,
         )
-        
+
         existing_exercise.add_set(existing_set)
         existing_workout.add_exercise(existing_exercise)
-        
+
         # Mock get_workout to return the existing workout first
         self.workout_repository_mock.get_workout.side_effect = [
             # First call when checking if workout exists
@@ -875,11 +873,11 @@ class TestWorkoutService(unittest.TestCase):
                                 "workout_id": "workout123",
                                 "set_number": 1,
                                 "reps": 5,
-                                "weight": 315.0
+                                "weight": 315.0,
                             }
-                        ]
+                        ],
                     }
-                ]
+                ],
             },
             # Second call after update
             {
@@ -901,7 +899,7 @@ class TestWorkoutService(unittest.TestCase):
                                 "workout_id": "workout123",
                                 "set_number": 1,
                                 "reps": 6,
-                                "weight": 325.0
+                                "weight": 325.0,
                             },
                             {
                                 "set_id": "new-set",
@@ -909,9 +907,9 @@ class TestWorkoutService(unittest.TestCase):
                                 "workout_id": "workout123",
                                 "set_number": 2,
                                 "reps": 5,
-                                "weight": 325.0
-                            }
-                        ]
+                                "weight": 325.0,
+                            },
+                        ],
                     },
                     {
                         "completed_id": "new-exercise",
@@ -925,17 +923,17 @@ class TestWorkoutService(unittest.TestCase):
                                 "workout_id": "workout123",
                                 "set_number": 1,
                                 "reps": 8,
-                                "weight": 225.0
+                                "weight": 225.0,
                             }
-                        ]
-                    }
-                ]
-            }
+                        ],
+                    },
+                ],
+            },
         ]
-        
+
         # Mock the set service
         self.set_service_mock.get_sets_for_exercise.return_value = [existing_set]
-        
+
         # Update data to send
         update_data = {
             "status": "completed",
@@ -949,52 +947,40 @@ class TestWorkoutService(unittest.TestCase):
                             "set_id": "existing-set",
                             "set_number": 1,
                             "reps": 6,
-                            "weight": 325.0  # Updated weight
+                            "weight": 325.0,  # Updated weight
                         },
-                        {
-                            "set_number": 2,
-                            "reps": 5,
-                            "weight": 325.0  # New set
-                        }
-                    ]
+                        {"set_number": 2, "reps": 5, "weight": 325.0},  # New set
+                    ],
                 },
                 {
                     "exercise_id": "ex2",
                     "notes": "New exercise",
-                    "sets": [
-                        {
-                            "set_number": 1,
-                            "reps": 8,
-                            "weight": 225.0
-                        }
-                    ]
-                }
-            ]
+                    "sets": [{"set_number": 1, "reps": 8, "weight": 225.0}],
+                },
+            ],
         }
-        
+
         # Call the service method
         result = self.workout_service.update_workout("workout123", update_data)
-        
+
         # Assert repository methods were called correctly
         self.workout_repository_mock.get_workout.assert_called()
         self.workout_repository_mock.update_workout.assert_called()
-        
+
         # Assert set service methods were called for updating existing sets
-        self.set_service_mock.update_set.assert_called_with("existing-set", {
-            "set_id": "existing-set",
-            "set_number": 1,
-            "reps": 6,
-            "weight": 325.0
-        })
-        
+        self.set_service_mock.update_set.assert_called_with(
+            "existing-set",
+            {"set_id": "existing-set", "set_number": 1, "reps": 6, "weight": 325.0},
+        )
+
         # Assert set service methods were called for creating new sets
         self.set_service_mock.create_set.assert_called()
-        
+
         # Assert the result is a Workout with updated data
         self.assertIsInstance(result, Workout)
         self.assertEqual(result.status, "completed")
         self.assertEqual(len(result.exercises), 2)
-        
+
         # UUID should have been called for new IDs
         self.assertTrue(self.uuid_mock.called)
 
@@ -1004,13 +990,15 @@ class TestWorkoutService(unittest.TestCase):
         """
         # Mock repository to return None (workout not found)
         self.workout_repository_mock.get_workout.return_value = None
-        
+
         # Call the service method
-        result = self.workout_service.update_workout("nonexistent", {"status": "completed"})
-        
+        result = self.workout_service.update_workout(
+            "nonexistent", {"status": "completed"}
+        )
+
         # Assert the result is None
         self.assertIsNone(result)
-        
+
         # Assert repository methods were called correctly
         self.workout_repository_mock.get_workout.assert_called_once_with("nonexistent")
         self.workout_repository_mock.update_workout.assert_not_called()
@@ -1021,13 +1009,15 @@ class TestWorkoutService(unittest.TestCase):
         """
         # Mock repository to return None (workout not found)
         self.workout_repository_mock.get_workout.return_value = None
-        
+
         # Call the service method
-        result = self.workout_service.add_set_to_exercise("nonexistent", "exercise1", {"reps": 5, "weight": 225.0})
-        
+        result = self.workout_service.add_set_to_exercise(
+            "nonexistent", "exercise1", {"reps": 5, "weight": 225.0}
+        )
+
         # Assert the result is None
         self.assertIsNone(result)
-        
+
         # Assert repository methods were called correctly
         self.workout_repository_mock.get_workout.assert_called_once_with("nonexistent")
         self.set_service_mock.create_set.assert_not_called()
@@ -1046,20 +1036,22 @@ class TestWorkoutService(unittest.TestCase):
                 {
                     "completed_id": "exercise1",
                     "workout_id": "workout123",
-                    "exercise_id": "ex1"
+                    "exercise_id": "ex1",
                 }
-            ]
+            ],
         }
-        
+
         # Mock repository to return workout without the target exercise
         self.workout_repository_mock.get_workout.return_value = workout_data
-        
+
         # Call the service method
-        result = self.workout_service.add_set_to_exercise("workout123", "nonexistent-exercise", {"reps": 5, "weight": 225.0})
-        
+        result = self.workout_service.add_set_to_exercise(
+            "workout123", "nonexistent-exercise", {"reps": 5, "weight": 225.0}
+        )
+
         # Assert the result is None
         self.assertIsNone(result)
-        
+
         # Assert repository methods were called correctly
         self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
         self.set_service_mock.create_set.assert_not_called()
@@ -1070,13 +1062,13 @@ class TestWorkoutService(unittest.TestCase):
         """
         # Mock set service to return None (set not found)
         self.set_service_mock.get_set.return_value = None
-        
+
         # Call the service method
         result = self.workout_service.delete_set("nonexistent")
-        
+
         # Assert the result is False
         self.assertFalse(result)
-        
+
         # Assert service methods were called correctly
         self.set_service_mock.get_set.assert_called_once_with("nonexistent")
         self.set_service_mock.delete_set.assert_not_called()
@@ -1094,19 +1086,19 @@ class TestWorkoutService(unittest.TestCase):
             workout_id="workout123",
             set_number=1,
             reps=5,
-            weight=225.0
+            weight=225.0,
         )
-        
+
         # Mock set service to return set but fail on delete
         self.set_service_mock.get_set.return_value = set_data
         self.set_service_mock.delete_set.return_value = False
-        
+
         # Call the service method
         result = self.workout_service.delete_set("set1")
-        
+
         # Assert the result is False
         self.assertFalse(result)
-        
+
         # Assert service methods were called correctly
         self.set_service_mock.get_set.assert_called_once_with("set1")
         self.set_service_mock.delete_set.assert_called_once_with("set1")
@@ -1119,16 +1111,16 @@ class TestWorkoutService(unittest.TestCase):
         """
         # Mock repository to return None (workout not found)
         self.workout_repository_mock.get_workout.return_value = None
-        
+
         # Call the service method
         result = self.workout_service.get_workout_sets("nonexistent")
-        
+
         # Assert the result is an empty dictionary
         self.assertEqual(result, {})
-        
+
         # Assert repository methods were called correctly
         self.workout_repository_mock.get_workout.assert_called_once_with("nonexistent")
 
 
-if __name__ == "__main__": # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

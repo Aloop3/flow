@@ -3,6 +3,7 @@ from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
 import os
 
+
 class WeekRepository(BaseRepository):
     def __init__(self):
         super().__init__(os.environ.get("WEEKS_TABLE", "Weeks"))
@@ -15,7 +16,7 @@ class WeekRepository(BaseRepository):
         :return: A dictionary containing the week details if found, else None.
         """
         return self.get_by_id("week_id", week_id)
-    
+
     def get_weeks_by_block(self, block_id: str) -> List[Dict[str, Any]]:
         """
         Retrieves all weeks associated with a specific block using a DynamoDB GSI.
@@ -24,11 +25,10 @@ class WeekRepository(BaseRepository):
         :return: A list of week dictionaries associated with the block.
         """
         response = self.table.query(
-            IndexName="block-index",
-            KeyConditionExpression=Key("block_id").eq(block_id)
+            IndexName="block-index", KeyConditionExpression=Key("block_id").eq(block_id)
         )
         return response.get("Items", [])
-    
+
     def create_week(self, week_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Creates a new week in the database.
@@ -37,7 +37,7 @@ class WeekRepository(BaseRepository):
         :return: The response from the create operation.
         """
         return self.create(week_dict)
-    
+
     def update_week(self, week_id: str, update_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Updates an existing week in the database.
@@ -52,16 +52,12 @@ class WeekRepository(BaseRepository):
         for key, value in update_dict.items():
             update_expression += f"{key} = :{key}, "
             expression_values[f":{key}"] = value
-        
+
         # Remove trailing comma and space
         update_expression = update_expression[:-2]
 
-        return self.update(
-            {"week_id": week_id},
-            update_expression,
-            expression_values
-        )
-    
+        return self.update({"week_id": week_id}, update_expression, expression_values)
+
     def delete_week(self, week_id: str) -> Dict[str, Any]:
         """
         Deletes a week from the database.
@@ -70,7 +66,7 @@ class WeekRepository(BaseRepository):
         :return: The response from the delete operation.
         """
         return self.delete({"week_id": week_id})
-    
+
     def delete_weeks_by_block(self, block_id: str) -> int:
         """
         Deletes all weeks associated with a specific block (cascading delete).
@@ -83,8 +79,6 @@ class WeekRepository(BaseRepository):
         # Batch delete all weeks
         with self.table.batch_writer() as batch:
             for week in weeks:
-                batch.delete_item(
-                    Key={"week_id": week["week_id"]}
-                )
-        
+                batch.delete_item(Key={"week_id": week["week_id"]})
+
         return len(weeks)

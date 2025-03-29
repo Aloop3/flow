@@ -5,6 +5,7 @@ from src.repositories.block_repository import BlockRepository
 from src.repositories.week_repository import WeekRepository
 from src.models.block import Block
 
+
 class BlockService:
     def __init__(self):
         self.block_repository: BlockRepository = BlockRepository()
@@ -22,7 +23,7 @@ class BlockService:
         if block_data:
             return Block(**block_data)
         return None
-    
+
     def get_blocks_for_athlete(self, athlete_id: str) -> List[Block]:
         """
         Retrieves all blocks for an athlete
@@ -32,8 +33,17 @@ class BlockService:
         """
         block_data = self.block_repository.get_blocks_by_athlete(athlete_id)
         return [Block(**block) for block in block_data]
-    
-    def create_block(self, athlete_id: str, title: str, description: str, start_date: str, end_date: str, coach_id: Optional[str] = None, status: Literal["draft", "active", "completed"] = "draft") -> Block:
+
+    def create_block(
+        self,
+        athlete_id: str,
+        title: str,
+        description: str,
+        start_date: str,
+        end_date: str,
+        coach_id: Optional[str] = None,
+        status: Literal["draft", "active", "completed"] = "draft",
+    ) -> Block:
         """
         Creates a new training block
 
@@ -54,14 +64,16 @@ class BlockService:
             start_date=start_date,
             end_date=end_date,
             coach_id=coach_id,
-            status=status
+            status=status,
         )
 
         self.block_repository.create_block(block.to_dict())
 
         return block
-    
-    def update_block(self, block_id: str, update_data: Dict[str, Any]) -> Optional[Block]:
+
+    def update_block(
+        self, block_id: str, update_data: Dict[str, Any]
+    ) -> Optional[Block]:
         """
         Updates an existing training block
 
@@ -72,7 +84,7 @@ class BlockService:
         self.block_repository.update_block(block_id, update_data)
 
         return self.get_block(block_id)
-    
+
     def delete_block(self, block_id: str) -> bool:
         """
         Deletes a training block
@@ -90,4 +102,3 @@ class BlockService:
         except Exception as e:
             print(f"Error deleting block: {e}")
             return False
-    

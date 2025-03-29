@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional
 from src.repositories.user_repository import UserRepository
 from src.models.user import User
 
+
 class UserService:
     def __init__(self):
         self.user_repository: UserRepository = UserRepository()
@@ -18,7 +19,7 @@ class UserService:
         if user_data:
             return User(**user_data)
         return None
-    
+
     def create_user(self, email: str, name: str, role: str) -> User:
         """
         Creates a new user
@@ -28,17 +29,12 @@ class UserService:
         :param role: The role of the user
         :return: The created User object
         """
-        user = User(
-            user_id=str(uuid.uuid4()),
-            email=email,
-            name=name,
-            role=role
-        )
+        user = User(user_id=str(uuid.uuid4()), email=email, name=name, role=role)
 
         self.user_repository.create_user(user.to_dict())
 
         return user
-    
+
     def update_user(self, user_id: str, update_data: Dict[str, Any]) -> Optional[User]:
         """
         Updates a user by user_id

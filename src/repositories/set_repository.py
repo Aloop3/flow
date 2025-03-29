@@ -3,15 +3,17 @@ from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
 import os
 
+
 class SetRepository(BaseRepository):
     """
     Repository class for handling set-level database operations in DynamoDB.
-    
+
     Extends BaseRepository to provide methods for retrieving, creating, updating, and deleting set data.
     """
+
     def __init__(self):
         super().__init__(os.environ.get("SETS_TABLE", "Sets"))
-    
+
     def get_set(self, set_id: str) -> Optional[Dict[str, Any]]:
         """
         Retrieves a set by its ID.
@@ -19,9 +21,9 @@ class SetRepository(BaseRepository):
         :param set_id: The ID of the set to retrieve.
         :return: A dictionary containing the set data if found, None otherwise.
         """
-        
+
         return self.get_by_id("set_id", set_id)
-    
+
     def get_sets_by_exercise(self, completed_exercise_id: str) -> List[Dict[str, Any]]:
         """
         Retrieves all sets for a specific completed exercise.
@@ -32,10 +34,12 @@ class SetRepository(BaseRepository):
 
         response = self.table.query(
             IndexName="exercise-index",
-            KeyConditionExpression=Key("completed_exercise_id").eq(completed_exercise_id)
+            KeyConditionExpression=Key("completed_exercise_id").eq(
+                completed_exercise_id
+            ),
         )
         return response.get("Items", [])
-    
+
     def get_sets_by_workout(self, workout_id: str) -> List[Dict[str, Any]]:
         """
         Retrieves all sets for a specific workout.
@@ -46,10 +50,10 @@ class SetRepository(BaseRepository):
 
         response = self.table.query(
             IndexName="workout-index",
-            KeyConditionExpression=Key("workout_id").eq(workout_id)
+            KeyConditionExpression=Key("workout_id").eq(workout_id),
         )
         return response.get("Items", [])
-    
+
     def create_set(self, set_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Creates a new set.
@@ -59,7 +63,7 @@ class SetRepository(BaseRepository):
         """
 
         return self.create(set_dict)
-    
+
     def update_set(self, set_id: str, update_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Updates an existing set.
@@ -75,16 +79,12 @@ class SetRepository(BaseRepository):
         for key, value in update_dict.items():
             update_expression += f"{key} = :{key}, "
             expression_values[f":{key}"] = value
-        
+
         # Remove trailing comma and space
         update_expression = update_expression[:-2]
 
-        return self.update(
-            {"set_id": set_id},
-            update_expression,
-            expression_values
-        )
-    
+        return self.update({"set_id": set_id}, update_expression, expression_values)
+
     def delete_set(self, set_id: str) -> Dict[str, Any]:
         """
         Deletes a set by its ID.
@@ -94,7 +94,7 @@ class SetRepository(BaseRepository):
         """
 
         return self.delete({"set_id": set_id})
-    
+
     def delete_sets_by_exercise(self, completed_exercise_id: str) -> int:
         """
         Deletes all sets for a specific completed exercise (cascading delete).
@@ -104,16 +104,14 @@ class SetRepository(BaseRepository):
         """
 
         sets = self.get_sets_by_exercise(completed_exercise_id)
-        
+
         # Batch delete all sets
         with self.table.batch_writer() as batch:
             for set_item in sets:
-                batch.delete_item(
-                    Key={"set_id": set_item["set_id"]}
-                )
-        
+                batch.delete_item(Key={"set_id": set_item["set_id"]})
+
         return len(sets)
-    
+
     def delete_sets_by_workout(self, workout_id: str) -> int:
         """
         Deletes all sets for a specific workout (cascading delete).
@@ -122,13 +120,10 @@ class SetRepository(BaseRepository):
         :return: The number of sets deleted.
         """
         sets = self.get_sets_by_workout(workout_id)
-        
+
         # Batch delete all sets
         with self.table.batch_writer() as batch:
             for set_item in sets:
-                batch.delete_item(
-                    Key={"set_id": set_item["set_id"]}
-                )
-        
+                batch.delete_item(Key={"set_id": set_item["set_id"]})
+
         return len(sets)
-    
