@@ -585,6 +585,187 @@ class TestWorkoutRepository(unittest.TestCase):
         self.assertEqual(call_args["ExpressionAttributeValues"][":date"], "2025-03-16")
         self.assertEqual(call_args["ExpressionAttributeValues"][":notes"], "Updated workout notes")
     
+    def test_update_workout_with_exercises_and_sets(self):
+        """
+        Test updating a workout with exercises that contain sets
+        """
+        # Test data for update that includes exercises with sets
+        workout_id = "workout123"
+        update_data = {
+            "date": "2025-03-16",
+            "exercises": [
+                {
+                    "completed_id": "exercise1",
+                    "exercise_type": "Squat",
+                    "sets": [
+                        {
+                            "set_id": "set1",  # Existing set to update
+                            "set_number": 1,
+                            "actual_reps": 6,  # Updated reps
+                            "actual_weight": 325.0  # Updated weight
+                        },
+                        {
+                            "set_id": "set_new",  # New set to create
+                            "set_number": 2,
+                            "actual_reps": 5,
+                            "actual_weight": 325.0
+                        }
+                    ]
+                },
+                {
+                    "completed_id": "exercise2",
+                    "exercise_type": "Bench Press",
+                    "sets": [
+                        {
+                            "set_id": "set3",  # Existing set to update
+                            "set_number": 1,
+                            "actual_reps": 10,  # Updated reps
+                            "actual_weight": 235.0  # Updated weight
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        # Mock existing sets for exercise1
+        existing_sets_ex1 = [
+            {
+                "set_id": "set1",
+                "set_number": 1,
+                "actual_reps": 5,
+                "actual_weight": 315.0,
+                "completed_exercise_id": "exercise1",
+                "workout_id": "workout123"
+            },
+            {
+                "set_id": "set2",  # This set will be deleted as it's not in update
+                "set_number": 2,
+                "actual_reps": 5,
+                "actual_weight": 315.0,
+                "completed_exercise_id": "exercise1",
+                "workout_id": "workout123"
+            }
+        ]
+        
+        # Mock existing sets for exercise2
+        existing_sets_ex2 = [
+            {
+                "set_id": "set3",
+                "set_number": 1,
+                "actual_reps": 8,
+                "actual_weight": 225.0,
+                "completed_exercise_id": "exercise2",
+                "workout_id": "workout123"
+            }
+        ]
+        
+        # Configure mock to return existing sets
+        self.mock_set_repository.get_sets_by_exercise.side_effect = [
+            existing_sets_ex1,  # For exercise1
+            existing_sets_ex2   # For exercise2
+        ]
+        
+        # Call the method
+        self.workout_repository.update_workout(workout_id, update_data)
+        
+        # Assert get_sets_by_exercise was called for each exercise
+        self.mock_set_repository.get_sets_by_exercise.assert_any_call("exercise1")
+        self.mock_set_repository.get_sets_by_exercise.assert_any_call("exercise2")
+        
+        # Assert that update_set was called for existing sets
+        # For set1 (exercise1)
+        set1_update = {
+            "set_id": "set1",
+            "set_number": 1,
+            "actual_reps": 6,
+            "actual_weight": 325.0
+        }
+        self.mock_set_repository.update_set.assert_any_call("set1", set1_update)
+        
+        # For set3 (exercise2)
+        set3_update = {
+            "set_id": "set3",
+            "set_number": 1,
+            "actual_reps": 10,
+            "actual_weight": 235.0
+        }
+        self.mock_set_repository.update_set.assert_any_call("set3", set3_update)
+        
+        # Assert that create_set was called for new sets
+        new_set = {
+            "set_id": "set_new",
+            "set_number": 2,
+            "actual_reps": 5,
+            "actual_weight": 325.0,
+            "completed_exercise_id": "exercise1",
+            "workout_id": "workout123"
+        }
+        self.mock_set_repository.create_set.assert_called_once_with(new_set)
+        
+        # Assert that delete_set was called for sets not in update
+        self.mock_set_repository.delete_set.assert_called_once_with("set2")
+        
+        # Assert update_item was called on the workout table
+        self.mock_table.update_item.assert_called_once()
+        
+        # Check that "exercises" was not in the update expression
+        call_args = self.mock_table.update_item.call_args[1]
+        self.assertIn("date = :date", call_args["UpdateExpression"])
+        self.assertNotIn("exercises", call_args["UpdateExpression"])
+    
+    def test_update_workout_handles_multiple_exercises(self):
+        """
+        Test the update_workout method handling multiple exercises
+        """
+        # Test data with multiple exercises but simpler structure
+        workout_id = "workout123"
+        update_data = {
+            "notes": "Updated notes",
+            "exercises": [
+                {
+                    "completed_id": "exercise1",
+                    "exercise_type": "Squat",
+                    "sets": [
+                        {
+                            "set_id": "set1",
+                            "set_number": 1,
+                            "actual_reps": 5,
+                            "actual_weight": 315.0
+                        }
+                    ]
+                },
+                {
+                    "completed_id": "exercise2",
+                    "exercise_type": "Bench Press",
+                    "sets": []  # No sets for this exercise - should not cause errors
+                },
+                {
+                    "completed_id": "exercise3",
+                    "exercise_type": "Deadlift"  # No 'sets' key at all - should not cause errors
+                }
+            ]
+        }
+        
+        # Mock empty existing sets
+        self.mock_set_repository.get_sets_by_exercise.return_value = []
+        
+        # Call the method
+        self.workout_repository.update_workout(workout_id, update_data)
+        
+        # Assert get_sets_by_exercise was called for each exercise that has sets
+        self.assertEqual(self.mock_set_repository.get_sets_by_exercise.call_count, 2)
+        
+        # Assert create_set was called for the one new set
+        self.assertEqual(self.mock_set_repository.create_set.call_count, 1)
+        
+        # Assert update_item was called on the workout
+        self.mock_table.update_item.assert_called_once()
+        
+        # Check the update expression
+        call_args = self.mock_table.update_item.call_args[1]
+        self.assertIn("notes = :notes", call_args["UpdateExpression"])
+        self.assertEqual(call_args["ExpressionAttributeValues"][":notes"], "Updated notes")
+    
     def test_delete_workout_with_sets(self):
         """
         Test deleting a workout and its sets
