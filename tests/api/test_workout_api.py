@@ -288,19 +288,25 @@ class TestWorkoutAPI(BaseTest):
         ]
         mock_get_workouts.return_value = mock_workouts
 
-        event = {"pathParameters": {"athlete_id": "athlete456"}}
-        context = {}
+        # Override the boto3 resource for this specific test
+        with patch('boto3.resource', return_value=self.mock_dynamodb):
+            event = {
+                "pathParameters": {
+                    "athlete_id": "athlete456"
+                }
+            }
+            context = {}
 
-        # Call API
-        response = workout_api.get_workouts_by_athlete(event, context)
+            # Call API
+            response = workout_api.get_workouts_by_athlete(event, context)
 
-        # Assert
-        self.assertEqual(response["statusCode"], 200)
-        response_body = json.loads(response["body"])
-        self.assertEqual(len(response_body), 2)
-        self.assertEqual(response_body[0]["workout_id"], "workout1")
-        self.assertEqual(response_body[1]["workout_id"], "workout2")
-        mock_get_workouts.assert_called_once_with("athlete456")
+            # Assert
+            self.assertEqual(response["statusCode"], 200)
+            response_body = json.loads(response["body"])
+            self.assertEqual(len(response_body), 2)
+            self.assertEqual(response_body[0]["workout_id"], "workout1")
+            self.assertEqual(response_body[1]["workout_id"], "workout2")
+            mock_get_workouts.assert_called_once_with("athlete456")
 
     @patch(
         "src.repositories.workout_repository.WorkoutRepository.get_workouts_by_athlete"
@@ -312,16 +318,22 @@ class TestWorkoutAPI(BaseTest):
         # Setup
         mock_get_workouts.side_effect = Exception("Test exception")
 
-        event = {"pathParameters": {"athlete_id": "athlete456"}}
-        context = {}
+        # Override the boto3 resource for this specific test
+        with patch('boto3.resource', return_value=self.mock_dynamodb):
+            event = {
+                "pathParameters": {
+                    "athlete_id": "athlete456"
+                }
+            }
+            context = {}
 
-        # Call API
-        response = workout_api.get_workouts_by_athlete(event, context)
+            # Call API
+            response = workout_api.get_workouts_by_athlete(event, context)
 
-        # Assert
-        self.assertEqual(response["statusCode"], 500)
-        response_body = json.loads(response["body"])
-        self.assertEqual(response_body["error"], "Test exception")
+            # Assert
+            self.assertEqual(response["statusCode"], 500)
+            response_body = json.loads(response["body"])
+            self.assertEqual(response_body["error"], "Test exception")
 
     @patch("src.services.workout_service.WorkoutService.get_workout")
     def test_get_workout_exception(self, mock_get_workout):

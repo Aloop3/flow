@@ -1,7 +1,7 @@
 import unittest
 import os
 import json
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 # Set test environment variables
 os.environ["USERS_TABLE"] = "Users-Test"
@@ -13,12 +13,7 @@ os.environ["WORKOUTS_TABLE"] = "Workouts-Test"
 os.environ["COMPLETED_EXERCISES_TABLE"] = "CompletedExercises-Test"
 os.environ["RELATIONSHIPS_TABLE"] = "Relationships-Test"
 os.environ["SETS_TABLE"] = "Sets-Test"
-os.environ["REGION"] = "us-east-1"
-
-# Apply boto3 patch globally to prevent AWS calls during tests
-boto3_patch = patch("boto3.resource")
-boto3_patch.start()
-
+os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 class BaseTest(unittest.TestCase):
     """Base test class that handles setting up mocks for DynamoDB and other AWS services."""
@@ -26,12 +21,19 @@ class BaseTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up test environment once before all tests in the class."""
-        pass
+        # Create a mock table to return from DynamoDB resource
+        cls.mock_table = MagicMock()
+        cls.mock_dynamodb = MagicMock()
+        cls.mock_dynamodb.Table.return_value = cls.mock_table
+
+        # Start the boto3 patch with our mock
+        cls.boto3_patch = patch('boto3.resource', return_value=cls.mock_dynamodb)
+        cls.boto3_mock = cls.boto3_patch.start()
 
     @classmethod
     def tearDownClass(cls):
         """Clean up after all tests in the class have run."""
-        boto3_patch.stop()
+        cls.boto3_patch.stop()
 
     def create_api_gateway_event(
         self,
