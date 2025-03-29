@@ -4,6 +4,7 @@ from decimal import Decimal
 from src.utils.decimal_converter import convert_floats_to_decimals
 from src.repositories.base_repository import BaseRepository
 
+
 class TestDecimalConverter(unittest.TestCase):
     """
     Test suite for the decimal conversion utility
@@ -32,7 +33,7 @@ class TestDecimalConverter(unittest.TestCase):
             "weight": 319.67,
             "rpe": 8.5,
             "notes": "Beltless",
-            "order": 1
+            "order": 1,
         }
 
         result = convert_floats_to_decimals(exercise_data)
@@ -50,7 +51,7 @@ class TestDecimalConverter(unittest.TestCase):
         self.assertEqual(result["sets"], 3)
         self.assertEqual(result["reps"], 5)
         self.assertEqual(result["notes"], "Beltless")
-    
+
     def test_convert_workout_with_exercises(self):
         """
         Test converting a completed workout with multiple exercises
@@ -70,7 +71,7 @@ class TestDecimalConverter(unittest.TestCase):
                     "actual_sets": 5,
                     "actual_reps": 5,
                     "actual_weight": 319.67,
-                    "actual_rpe": 6.5
+                    "actual_rpe": 6.5,
                 },
                 {
                     "completed_id": "comp2",
@@ -78,9 +79,9 @@ class TestDecimalConverter(unittest.TestCase):
                     "actual_sets": 3,
                     "actual_reps": 8,
                     "actual_weight": 297.62,
-                    "actual_rpe": 7.5
-                }
-            ]
+                    "actual_rpe": 7.5,
+                },
+            ],
         }
 
         result = convert_floats_to_decimals(workout_data)
@@ -96,6 +97,7 @@ class TestDecimalConverter(unittest.TestCase):
         self.assertIsInstance(result["exercises"][1]["actual_rpe"], Decimal)
         self.assertEqual(str(result["exercises"][1]["actual_rpe"]), "7.5")
 
+
 class TestBaseRepository(unittest.TestCase):
     """
     Test suite for BaseRepository with decimal conversion
@@ -110,7 +112,7 @@ class TestBaseRepository(unittest.TestCase):
         self.mock_table = MagicMock()
 
         # Create a patcher for boto3.resource
-        self.resource_patcher = patch('boto3.resource')
+        self.resource_patcher = patch("boto3.resource")
         self.mock_resource = self.resource_patcher.start()
 
         # Configure boto3.resource to returna mock DynamoDB with the mock table
@@ -128,7 +130,7 @@ class TestBaseRepository(unittest.TestCase):
 
         # Stop the patcher
         self.resource_patcher.stop()
-    
+
     def test_create_exercise_with_float_values(self):
         """
         Test that create method converts exercise float values to Decimal
@@ -143,7 +145,7 @@ class TestBaseRepository(unittest.TestCase):
             "weight": 286.6,
             "rpe": 6.0,
             "notes": "Beltless for one set",
-            "order": 1
+            "order": 1,
         }
 
         # Call the create method
@@ -161,7 +163,7 @@ class TestBaseRepository(unittest.TestCase):
         self.assertEqual(str(dynamo_item["weight"]), "286.6")
         self.assertIsInstance(dynamo_item["rpe"], Decimal)
         self.assertEqual(str(dynamo_item["rpe"]), "6.0")
-    
+
     def test_update_exercise_weights(self):
         """
         Test that update method converts weight/RPE values to Decimal
@@ -170,10 +172,7 @@ class TestBaseRepository(unittest.TestCase):
         # Test data for updating an exercise
         key = {"exercise_id": "ex123"}
         update_expression = "set weight = :weight, rpe = :rpe"
-        expression_values = {
-            ":weight": 308.65,
-            ":rpe": 7.5
-        }
+        expression_values = {":weight": 308.65, ":rpe": 7.5}
 
         # Call the update method
         self.repo.update(key, update_expression, expression_values)
@@ -191,5 +190,5 @@ class TestBaseRepository(unittest.TestCase):
         self.assertEqual(str(dynamo_expression_values[":rpe"]), "7.5")
 
 
-if __name__ == "__main__": # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

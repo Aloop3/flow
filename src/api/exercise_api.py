@@ -8,6 +8,7 @@ logger.setLevel(logging.INFO)
 
 exercise_service = ExerciseService()
 
+
 def create_exercise(event, context):
     """
     Handle POST /exercises request to create a new exercise
@@ -29,24 +30,26 @@ def create_exercise(event, context):
         # Validate required fields
         if not workout_id or not exercise_type or sets is None or reps is None:
             return create_response(400, {"error": "Missing required fields"})
-        
+
         # Create exercise
         exercise = exercise_service.create_exercise(
-            workout_id=workout_id, 
-            exercise_type=exercise_type, 
-            exercise_category=exercise_category, 
-            sets=sets, 
-            reps=reps, 
-            weight=weight, 
-            rpe=rpe, 
-            notes=notes, 
-            order=order)
-        
+            workout_id=workout_id,
+            exercise_type=exercise_type,
+            exercise_category=exercise_category,
+            sets=sets,
+            reps=reps,
+            weight=weight,
+            rpe=rpe,
+            notes=notes,
+            order=order,
+        )
+
         return create_response(201, exercise.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error creating exercise: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def get_exercises_for_workout(event, context):
     """
@@ -56,14 +59,15 @@ def get_exercises_for_workout(event, context):
         # Extract workout_id from path parameters
         workout_id = event["pathParameters"]["workout_id"]
 
-        # Get exercises 
+        # Get exercises
         exercises = exercise_service.get_exercises_for_workout(workout_id)
 
         return create_response(200, [exercise.to_dict() for exercise in exercises])
-    
+
     except Exception as e:
         logger.error(f"Error getting exercises for workout: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def update_exercise(event, context):
     """
@@ -79,12 +83,13 @@ def update_exercise(event, context):
 
         if not updated_exercise:
             return create_response(404, {"error": "Exercise not found"})
-        
+
         return create_response(200, updated_exercise.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error updating exercise: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def delete_exercise(event, context):
     """
@@ -99,12 +104,13 @@ def delete_exercise(event, context):
 
         if not delete_exercise:
             return create_response(404, {"error": "Exercise not found"})
-        
+
         return create_response(204, {})
-    
+
     except Exception as e:
         logger.error(f"Error deleting exercise: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def reorder_exercises(event, context):
     """
@@ -120,13 +126,16 @@ def reorder_exercises(event, context):
         # Validate required fields
         if not workout_id or not exercise_order:
             return create_response(400, {"error": "Missing required fields"})
-        
-        # Reorder exercises
-        reorder_exercises = exercise_service.reorder_exercises(workout_id, exercise_order)
 
-        return create_response(200, [exercise.to_dict() for exercise in reorder_exercises])
-    
+        # Reorder exercises
+        reorder_exercises = exercise_service.reorder_exercises(
+            workout_id, exercise_order
+        )
+
+        return create_response(
+            200, [exercise.to_dict() for exercise in reorder_exercises]
+        )
+
     except Exception as e:
         logger.error(f"Error reordering exercises: {str(e)}")
         return create_response(500, {"error": str(e)})
-    

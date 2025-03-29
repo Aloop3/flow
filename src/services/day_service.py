@@ -4,11 +4,12 @@ from src.repositories.day_repository import DayRepository
 from src.repositories.exercise_repository import ExerciseRepository
 from src.models.day import Day
 
+
 class DayService:
     def __init__(self):
         self.day_repository: DayRepository = DayRepository()
         self.exercise_repository: ExerciseRepository = ExerciseRepository()
-    
+
     def get_day(self, day_id: str) -> Optional[Day]:
         """
         Retrieves the day data by day_id
@@ -21,7 +22,7 @@ class DayService:
         if day_data:
             return Day(**day_data)
         return None
-    
+
     def get_days_for_week(self, week_id: str) -> List[Day]:
         """
         Retrieves all days for a specific week
@@ -31,8 +32,15 @@ class DayService:
         """
         days_data = self.day_repository.get_days_by_week(week_id)
         return [Day(**day_data) for day_data in days_data]
-    
-    def create_day(self, week_id: str, day_number: int, date: str, focus: Optional[str] = None, notes: Optional[str] = None) -> Day:
+
+    def create_day(
+        self,
+        week_id: str,
+        day_number: int,
+        date: str,
+        focus: Optional[str] = None,
+        notes: Optional[str] = None,
+    ) -> Day:
         """
         Creates a new day
 
@@ -49,12 +57,12 @@ class DayService:
             day_number=day_number,
             date=date,
             focus=focus,
-            notes=notes
+            notes=notes,
         )
 
         self.day_repository.create_day(day.to_dict())
         return day
-    
+
     def update_day(self, day_id: str, update_data: Dict[str, Any]) -> Optional[Day]:
         """
         Updates the day data by day_id
@@ -65,7 +73,7 @@ class DayService:
         """
         self.day_repository.update_day(day_id, update_data)
         return self.get_day(day_id)
-    
+
     def delete_day(self, day_id: str) -> bool:
         """
         Deletes the day by day_id

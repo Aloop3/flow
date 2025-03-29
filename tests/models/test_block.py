@@ -1,10 +1,12 @@
 import unittest
 from src.models.block import Block
 
+
 class TestBlockModel(unittest.TestCase):
     """
     Test suite for the Block model
     """
+
     def test_block_initialization(self):
         """
         Test Block model initialization with required attributes
@@ -17,7 +19,7 @@ class TestBlockModel(unittest.TestCase):
             start_date="2025-03-01",
             end_date="2025-04-01",
             status="active",
-            coach_id="789"
+            coach_id="789",
         )
 
         self.assertEqual(block.block_id, "123")
@@ -41,7 +43,7 @@ class TestBlockModel(unittest.TestCase):
             start_date="2025-03-01",
             end_date="2025-04-01",
             status="active",
-            coach_id="789"
+            coach_id="789",
         )
 
         block_dict = block.to_dict()
@@ -56,5 +58,5 @@ class TestBlockModel(unittest.TestCase):
         self.assertEqual(block_dict["coach_id"], "789")
 
 
-if __name__ == "__main__": # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

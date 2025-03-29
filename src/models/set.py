@@ -1,21 +1,25 @@
 from typing import Dict, Any, Optional, Union
 
+
 class Set:
     """
     Represents a single set within a completed exercise.
-    
+
     This allows for tracking individual set performance rather than just aggregated exercise data.
     """
-    def __init__(self, set_id: str, 
-                 completed_exercise_id: str,
-                 workout_id: str, 
-                 set_number: int,
-                 reps: int,
-                 weight: float,
-                 rpe: Optional[Union[int, float]] = None,
-                 notes: Optional[str] = None,
-                 completed: Optional[bool] = None):
-        
+
+    def __init__(
+        self,
+        set_id: str,
+        completed_exercise_id: str,
+        workout_id: str,
+        set_number: int,
+        reps: int,
+        weight: float,
+        rpe: Optional[Union[int, float]] = None,
+        notes: Optional[str] = None,
+        completed: Optional[bool] = None,
+    ):
         # Validation
         if not set_id:
             raise ValueError("set_id cannot be empty")
@@ -45,7 +49,7 @@ class Set:
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert the Set object to a dictionary for storage
-        
+
         :return: Dictionary representation of the Set
         """
         result = {
@@ -56,10 +60,10 @@ class Set:
             "reps": self.reps,
             "weight": self.weight,
             "rpe": self.rpe,
-            "notes": self.notes
+            "notes": self.notes,
         }
-        
+
         if self.completed is not None:
             result["completed"] = self.completed
-            
+
         return result

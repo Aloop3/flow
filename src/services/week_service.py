@@ -4,11 +4,12 @@ from src.repositories.week_repository import WeekRepository
 from src.repositories.day_repository import DayRepository
 from src.models.week import Week
 
+
 class WeekService:
     def __init__(self):
         self.week_repository: WeekRepository = WeekRepository()
         self.day_repository: DayRepository = DayRepository()
-    
+
     def get_week(self, week_id: str) -> Optional[Week]:
         """
         Retrieves the week data by week_id
@@ -20,7 +21,7 @@ class WeekService:
         if week_data:
             return Week(**week_data)
         return None
-    
+
     def get_weeks_for_block(self, block_id: str) -> List[Week]:
         """
         Retrieves all the weeks associated with a specific training block by block_id
@@ -30,8 +31,10 @@ class WeekService:
         """
         weeks_data = self.week_repository.get_weeks_by_block(block_id)
         return [Week(**week_data) for week_data in weeks_data]
-    
-    def create_week(self, block_id: str, week_number: int, notes: Optional[str] = None) -> Week:
+
+    def create_week(
+        self, block_id: str, week_number: int, notes: Optional[str] = None
+    ) -> Week:
         """
         Creates a new week and associates it with a training block
 
@@ -44,12 +47,12 @@ class WeekService:
             week_id=str(uuid.uuid4()),
             block_id=block_id,
             week_number=week_number,
-            notes=notes
+            notes=notes,
         )
-        
+
         self.week_repository.create_week(week.to_dict())
         return week
-    
+
     def update_week(self, week_id: str, update_data: Dict[str, Any]) -> Optional[Week]:
         """
         Updates the week data by week_id
@@ -60,7 +63,7 @@ class WeekService:
         """
         self.week_repository.update_week(week_id, update_data)
         return self.get_week(week_id)
-    
+
     def delete_week(self, week_id: str) -> bool:
         """
         Deletes the week by week_id

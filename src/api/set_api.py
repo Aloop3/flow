@@ -10,6 +10,7 @@ logger.setLevel(logging.INFO)
 set_service = SetService()
 workout_service = WorkoutService()
 
+
 def get_set(event, context):
     """
     Handle GET /sets/{set_id} request to get a set by ID
@@ -25,10 +26,11 @@ def get_set(event, context):
             return create_response(404, {"error": "Set not found"})
 
         return create_response(200, exercise_set.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error getting set: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def get_sets_for_exercise(event, context):
     """
@@ -41,14 +43,14 @@ def get_sets_for_exercise(event, context):
         # Get sets
         sets = set_service.get_sets_for_exercise(exercise_id)
 
-        return create_response(200, {
-            "exercise_id": exercise_id,
-            "sets": [s.to_dict() for s in sets]
-        })
-    
+        return create_response(
+            200, {"exercise_id": exercise_id, "sets": [s.to_dict() for s in sets]}
+        )
+
     except Exception as e:
         logger.error(f"Error getting sets for exercise: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def create_set(event, context):
     """
@@ -63,8 +65,10 @@ def create_set(event, context):
         required_fields = ["workout_id", "reps", "weight"]
         for field in required_fields:
             if field not in body:
-                return create_response(400, {"error": f"Missing required field: {field}"})
-        
+                return create_response(
+                    400, {"error": f"Missing required field: {field}"}
+                )
+
         # Extract set data
         set_data = {
             "set_number": body.get("set_number"),
@@ -72,27 +76,28 @@ def create_set(event, context):
             "weight": body.get("weight"),
             "rpe": body.get("rpe"),
             "notes": body.get("notes"),
-            "completed": body.get("completed", True)
+            "completed": body.get("completed", True),
         }
 
         # Create set
         exercise_set = workout_service.add_set_to_exercise(
             workout_id=body.get("workout_id"),
             exercise_id=exercise_id,
-            set_data=set_data
+            set_data=set_data,
         )
 
         if not exercise_set:
             return create_response(400, {"error": "Failed to create set"})
 
         return create_response(201, exercise_set.to_dict())
-    
+
     except ValueError as e:
         logger.error(f"Error creating set: {str(e)}")
         return create_response(400, {"error": str(e)})
     except Exception as e:
         logger.error(f"Error creating set: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def update_set(event, context):
     """
@@ -110,10 +115,11 @@ def update_set(event, context):
             return create_response(404, {"error": "Set not found"})
 
         return create_response(200, updated_set.to_dict())
-    
+
     except Exception as e:
         logger.error(f"Error updating set: {str(e)}")
         return create_response(500, {"error": str(e)})
+
 
 def delete_set(event, context):
     """
@@ -130,7 +136,7 @@ def delete_set(event, context):
             return create_response(404, {"error": "Set not found"})
 
         return create_response(204, {})
-    
+
     except Exception as e:
         logger.error(f"Error deleting set: {str(e)}")
         return create_response(500, {"error": str(e)})

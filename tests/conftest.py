@@ -17,11 +17,12 @@ os.environ["RELATIONSHIPS_TABLE"] = "Relationships-Test"
 os.environ["SETS_TABLE"] = "Sets-Test"
 os.environ["REGION"] = "us-east-1"
 
+
 class LambdaContext:
     """
     Mock Lambda context for testing
     """
-    
+
     def __init__(self):
         self.function_name = "test-function"
         self.aws_request_id = "test-request-123"
@@ -31,15 +32,16 @@ class LambdaContext:
         self.log_stream_name = "2025/03/28/[$LATEST]abcdef123456"
         self.identity = None
         self.client_context = None
-    
+
     def get_remaining_time_in_millis(self):
         return 15000
+
 
 class APIGatewayEvent:
     """
     Utility class for creating API Gateway events
     """
-    
+
     @staticmethod
     def create(
         method="GET",
@@ -48,11 +50,11 @@ class APIGatewayEvent:
         query_parameters=None,
         body=None,
         headers=None,
-        auth_claims=None
+        auth_claims=None,
     ):
         """
         Create an API Gateway event for testing Lambda handlers
-        
+
         :param method: HTTP method (GET, POST, etc.)
         :param path: API path
         :param path_parameters: Path parameters
@@ -70,25 +72,26 @@ class APIGatewayEvent:
             "headers": headers or {},
             "body": json.dumps(body) if body is not None else None,
             "requestContext": {
-                "authorizer": {
-                    "claims": auth_claims or {}
-                } if auth_claims else {}
-            }
+                "authorizer": {"claims": auth_claims or {}} if auth_claims else {}
+            },
         }
         return event
+
 
 # Mock AWS services
 @pytest.fixture(scope="session", autouse=True)
 def mock_boto3():
     """Global mock for boto3 resource to prevent real AWS calls"""
-    with patch('boto3.resource') as mock:
+    with patch("boto3.resource") as mock:
         yield mock
+
 
 @pytest.fixture
 def mock_dynamodb_table():
     """Simple mock for a DynamoDB table"""
     table = MagicMock()
     return table
+
 
 # DynamoDB fixtures using moto
 @pytest.fixture
@@ -97,142 +100,149 @@ def dynamodb():
     with mock_dynamodb():
         yield boto3.resource("dynamodb", region_name="us-east-1")
 
+
 @pytest.fixture(scope="session", autouse=True)
 def mock_dynamodb_session():
     """Start moto mocking at the beginning of the test session"""
     with mock_dynamodb():
         yield
 
+
 @pytest.fixture
 def users_table(dynamodb):
     """Fixture that creates and yields the Users table"""
     table = dynamodb.create_table(
         TableName=os.environ["USERS_TABLE"],
-        KeySchema=[
-            {"AttributeName": "user_id", "KeyType": "HASH"}
-        ],
+        KeySchema=[{"AttributeName": "user_id", "KeyType": "HASH"}],
         AttributeDefinitions=[
             {"AttributeName": "user_id", "AttributeType": "S"},
-            {"AttributeName": "email", "AttributeType": "S"}
+            {"AttributeName": "email", "AttributeType": "S"},
         ],
         GlobalSecondaryIndexes=[
             {
                 "IndexName": "email-index",
-                "KeySchema": [
-                    {"AttributeName": "email", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "email", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
             }
         ],
-        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
     )
     yield table
+
 
 @pytest.fixture
 def blocks_table(dynamodb):
     """Fixture that creates and yields the Blocks table"""
     table = dynamodb.create_table(
         TableName=os.environ["BLOCKS_TABLE"],
-        KeySchema=[
-            {"AttributeName": "block_id", "KeyType": "HASH"}
-        ],
+        KeySchema=[{"AttributeName": "block_id", "KeyType": "HASH"}],
         AttributeDefinitions=[
             {"AttributeName": "block_id", "AttributeType": "S"},
             {"AttributeName": "athlete_id", "AttributeType": "S"},
-            {"AttributeName": "coach_id", "AttributeType": "S"}
+            {"AttributeName": "coach_id", "AttributeType": "S"},
         ],
         GlobalSecondaryIndexes=[
             {
                 "IndexName": "athlete-index",
-                "KeySchema": [
-                    {"AttributeName": "athlete_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "athlete_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
             },
             {
                 "IndexName": "coach-index",
-                "KeySchema": [
-                    {"AttributeName": "coach_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "coach_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
-            }
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
+            },
         ],
-        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
     )
     yield table
+
 
 @pytest.fixture
 def weeks_table(dynamodb):
     """Fixture that creates and yields the Weeks table"""
     table = dynamodb.create_table(
         TableName=os.environ["WEEKS_TABLE"],
-        KeySchema=[
-            {"AttributeName": "week_id", "KeyType": "HASH"}
-        ],
+        KeySchema=[{"AttributeName": "week_id", "KeyType": "HASH"}],
         AttributeDefinitions=[
             {"AttributeName": "week_id", "AttributeType": "S"},
-            {"AttributeName": "block_id", "AttributeType": "S"}
+            {"AttributeName": "block_id", "AttributeType": "S"},
         ],
         GlobalSecondaryIndexes=[
             {
                 "IndexName": "block-index",
-                "KeySchema": [
-                    {"AttributeName": "block_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "block_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
             }
         ],
-        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
     )
     yield table
+
 
 @pytest.fixture
 def relationships_table(dynamodb):
     """Fixture that creates and yields the Relationships table"""
     table = dynamodb.create_table(
         TableName=os.environ["RELATIONSHIPS_TABLE"],
-        KeySchema=[
-            {"AttributeName": "relationship_id", "KeyType": "HASH"}
-        ],
+        KeySchema=[{"AttributeName": "relationship_id", "KeyType": "HASH"}],
         AttributeDefinitions=[
             {"AttributeName": "relationship_id", "AttributeType": "S"},
             {"AttributeName": "coach_id", "AttributeType": "S"},
-            {"AttributeName": "athlete_id", "AttributeType": "S"}
+            {"AttributeName": "athlete_id", "AttributeType": "S"},
         ],
         GlobalSecondaryIndexes=[
             {
                 "IndexName": "coach-index",
-                "KeySchema": [
-                    {"AttributeName": "coach_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "coach_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
             },
             {
                 "IndexName": "athlete-index",
-                "KeySchema": [
-                    {"AttributeName": "athlete_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "athlete_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
             },
             {
                 "IndexName": "coach-athlete-index",
                 "KeySchema": [
                     {"AttributeName": "coach_id", "KeyType": "HASH"},
-                    {"AttributeName": "athlete_id", "KeyType": "RANGE"}
+                    {"AttributeName": "athlete_id", "KeyType": "RANGE"},
                 ],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
-            }
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
+            },
         ],
-        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
     )
     yield table
+
 
 # Add fixtures for other tables as needed
 @pytest.fixture
@@ -240,74 +250,73 @@ def days_table(dynamodb):
     """Fixture that creates and yields the Days table"""
     table = dynamodb.create_table(
         TableName=os.environ["DAYS_TABLE"],
-        KeySchema=[
-            {"AttributeName": "day_id", "KeyType": "HASH"}
-        ],
+        KeySchema=[{"AttributeName": "day_id", "KeyType": "HASH"}],
         AttributeDefinitions=[
             {"AttributeName": "day_id", "AttributeType": "S"},
-            {"AttributeName": "week_id", "AttributeType": "S"}
+            {"AttributeName": "week_id", "AttributeType": "S"},
         ],
         GlobalSecondaryIndexes=[
             {
                 "IndexName": "week-index",
-                "KeySchema": [
-                    {"AttributeName": "week_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "week_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
             }
         ],
-        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
     )
     yield table
+
 
 @pytest.fixture
 def workouts_table(dynamodb):
     """Fixture that creates and yields the Workouts table"""
     table = dynamodb.create_table(
         TableName=os.environ["WORKOUTS_TABLE"],
-        KeySchema=[
-            {"AttributeName": "workout_id", "KeyType": "HASH"}
-        ],
+        KeySchema=[{"AttributeName": "workout_id", "KeyType": "HASH"}],
         AttributeDefinitions=[
             {"AttributeName": "workout_id", "AttributeType": "S"},
             {"AttributeName": "athlete_id", "AttributeType": "S"},
-            {"AttributeName": "day_id", "AttributeType": "S"}
+            {"AttributeName": "day_id", "AttributeType": "S"},
         ],
         GlobalSecondaryIndexes=[
             {
                 "IndexName": "athlete-index",
-                "KeySchema": [
-                    {"AttributeName": "athlete_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "athlete_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
             },
             {
                 "IndexName": "day-index",
-                "KeySchema": [
-                    {"AttributeName": "day_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "day_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
-            }
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
+            },
         ],
-        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
     )
     yield table
+
 
 @pytest.fixture
 def sets_table(dynamodb):
     """Fixture that creates and yields the Sets table"""
     table = dynamodb.create_table(
         TableName=os.environ["SETS_TABLE"],
-        KeySchema=[
-            {"AttributeName": "set_id", "KeyType": "HASH"}
-        ],
+        KeySchema=[{"AttributeName": "set_id", "KeyType": "HASH"}],
         AttributeDefinitions=[
             {"AttributeName": "set_id", "AttributeType": "S"},
             {"AttributeName": "completed_exercise_id", "AttributeType": "S"},
-            {"AttributeName": "workout_id", "AttributeType": "S"}
+            {"AttributeName": "workout_id", "AttributeType": "S"},
         ],
         GlobalSecondaryIndexes=[
             {
@@ -316,17 +325,21 @@ def sets_table(dynamodb):
                     {"AttributeName": "completed_exercise_id", "KeyType": "HASH"}
                 ],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
             },
             {
                 "IndexName": "workout-index",
-                "KeySchema": [
-                    {"AttributeName": "workout_id", "KeyType": "HASH"}
-                ],
+                "KeySchema": [{"AttributeName": "workout_id", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
-                "ProvisionedThroughput": {"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
-            }
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
+            },
         ],
-        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1}
+        ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
     )
     yield table

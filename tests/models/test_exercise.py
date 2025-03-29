@@ -2,6 +2,7 @@ import unittest
 from src.models.exercise import Exercise
 from src.models.exercise_type import ExerciseType, ExerciseCategory
 
+
 class TestExerciseModel(unittest.TestCase):
     """
     Test suite for the Exercise Model
@@ -13,14 +14,14 @@ class TestExerciseModel(unittest.TestCase):
         """
         exercise = Exercise(
             exercise_id="ex123",
-                workout_id="workout456",
-                exercise_type="Squat",  # Predefined exercise as string
-                sets=3,
-                reps=5,
-                weight=315.0,
-                rpe=8.5,
-                notes="Focus on bracing into belt",
-                order=1
+            workout_id="workout456",
+            exercise_type="Squat",  # Predefined exercise as string
+            sets=3,
+            reps=5,
+            weight=315.0,
+            rpe=8.5,
+            notes="Focus on bracing into belt",
+            order=1,
         )
 
         self.assertEqual(exercise.exercise_id, "ex123")
@@ -51,7 +52,7 @@ class TestExerciseModel(unittest.TestCase):
             weight=70.0,
             rpe=7.5,
             notes="Focus on elbow path",
-            order=2
+            order=2,
         )
 
         self.assertEqual(exercise.exercise_type.name, "Dumbbell Bench Press")
@@ -65,10 +66,10 @@ class TestExerciseModel(unittest.TestCase):
         exercise = Exercise(
             exercise_id="ex123",
             workout_id="workout456",
-            exercise_type="Single Arm Cable Pull", # Custom exercise
+            exercise_type="Single Arm Cable Pull",  # Custom exercise
             sets=3,
             reps=12,
-            weight=50.0
+            weight=50.0,
         )
 
         self.assertEqual(exercise.exercise_type.name, "Single Arm Cable Pull")
@@ -88,11 +89,11 @@ class TestExerciseModel(unittest.TestCase):
             weight=315.0,
             rpe=8.5,
             notes="Focus on bracing into belt",
-            order=1
+            order=1,
         )
-        
+
         exercise_dict = exercise.to_dict()
-        
+
         self.assertEqual(exercise_dict["exercise_id"], "ex123")
         self.assertEqual(exercise_dict["workout_id"], "workout456")
         self.assertEqual(exercise_dict["exercise_type"], "Squat")
@@ -120,7 +121,7 @@ class TestExerciseModel(unittest.TestCase):
             "weight": 315.0,
             "rpe": 8.5,
             "notes": "Focus on bracing into belt",
-            "order": 1
+            "order": 1,
         }
 
         exercise = Exercise.from_dict(data)
@@ -143,7 +144,7 @@ class TestExerciseModel(unittest.TestCase):
             "is_predefined": False,
             "sets": 3,
             "reps": 12,
-            "weight": 100.0
+            "weight": 100.0,
         }
 
         exercise = Exercise.from_dict(data)
@@ -151,7 +152,7 @@ class TestExerciseModel(unittest.TestCase):
         self.assertEqual(exercise.exercise_id, "ex456")
         self.assertEqual(exercise.exercise_type.name, "Custom Exercise")
         self.assertFalse(exercise.exercise_type.is_predefined)
-    
+
     def test_exercise_category_assignment(self):
         """
         Test that exercise_category is assigned correctly
@@ -163,7 +164,7 @@ class TestExerciseModel(unittest.TestCase):
             sets=3,
             reps=5,
             weight=315.0,
-            exercise_category="barbell"
+            exercise_category="barbell",
         )
 
         custom_exercise = Exercise(
@@ -173,22 +174,24 @@ class TestExerciseModel(unittest.TestCase):
             sets=3,
             reps=5,
             weight=200.0,
-            exercise_category="random_category"
+            exercise_category="random_category",
         )
 
         no_category_exercise = Exercise(
-             exercise_id="ex130",
+            exercise_id="ex130",
             workout_id="workout463",
             exercise_type="Zercher squat",
             sets=3,
             reps=5,
             weight=405.0,
-            exercise_category=None
+            exercise_category=None,
         )
 
         self.assertEqual(exercise.exercise_category, ExerciseCategory.BARBELL)
         self.assertEqual(custom_exercise.exercise_category, ExerciseCategory.CUSTOM)
-        self.assertEqual(no_category_exercise.exercise_category, ExerciseCategory.CUSTOM)
+        self.assertEqual(
+            no_category_exercise.exercise_category, ExerciseCategory.CUSTOM
+        )
 
     def test_empty_exercise_id(self):
         """
@@ -201,9 +204,9 @@ class TestExerciseModel(unittest.TestCase):
                 exercise_type="Squat",
                 sets=3,
                 reps=5,
-                weight=315.0
+                weight=315.0,
             )
-    
+
     def test_empty_workout_id(self):
         """
         Test Exercise with empty workout_id
@@ -211,156 +214,157 @@ class TestExerciseModel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Exercise(
                 exercise_id="ex123",
-                workout_id="", # Empty ID should raise ValueError
+                workout_id="",  # Empty ID should raise ValueError
                 exercise_type="Squat",
                 sets=3,
                 reps=5,
-                weight=315.0
+                weight=315.0,
             )
-    
+
     def test_invalid_exercise_type(self):
         """
         Test Exercise with invalid exercise_type parameter type
         """
         with self.assertRaises(TypeError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
-                exercise_type=231, # Not a string or ExerciseType
+                exercise_type=231,  # Not a string or ExerciseType
                 sets=3,
                 reps=5,
-                weight=315.0
+                weight=315.0,
             )
-    
+
     def test_negative_sets(self):
         """
         Test Exercise with negative sets value
         """
         with self.assertRaises(ValueError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
                 exercise_type="Squat",
-                sets=-3, # Negative sets should raise ValueError
+                sets=-3,  # Negative sets should raise ValueError
                 reps=5,
-                weight=315.0
+                weight=315.0,
             )
-    
+
     def test_zero_sets(self):
         """
         Test Exercise with zero sets value
         """
         with self.assertRaises(ValueError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
                 exercise_type="Squat",
-                sets=0, # Zero sets should raise ValueError
+                sets=0,  # Zero sets should raise ValueError
                 reps=5,
-                weight=315.0
+                weight=315.0,
             )
-    
+
     def test_negative_reps(self):
         """
         Test Exercise with negative reps value
         """
         with self.assertRaises(ValueError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
                 exercise_type="Squat",
-                sets=3, 
-                reps=-5, # Negative reps should raise ValueError
-                weight=315.0
+                sets=3,
+                reps=-5,  # Negative reps should raise ValueError
+                weight=315.0,
             )
-    
+
     def test_zero_reps(self):
         """
         Test Exercise with zero reps value
         """
         with self.assertRaises(ValueError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
                 exercise_type="Squat",
-                sets=3, 
-                reps=0, # Zero reps should raise ValueError
-                weight=315.0
+                sets=3,
+                reps=0,  # Zero reps should raise ValueError
+                weight=315.0,
             )
-    
+
     def test_negative_weight(self):
         """
         Test Exercise with negative weight value
         """
         with self.assertRaises(ValueError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
                 exercise_type="Squat",
-                sets=3, 
-                reps=5, 
-                weight=-315.0 # Negative weight should raise ValueError
+                sets=3,
+                reps=5,
+                weight=-315.0,  # Negative weight should raise ValueError
             )
-    
+
     def test_zero_weight(self):
         """
         Test Exercise with zero weight value
         """
         with self.assertRaises(ValueError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
                 exercise_type="Squat",
-                sets=3, 
-                reps=5, 
-                weight=0.0 # Zero weight should raise ValueError
+                sets=3,
+                reps=5,
+                weight=0.0,  # Zero weight should raise ValueError
             )
-    
+
     def test_missing_weight(self):
         """
         Test Exercise with missing weight value
         """
         with self.assertRaises(TypeError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
                 exercise_type="Squat",
-                sets=3, 
-                reps=5 
+                sets=3,
+                reps=5
                 # weight is missing but required
             )
-    
+
     def test_invalid_rpe_range(self):
         """
         Test Exercise with RPE value outside of valid range
         """
         with self.assertRaises(ValueError):
             Exercise(
-                exercise_id="ex123", 
+                exercise_id="ex123",
                 workout_id="workout456",
                 exercise_type="Squat",
-                sets=3, 
-                reps=5, 
+                sets=3,
+                reps=5,
                 weight=315.0,
-                rpe=12.0  # RPE > 10 should raise ValueError
+                rpe=12.0,  # RPE > 10 should raise ValueError
             )
-    
+
     def test_negative_order(self):
         """
         Test Exercise with negative order value
         """
         with self.assertRaises(ValueError):
             Exercise(
-            exercise_id="ex123",
-            workout_id="workout456",
-            exercise_type="Squat",
-            sets=3,
-            reps=5,
-            weight=315.0,
-            rpe=8.5,
-            notes="Focus on bracing into belt",
-            order=-1  # Invalid negative order
-        )
+                exercise_id="ex123",
+                workout_id="workout456",
+                exercise_type="Squat",
+                sets=3,
+                reps=5,
+                weight=315.0,
+                rpe=8.5,
+                notes="Focus on bracing into belt",
+                order=-1,  # Invalid negative order
+            )
 
-if __name__ == "__main__": # pragma: no cover
+
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()
