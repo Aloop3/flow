@@ -73,6 +73,49 @@ class TestWorkoutModel(unittest.TestCase):
         self.assertEqual(len(workout.exercises), 1)
         self.assertEqual(workout.exercises[0].completed_id, "comp123")
     
+    def test_add_set_to_exercise(self):
+        """
+        Test adding a set to a specific exercise in the workout
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-03-15"
+        )
+
+        # Create a completed exercise
+        exercise = CompletedExercise(
+            completed_id="comp123",
+            workout_id="workout123",
+            exercise_id="ex789"
+        )
+        
+        workout.add_exercise(exercise)
+        
+        # Create a set
+        exercise_set = Set(
+            set_id="set1",
+            completed_exercise_id="comp123",
+            workout_id="workout123",
+            set_number=1,
+            reps=5,
+            weight=225.0,
+            completed=True
+        )
+        
+        # Add the set to the exercise via the workout
+        result = workout.add_set_to_exercise("comp123", exercise_set)
+        
+        # Assert the set was added successfully
+        self.assertTrue(result)
+        self.assertEqual(len(workout.exercises[0].sets), 1)
+        self.assertEqual(workout.exercises[0].sets[0].set_id, "set1")
+        
+        # Test adding a set to a non-existent exercise
+        non_existent_result = workout.add_set_to_exercise("non-existent", exercise_set)
+        self.assertFalse(non_existent_result)  # Should return False when exercise not found
+    
     def test_get_exercise(self):
         """
         Test getting an exercise by ID

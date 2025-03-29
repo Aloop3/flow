@@ -62,10 +62,6 @@ class Workout:
             return False
             
         exercise.add_set(exercise_set)
-        
-        # Update workout status if needed based on set completion
-        if exercise_set.completed is not None:
-            self._update_status()
             
         return True
 
