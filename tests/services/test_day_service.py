@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import uuid
 from src.models.day import Day
 from src.services.day_service import DayService
 
