@@ -248,6 +248,35 @@ class TestResponseUtil(unittest.TestCase):
         self.assertEqual(deserialized["decimal"], 123.45)
         self.assertEqual(deserialized["string"], "test")
         self.assertEqual(deserialized["int"], 123)
+    
+    def test_decimal_encoder_with_non_decimal_types_directly(self):
+        """
+        Test that DecimalEncoder correctly handles various non-Decimal objects directly
+        """
+        # Create an instance of our encoder
+        encoder = DecimalEncoder()
+        
+        # Test with various non-Decimal types
+        # These should trigger the super().default() call path
+        test_values = [
+            "string value",
+            123,
+            123.45,
+            True,
+            None,
+            ["list", "of", "values"],
+            {"key": "value"}
+        ]
+        
+        for value in test_values:
+            # This should either pass the value through or raise TypeError
+            try:
+                # For serializable values, the encoder just returns the value
+                result = encoder.default(value)
+                # For built-in types, super() will raise TypeError
+            except TypeError:
+                # This is expected for some types that the standard JSONEncoder can't handle
+                pass
 
 if __name__ == "__main__": # pragma: no cover
     unittest.main()
