@@ -289,12 +289,8 @@ class TestWorkoutAPI(BaseTest):
         mock_get_workouts.return_value = mock_workouts
 
         # Override the boto3 resource for this specific test
-        with patch('boto3.resource', return_value=self.mock_dynamodb):
-            event = {
-                "pathParameters": {
-                    "athlete_id": "athlete456"
-                }
-            }
+        with patch("boto3.resource", return_value=self.mock_dynamodb):
+            event = {"pathParameters": {"athlete_id": "athlete456"}}
             context = {}
 
             # Call API
@@ -319,12 +315,8 @@ class TestWorkoutAPI(BaseTest):
         mock_get_workouts.side_effect = Exception("Test exception")
 
         # Override the boto3 resource for this specific test
-        with patch('boto3.resource', return_value=self.mock_dynamodb):
-            event = {
-                "pathParameters": {
-                    "athlete_id": "athlete456"
-                }
-            }
+        with patch("boto3.resource", return_value=self.mock_dynamodb):
+            event = {"pathParameters": {"athlete_id": "athlete456"}}
             context = {}
 
             # Call API

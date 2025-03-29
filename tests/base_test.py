@@ -15,6 +15,7 @@ os.environ["RELATIONSHIPS_TABLE"] = "Relationships-Test"
 os.environ["SETS_TABLE"] = "Sets-Test"
 os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
+
 class BaseTest(unittest.TestCase):
     """Base test class that handles setting up mocks for DynamoDB and other AWS services."""
 
@@ -27,7 +28,7 @@ class BaseTest(unittest.TestCase):
         cls.mock_dynamodb.Table.return_value = cls.mock_table
 
         # Start the boto3 patch with our mock
-        cls.boto3_patch = patch('boto3.resource', return_value=cls.mock_dynamodb)
+        cls.boto3_patch = patch("boto3.resource", return_value=cls.mock_dynamodb)
         cls.boto3_mock = cls.boto3_patch.start()
 
     @classmethod
