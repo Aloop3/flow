@@ -86,7 +86,7 @@ class TestExerciseService(unittest.TestCase):
         # Assert the result is None
         self.assertIsNone(result)
     
-    def test_get_exercises_for_workout(self):
+    def test_get_exercises_by_workout(self):
         """
         Test retrieving all exercises for a workout
         """
@@ -384,6 +384,85 @@ class TestExerciseService(unittest.TestCase):
         # Assert the result is an empty list
         self.assertEqual(result, [])
 
+    def test_delete_exercises_by_workout(self):
+        """
+        Test deleting all exercises associated with a workout
+        """
+        # Mock data for exercises
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "workout_id": "workout123",
+                "exercise_type": "Squat"
+            },
+            {
+                "exercise_id": "ex2",
+                "workout_id": "workout123",
+                "exercise_type": "Bench Press"
+            },
+            {
+                "exercise_id": "ex3",
+                "workout_id": "workout123",
+                "exercise_type": "Deadlift"
+            }
+        ]
+        
+        # Mock the batch writer
+        mock_batch_writer = MagicMock()
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=mock_batch_writer)
+        mock_context_manager.__exit__ = MagicMock(return_value=None)
+        
+        # Configure mocks
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = mock_exercises
+        self.exercise_repository_mock.table.batch_writer.return_value = mock_context_manager
+        
+        # Call the service method
+        result = self.exercise_service.delete_exercises_by_workout("workout123")
+        
+        # Assert repository was called to get exercises
+        self.exercise_repository_mock.get_exercises_by_workout.assert_called_once_with("workout123")
+        
+        # Assert batch writer was used
+        self.exercise_repository_mock.table.batch_writer.assert_called_once()
+        
+        # Assert delete_item was called for each exercise
+        self.assertEqual(mock_batch_writer.delete_item.call_count, 3)
+        mock_batch_writer.delete_item.assert_any_call(Key={"exercise_id": "ex1"})
+        mock_batch_writer.delete_item.assert_any_call(Key={"exercise_id": "ex2"})
+        mock_batch_writer.delete_item.assert_any_call(Key={"exercise_id": "ex3"})
+        
+        # Assert the result is the number of exercises deleted
+        self.assertEqual(result, 3)
+    
+    def test_delete_exercises_by_workout_empty(self):
+        """
+        Test deleting exercises for a workout that has no exercises
+        """
+        # Configure mock to return empty list
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = []
+        
+        # Mock the batch writer
+        mock_batch_writer = MagicMock()
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=mock_batch_writer)
+        mock_context_manager.__exit__ = MagicMock(return_value=None)
+        self.exercise_repository_mock.table.batch_writer.return_value = mock_context_manager
+        
+        # Call the service method
+        result = self.exercise_service.delete_exercises_by_workout("empty-workout")
+        
+        # Assert repository was called
+        self.exercise_repository_mock.get_exercises_by_workout.assert_called_once_with("empty-workout")
+        
+        # Assert batch writer was used
+        self.exercise_repository_mock.table.batch_writer.assert_called_once()
+        
+        # Assert delete_item was not called (no exercises to delete)
+        mock_batch_writer.delete_item.assert_not_called()
+        
+        # Assert the result is 0 (no exercises deleted)
+        self.assertEqual(result, 0)
 
 if __name__ == "__main__": # pragma: no cover
     unittest.main()

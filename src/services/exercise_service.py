@@ -120,10 +120,10 @@ class ExerciseService:
         :param workout_id: The workout_id to filter exercises by
         :return: The number of exercises deleted
         """
-        exercises = self.get_exercises_by_workout(workout_id)
+        exercises = self.exercise_repository.get_exercises_by_workout(workout_id)
 
         # Batch delete all exercises
-        with self.table.batch_writer() as batch:
+        with self.exercise_repository.table.batch_writer() as batch:
             for exercise in exercises:
                 batch.delete_item(
                     Key={"exercise_id": exercise["exercise_id"]}
