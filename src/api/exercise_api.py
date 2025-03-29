@@ -16,7 +16,7 @@ def create_exercise(event, context):
         body = json.loads(event["body"])
 
         # Extract exercise data from the request
-        day_id = body.get("day_id")
+        workout_id = body.get("workout_id")
         exercise_type = body.get("exercise_type")
         exercise_category = body.get("exercise_category")
         sets = body.get("sets")
@@ -27,12 +27,12 @@ def create_exercise(event, context):
         order = body.get("order")
 
         # Validate required fields
-        if not day_id or not exercise_type or sets is None or reps is None:
+        if not workout_id or not exercise_type or sets is None or reps is None:
             return create_response(400, {"error": "Missing required fields"})
         
         # Create exercise
         exercise = exercise_service.create_exercise(
-            day_id=day_id, 
+            workout_id=workout_id, 
             exercise_type=exercise_type, 
             exercise_category=exercise_category, 
             sets=sets, 
@@ -48,21 +48,21 @@ def create_exercise(event, context):
         logger.error(f"Error creating exercise: {str(e)}")
         return create_response(500, {"error": str(e)})
 
-def get_exercises_for_day(event, context):
+def get_exercises_for_workout(event, context):
     """
-    Handle GET /days/{day_id}/exercises request to get all exercises for a training day
+    Handle GET /workouts/{workout_id}/exercises request to get all exercises for a training workout
     """
     try:
-        # Extract day_id from path parameters
-        day_id = event["pathParameters"]["day_id"]
+        # Extract workout_id from path parameters
+        workout_id = event["pathParameters"]["workout_id"]
 
         # Get exercises 
-        exercises = exercise_service.get_exercises_for_day(day_id)
+        exercises = exercise_service.get_exercises_for_workout(workout_id)
 
         return create_response(200, [exercise.to_dict() for exercise in exercises])
     
     except Exception as e:
-        logger.error(f"Error getting exercises for day: {str(e)}")
+        logger.error(f"Error getting exercises for workout: {str(e)}")
         return create_response(500, {"error": str(e)})
 
 def update_exercise(event, context):
@@ -114,15 +114,15 @@ def reorder_exercises(event, context):
         body = json.loads(event["body"])
 
         # Extract parameters
-        day_id = body.get("day_id")
+        workout_id = body.get("workout_id")
         exercise_order = body.get("exercise_order", [])
 
         # Validate required fields
-        if not day_id or not exercise_order:
+        if not workout_id or not exercise_order:
             return create_response(400, {"error": "Missing required fields"})
         
         # Reorder exercises
-        reorder_exercises = exercise_service.reorder_exercises(day_id, exercise_order)
+        reorder_exercises = exercise_service.reorder_exercises(workout_id, exercise_order)
 
         return create_response(200, [exercise.to_dict() for exercise in reorder_exercises])
     

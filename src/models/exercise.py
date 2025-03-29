@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional, Union
 from .exercise_type import ExerciseType, ExerciseCategory
 
 class Exercise:
-    def __init__(self, exercise_id: str, day_id: str, exercise_type: Union[str, ExerciseType], 
+    def __init__(self, exercise_id: str, workout_id: str, exercise_type: Union[str, ExerciseType], 
                  sets: int, reps: int, weight: float, rpe: Optional[Union[int, float]] = None, 
                  notes: Optional[str] = None, order: Optional[int] = None, 
                  exercise_category: Optional[ExerciseCategory] = None,
@@ -10,8 +10,8 @@ class Exercise:
         # Validate IDs
         if not exercise_id:
             raise ValueError("exercise_id cannot be empty")
-        if not day_id:
-            raise ValueError("day_id cannot be empty")
+        if not workout_id:
+            raise ValueError("workout_id cannot be empty")
             
         # Validate numerical values
         if sets <= 0:
@@ -57,7 +57,7 @@ class Exercise:
             self.exercise_category = ExerciseCategory.CUSTOM
         
         self.exercise_id: str = exercise_id
-        self.day_id: str = day_id
+        self.workout_id: str = workout_id
         self.sets: int = sets # Planned sets
         self.reps: int = reps # Planned reps
         self.weight: float = weight # Planned weight
@@ -71,7 +71,7 @@ class Exercise:
         """
         result = {
             "exercise_id": self.exercise_id,
-            "day_id": self.day_id,
+            "workout_id": self.workout_id,
             "exercise_type": str(self.exercise_type),
             "exercise_category": self.exercise_category.value,
             "sets": self.sets,
@@ -104,7 +104,7 @@ class Exercise:
 
         return cls(
             exercise_id=data["exercise_id"],
-            day_id=data["day_id"],
+            workout_id=data["workout_id"],
             exercise_type=data["exercise_type"],
             sets=data["sets"],
             reps=data["reps"],

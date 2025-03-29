@@ -1,6 +1,6 @@
 import json
 import logging
-from src.api import user, block, week, day, exercise, workout, relationship
+from src.api import block_api, day_api, exercise_api, relationship_api, set_api, user_api, week_api, workout_api
 from src.utils.response import create_response
 
 logger = logging.getLogger()
@@ -9,50 +9,58 @@ logger.setLevel(logging.INFO)
 # Router configuration mapping API paths to their handlers
 ROUTE_CONFIG = {
     # User routes
-    "POST /users": user.create_user,
-    "GET /users/{user_id}": user.get_user,
-    "PUT /users/{user_id}": user.update_user,
+    "POST /users": user_api.create_user,
+    "GET /users/{user_id}": user_api.get_user,
+    "PUT /users/{user_id}": user_api.update_user,
     
     # Block routes
-    "POST /blocks": block.create_block,
-    "GET /blocks/{block_id}": block.get_block,
-    "GET /athletes/{athlete_id}/blocks": block.get_blocks_by_athlete,
-    "PUT /blocks/{block_id}": block.update_block,
-    "DELETE /blocks/{block_id}": block.delete_block,
+    "POST /blocks": block_api.create_block,
+    "GET /blocks/{block_id}": block_api.get_block,
+    "GET /athletes/{athlete_id}/blocks": block_api.get_blocks_by_athlete,
+    "PUT /blocks/{block_id}": block_api.update_block,
+    "DELETE /blocks/{block_id}": block_api.delete_block,
     
     # Week routes
-    "POST /weeks": week.create_week,
-    "GET /blocks/{block_id}/weeks": week.get_weeks_for_block,
-    "PUT /weeks/{week_id}": week.update_week,
-    "DELETE /weeks/{week_id}": week.delete_week,
+    "POST /weeks": week_api.create_week,
+    "GET /blocks/{block_id}/weeks": week_api.get_weeks_for_block,
+    "PUT /weeks/{week_id}": week_api.update_week,
+    "DELETE /weeks/{week_id}": week_api.delete_week,
     
     # Day routes
-    "POST /days": day.create_day,
-    "GET /weeks/{week_id}/days": day.get_days_for_week,
-    "PUT /days/{day_id}": day.update_day,
-    "DELETE /days/{day_id}": day.delete_day,
+    "POST /days": day_api.create_day,
+    "GET /weeks/{week_id}/days": day_api.get_days_for_week,
+    "PUT /days/{day_id}": day_api.update_day,
+    "DELETE /days/{day_id}": day_api.delete_day,
     
     # Exercise routes
-    "POST /exercises": exercise.create_exercise,
-    "GET /days/{day_id}/exercises": exercise.get_exercises_for_day,
-    "PUT /exercises/{exercise_id}": exercise.update_exercise,
-    "DELETE /exercises/{exercise_id}": exercise.delete_exercise,
-    "POST /exercises/reorder": exercise.reorder_exercises,
+    "POST /exercises": exercise_api.create_exercise,
+    "GET /workout/{workout_id}/exercises": exercise_api.get_exercises_for_workout,
+    "PUT /exercises/{exercise_id}": exercise_api.update_exercise,
+    "DELETE /exercises/{exercise_id}": exercise_api.delete_exercise,
+    "POST /exercises/reorder": exercise_api.reorder_exercises,
     
     # Workout routes
-    "POST /workouts": workout.create_workout,
-    "GET /workouts/{workout_id}": workout.get_workout,
-    "GET /athletes/{athlete_id}/workouts": workout.get_workouts_by_athlete,
-    "PUT /workouts/{workout_id}": workout.update_workout,
-    "DELETE /workouts/{workout_id}": workout.delete_workout,
+    "POST /workouts": workout_api.create_workout,
+    "GET /workouts/{workout_id}": workout_api.get_workout,
+    "GET /athletes/{athlete_id}/workouts": workout_api.get_workouts_by_athlete,
+    "GET /athletes/{athlete_id}/days/{day_id}/workout": workout_api.get_workout_by_day,
+    "PUT /workouts/{workout_id}": workout_api.update_workout,
+    "DELETE /workouts/{workout_id}": workout_api.delete_workout,
     
     # Relationship routes
-    "POST /relationships": relationship.create_relationship,
-    "POST /relationships/{relationship_id}/accept": relationship.accept_relationship,
-    "POST /relationships/{relationship_id}/end": relationship.end_relationship,
-    "GET /coaches/{coach_id}/relationships": relationship.get_relationships_for_coach,
-    "GET /relationships/{relationship_id}": relationship.get_relationship,
+    "POST /relationships": relationship_api.create_relationship,
+    "POST /relationships/{relationship_id}/accept": relationship_api.accept_relationship,
+    "POST /relationships/{relationship_id}/end": relationship_api.end_relationship,
+    "GET /coaches/{coach_id}/relationships": relationship_api.get_relationships_for_coach,
+    "GET /relationships/{relationship_id}": relationship_api.get_relationship,
     
+    # Set routes - NEW
+    "GET /sets/{set_id}": set_api.get_set,
+    "GET /exercises/{exercise_id}/sets": set_api.get_sets_for_exercise,
+    "POST /exercises/{exercise_id}/sets": set_api.create_set,
+    "PUT /sets/{set_id}": set_api.update_set,
+    "DELETE /sets/{set_id}": set_api.delete_set,
+
     # Analytics routes
     # "GET /analytics/athletes/{athlete_id}/max-weight": analytics.get_max_weight_history,
     # "GET /analytics/athletes/{athlete_id}/volume": analytics.calculate_volume,

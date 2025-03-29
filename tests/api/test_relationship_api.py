@@ -4,7 +4,7 @@ from tests.base_test import BaseTest
 
 # Import relationship after the mocks are set up in BaseTest
 with patch('boto3.resource'):
-    from src.api import relationship
+    from src.api import relationship_api
 
 class TestRelationshipAPI(BaseTest):
     """
@@ -37,7 +37,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.create_relationship(event, context)
+        response = relationship_api.create_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 201)
@@ -64,13 +64,37 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.create_relationship(event, context)
+        response = relationship_api.create_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertIn("Missing required fields", response_body["error"])
         mock_create_relationship.assert_not_called()
+    
+    @patch('src.services.relationship_service.RelationshipService.create_relationship')
+    def test_create_relationship_exception(self, mock_create_relationship):
+        """
+        Test relationship creation with exception
+        """
+        # Setup
+        mock_create_relationship.side_effect = Exception("Test exception")
+        
+        event = {
+            "body": json.dumps({
+                "coach_id": "coach456",
+                "athlete_id": "athlete789"
+            })
+        }
+        context = {}
+        
+        # Call API
+        response = relationship_api.create_relationship(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
     
     @patch('src.services.relationship_service.RelationshipService.accept_relationship')
     def test_accept_relationship_success(self, mock_accept_relationship):
@@ -97,7 +121,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.accept_relationship(event, context)
+        response = relationship_api.accept_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -123,12 +147,35 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.accept_relationship(event, context)
+        response = relationship_api.accept_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertIn("Relationship not found or already", response_body["error"])
+    
+    @patch('src.services.relationship_service.RelationshipService.accept_relationship')
+    def test_accept_relationship_exception(self, mock_accept_relationship):
+        """
+        Test relationship acceptance with exception
+        """
+        # Setup
+        mock_accept_relationship.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "relationship_id": "rel123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = relationship_api.accept_relationship(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
     
     @patch('src.services.relationship_service.RelationshipService.end_relationship')
     def test_end_relationship_success(self, mock_end_relationship):
@@ -155,7 +202,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.end_relationship(event, context)
+        response = relationship_api.end_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -181,12 +228,35 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.end_relationship(event, context)
+        response = relationship_api.end_relationship(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertIn("Relationship not found or already ended", response_body["error"])
+    
+    @patch('src.services.relationship_service.RelationshipService.end_relationship')
+    def test_end_relationship_exception(self, mock_end_relationship):
+        """
+        Test relationship ending with exception
+        """
+        # Setup
+        mock_end_relationship.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "relationship_id": "rel123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = relationship_api.end_relationship(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
     
     @patch('src.services.relationship_service.RelationshipService.get_relationships_for_coach')
     def test_get_relationships_for_coach_success(self, mock_get_relationships):
@@ -222,7 +292,7 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.get_relationships_for_coach(event, context)
+        response = relationship_api.get_relationships_for_coach(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
@@ -257,11 +327,114 @@ class TestRelationshipAPI(BaseTest):
         context = {}
         
         # Call API
-        response = relationship.get_relationships_for_coach(event, context)
+        response = relationship_api.get_relationships_for_coach(event, context)
         
         # Assert
         self.assertEqual(response["statusCode"], 200)
         mock_get_relationships.assert_called_once_with("coach456", None)
+
+    @patch('src.services.relationship_service.RelationshipService.get_relationships_for_coach')
+    def test_get_relationships_for_coach_exception(self, mock_get_relationships):
+        """
+        Test get relationships for coach with exception
+        """
+        # Setup
+        mock_get_relationships.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "coach_id": "coach456"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = relationship_api.get_relationships_for_coach(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
+    
+    @patch('src.services.relationship_service.RelationshipService.get_relationship')
+    def test_get_relationship_success(self, mock_get_relationship):
+        """
+        Test successful relationship retrieval
+        """
+        # Setup
+        mock_rel = MagicMock()
+        mock_rel.to_dict.return_value = {
+            "relationship_id": "rel123",
+            "coach_id": "coach456",
+            "athlete_id": "athlete789",
+            "status": "active",
+            "created_at": "2025-03-13T12:00:00"
+        }
+        mock_get_relationship.return_value = mock_rel
+        
+        event = {
+            "pathParameters": {
+                "relationship_id": "rel123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = relationship_api.get_relationship(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["relationship_id"], "rel123")
+        self.assertEqual(response_body["coach_id"], "coach456")
+        self.assertEqual(response_body["status"], "active")
+        mock_get_relationship.assert_called_once_with("rel123")
+    
+    @patch('src.services.relationship_service.RelationshipService.get_relationship')
+    def test_get_relationship_not_found(self, mock_get_relationship):
+        """
+        Test relationship retrieval when relationship not found
+        """
+        # Setup
+        mock_get_relationship.return_value = None
+        
+        event = {
+            "pathParameters": {
+                "relationship_id": "nonexistent"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = relationship_api.get_relationship(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertIn("Relationship not found", response_body["error"])
+    
+    @patch('src.services.relationship_service.RelationshipService.get_relationship')
+    def test_get_relationship_exception(self, mock_get_relationship):
+        """
+        Test relationship retrieval with exception
+        """
+        # Setup
+        mock_get_relationship.side_effect = Exception("Test exception")
+        
+        event = {
+            "pathParameters": {
+                "relationship_id": "rel123"
+            }
+        }
+        context = {}
+        
+        # Call API
+        response = relationship_api.get_relationship(event, context)
+        
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
 
 if __name__ == "__main__":
     unittest.main()

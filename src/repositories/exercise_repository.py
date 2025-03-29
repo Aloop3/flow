@@ -10,16 +10,16 @@ class ExerciseRepository(BaseRepository):
     def get_exercise(self, exercise_id: str) -> Optional[Dict[str, Any]]:
         return self.get_by_id("exercise_id", exercise_id)
     
-    def get_exercises_by_day(self, day_id: str) -> List[Dict[str, Any]]:
+    def get_exercises_by_workout(self, workout_id: str) -> List[Dict[str, Any]]:
         """
-        Get all exxercises for a given day_id
+        Get all exercises for a given workout_id
         
-        :param day_id: The day_id to filter exercises by
-        :return: A list of exercises for the given day_id
+        :param workout_id: The workout_id to filter exercises by
+        :return: A list of exercises for the given workout_id
         """
         response = self.table.query(
-            IndexName="day-index",
-            KeyConditionExpression=Key("day_id").eq(day_id)
+            IndexName="workout-index",
+            KeyConditionExpression=Key("workout_id").eq(workout_id)
         )
 
         return response.get("Items", [])
@@ -66,14 +66,14 @@ class ExerciseRepository(BaseRepository):
         """
         return self.delete({"exercise_id": exercise_id})
     
-    def delete_exercises_by_day(self, day_id: str) -> int:
+    def delete_exercises_by_workout(self, workout_id: str) -> int:
         """
-        Delete all exercises associated with a given day_id (cascading delete)
+        Delete all exercises associated with a given workout_id (cascading delete)
 
-        :param day_id: The day_id to filter exercises by
+        :param workout_id: The workout_id to filter exercises by
         :return: The number of exercises deleted
         """
-        exercises = self.get_exercises_by_day(day_id)
+        exercises = self.get_exercises_by_workout(workout_id)
 
         # Batch delete all exercises
         with self.table.batch_writer() as batch:

@@ -170,6 +170,84 @@ class TestResponseUtil(unittest.TestCase):
         self.assertIsInstance(encoder.default(week_number), float)
         self.assertIsInstance(encoder.default(weight), float)
         self.assertIsInstance(encoder.default(rpe), float)
+    
+    def test_create_response_with_mixed_types(self):
+        """
+        Test creating a response with both Decimal and non-Decimal types
+        """
+        
+        # Setup
+        status_code = 200
+        body = {
+            "decimal_value": Decimal("123.45"),
+            "string_value": "test",
+            "int_value": 123,
+            "float_value": 123.45,
+            "bool_value": True,
+            "none_value": None,
+            "list_value": [1, 2, 3],
+            "nested": {
+                "decimal": Decimal("678.90")
+            }
+        }
+        
+        # Call utility
+        response = create_response(status_code, body)
+        
+        # Parse the body JSON and check content
+        parsed_body = json.loads(response["body"])
+        
+        # Check all values were serialized correctly
+        self.assertEqual(parsed_body["decimal_value"], 123.45)
+        self.assertEqual(parsed_body["string_value"], "test")
+        self.assertEqual(parsed_body["int_value"], 123)
+        self.assertEqual(parsed_body["float_value"], 123.45)
+        self.assertEqual(parsed_body["bool_value"], True)
+        self.assertIsNone(parsed_body["none_value"])
+        self.assertEqual(parsed_body["list_value"], [1, 2, 3])
+        self.assertEqual(parsed_body["nested"]["decimal"], 678.90)
+        
+        # Verify types
+        self.assertIsInstance(parsed_body["decimal_value"], float)
+        self.assertIsInstance(parsed_body["nested"]["decimal"], float)
+
+    def test_decimal_encoder_non_decimal(self):
+        """
+        Test that DecimalEncoder correctly handles non-Decimal objects by calling super()
+        """
+        # Create a custom object that cannot be serialized by default
+        class UnserializableObject:
+            pass
+        
+        # Create an instance of our encoder
+        encoder = DecimalEncoder()
+        
+        # Test that it correctly serializes a Decimal
+        self.assertEqual(encoder.default(Decimal("123.45")), 123.45)
+        
+        # Test that it raises TypeError for unserializable objects (the super() call)
+        with self.assertRaises(TypeError):
+            encoder.default(UnserializableObject())
+        
+    def test_decimal_encoder_full_serialization(self):
+        """
+        Test that DecimalEncoder works in a full serialization scenario
+        """
+        # Create mixed data with both Decimal and normal values
+        data = {
+            "decimal": Decimal("123.45"),
+            "string": "test",
+            "int": 123
+        }
+        
+        # Serialize using our encoder
+        serialized = json.dumps(data, cls=DecimalEncoder)
+        
+        # Deserialize and check values
+        deserialized = json.loads(serialized)
+        self.assertEqual(deserialized["decimal"], 123.45)
+        self.assertEqual(deserialized["string"], "test")
+        self.assertEqual(deserialized["int"], 123)
 
 if __name__ == "__main__": # pragma: no cover
     unittest.main()
