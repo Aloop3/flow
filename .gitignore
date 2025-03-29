@@ -1,11 +1,13 @@
-.venv/
 .aws-sam/
 __pycache__/
 *.pyc
 .env
 venv/
+.venv/
+.venv-py39/
 .pytest_cache/
 .vscode/
 .coverage
 **/.DS_Store
 .coveragerc
+.coverage.*
