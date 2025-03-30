@@ -274,6 +274,15 @@ class TestResponseUtil(unittest.TestCase):
                 # This is expected for some types that the standard JSONEncoder can't handle
                 pass
 
+    def test_decimal_encoder_handles_other_types(self):
+        """
+        Test that DecimalEncoder correctly delegates to parent encoder for non-Decimal types.
+        """
+        encoder = DecimalEncoder()
+        # Test with a native JSON type (dict) to trigger super().default()
+        result = encoder.default({"key": "value"})  # This should return a serializable type
+        self.assertEqual(result, {"key": "value"})
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
