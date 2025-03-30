@@ -280,7 +280,9 @@ class TestResponseUtil(unittest.TestCase):
         """
         encoder = DecimalEncoder()
         # Test with a native JSON type (dict) to trigger super().default()
-        result = encoder.default({"key": "value"})  # This should return a serializable type
+        result = encoder.default(
+            {"key": "value"}
+        )  # This should return a serializable type
         self.assertEqual(result, {"key": "value"})
 
 
