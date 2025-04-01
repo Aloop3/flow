@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Dict, Any
-from src.utils.response import create_response
+from src.middleware.middleware import ValidationError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -14,7 +14,7 @@ def validate_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     :param event: The Lambda event
     :param context: The Lambda context
     :return: The event, possibly modified
-    :raises: Exception if authentication fails
+    :raises: ValidationError if authentication fails
     """
     if (
         "requestContext" not in event
@@ -22,7 +22,7 @@ def validate_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         or "claims" not in event["requestContext"]["authorizer"]
     ):
         logger.error("No auth claims found in event")
-        raise Exception("Unauthorized")
+        raise ValidationError("Unauthorized")
 
     return event
 
@@ -68,7 +68,7 @@ def handle_errors(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     :param event: The Lambda event
     :param context: The Lambda context
     :return: The event, possibly with added error information
-    :raises: Exception for common errors with appropriate message
+    :raises: ValidationError for common errors with appropriate message
     """
     # Initialize an errors object in the event if it doesn't exist
     if "errors" not in event:
@@ -80,7 +80,7 @@ def handle_errors(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             json.loads(event["body"])
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in request body: {str(e)}")
-            raise Exception(f"Invalid JSON in request body: {str(e)}")
+            raise ValidationError(f"Invalid JSON in request body: {str(e)}")
 
     # Check if required path parameters exist
     method = event.get("httpMethod", "").upper()
@@ -136,7 +136,7 @@ def handle_errors(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             for param in required_params:
                 if not path_parameters or param not in path_parameters:
                     logger.error(f"Missing path parameter: {param}")
-                    raise Exception(f"Missing path parameter: {param}")
+                    raise ValidationError(f"Missing path parameter: {param}")
 
     # Check if required query parameters exist for specific endpoints
     query_param_requirements = {
@@ -178,18 +178,18 @@ def handle_errors(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Check if current path is in the exception list
         path_parts = path.split("/")
 
-        # FIX: Properly check for relationship endpoints with path pattern matching
+        # Check for exception endpoints
         is_exception = False
 
         # Check for relationship endpoints like "/relationships/123/accept"
         if (
-            len(path_parts) >= 3
+            len(path_parts) >= 4
             and path_parts[1] == "relationships"
             and path_parts[3] in ["accept", "end"]
         ):
             is_exception = True
 
         if not is_exception:
-            event["errors"].append("Request body is required")
+            raise ValidationError("Request body is required")
 
     return event

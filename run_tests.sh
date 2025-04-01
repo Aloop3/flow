@@ -5,7 +5,8 @@ set -e
 pip install -r requirements-test.txt
 
 # Run tests with coverage
-coverage run -m unittest discover tests
+coverage run --source=src -m pytest
+coverage run --append --source=src -m unittest discover tests
 coverage report -m
 coverage html
 coverage xml

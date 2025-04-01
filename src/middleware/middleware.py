@@ -7,6 +7,12 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
+class ValidationError(Exception):
+    """Exception raised for validation errors"""
+
+    pass
+
+
 class LambdaMiddleware:
     """
     Middleware class for AWS Lambda functions.
@@ -45,6 +51,9 @@ class LambdaMiddleware:
         for middleware in self.middlewares:
             try:
                 event = middleware(event, context)
+            except ValidationError as e:
+                logger.error(f"Validation error: {str(e)}")
+                return create_response(400, {"error": str(e)})
             except Exception as e:
                 logger.error(f"Middleware error: {str(e)}")
                 return create_response(500, {"error": str(e)})
