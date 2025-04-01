@@ -209,7 +209,7 @@ class TestUserAPI(BaseTest):
     def test_create_user_json_decode_error(self):
         """Test create_user with a JSON decode error to cover line 29"""
         # Setup
-        event = {"body": "invalid json"}
+        event = {"body": "invalid:-json"}
         context = {}
 
         # Execute with direct call to ensure middleware doesn't interfere
@@ -435,6 +435,19 @@ class TestUserAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         self.assertIn("error", json.loads(response["body"]))
 
+    def test_get_user_exception(self):
+        """Test for lines 64-65: Exception in get_user"""
+        # Setup - event that will cause KeyError when accessing pathParameters
+        event = {}  # No pathParameters at all
+        context = {}
+
+        # Direct call without patching
+        response = user_api.get_user.__wrapped__(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        self.assertIn("error", json.loads(response["body"]))
+
     @patch("src.services.user_service.UserService.update_user")
     def test_update_user_success(self, mock_update_user):
         """
@@ -624,30 +637,26 @@ class TestUserAPI(BaseTest):
         """
         Test user update with a generic exception from the service
         """
-
         # Setup
-        mock_update_user.side_effect = Exception("Test error")
-
         event = {
             "pathParameters": {"user_id": "user123"},
             "body": json.dumps({"name": "Updated User"}),
         }
         context = {}
 
-        # Middleware should return 500 for unexpected errors
-        with patch(
-            "src.middleware.middleware.LambdaMiddleware.__call__"
-        ) as mock_middleware:
-            mock_middleware.return_value = {
-                "statusCode": 500,
-                "body": json.dumps({"error": "Test error"}),
-            }
-            response = user_api.update_user(event, context)
+        # Patch user_service.update_user to raise a generic exception
+        with patch.object(
+            user_api.user_service,
+            "update_user",
+            side_effect=Exception("Database connection error"),
+        ):
+            # Call the function directly using __wrapped__ to bypass middleware
+            response = user_api.update_user.__wrapped__(event, context)
 
         # Assert
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
-        self.assertEqual(response_body["error"], "Test error")
+        self.assertEqual(response_body["error"], "Database connection error")
 
     def test_update_user_exception(self):
         """Test for lines 88-93: Exception in update_user"""

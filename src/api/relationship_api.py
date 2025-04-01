@@ -2,6 +2,8 @@ import json
 import logging
 from src.services.relationship_service import RelationshipService
 from src.utils.response import create_response
+from src.middleware.middleware import with_middleware
+from src.middleware.common_middleware import log_request, handle_errors
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,6 +11,7 @@ logger.setLevel(logging.INFO)
 relationship_service = RelationshipService()
 
 
+@with_middleware([log_request, handle_errors])
 def create_relationship(event, context):
     """
     Handle POST /relationships request to create a new coach-athlete relationship
@@ -34,6 +37,7 @@ def create_relationship(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def accept_relationship(event, context):
     """
     Handle POST /relationships/{relationship_id}/accept request to accept a coach-athlete relationship
@@ -57,6 +61,7 @@ def accept_relationship(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def end_relationship(event, context):
     """
     Handle POST /relationships/{relationship_id}/end request to end a coach-athlete relationship
@@ -80,6 +85,7 @@ def end_relationship(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_relationships_for_coach(event, context):
     """
     Handle GET /coaches/{coach_id}/relationships request to get all relationships for a coach
@@ -106,6 +112,7 @@ def get_relationships_for_coach(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_relationship(event, context):
     """
     Handle GET /relationships/{relationship_id} request to retrieve a relationship by ID

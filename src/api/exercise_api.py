@@ -2,6 +2,8 @@ import json
 import logging
 from src.services.exercise_service import ExerciseService
 from src.utils.response import create_response
+from src.middleware.middleware import with_middleware
+from src.middleware.common_middleware import log_request, handle_errors
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,6 +11,7 @@ logger.setLevel(logging.INFO)
 exercise_service = ExerciseService()
 
 
+@with_middleware([log_request, handle_errors])
 def create_exercise(event, context):
     """
     Handle POST /exercises request to create a new exercise
@@ -51,6 +54,7 @@ def create_exercise(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_exercises_for_workout(event, context):
     """
     Handle GET /workouts/{workout_id}/exercises request to get all exercises for a training workout
@@ -69,6 +73,7 @@ def get_exercises_for_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def update_exercise(event, context):
     """
     Handle PUT /exercises/{exercise_id} request to update an exercise
@@ -91,6 +96,7 @@ def update_exercise(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def delete_exercise(event, context):
     """
     Handle DELETE /exercises/{exercise_id} request to delete an exercise
@@ -112,6 +118,7 @@ def delete_exercise(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def reorder_exercises(event, context):
     """
     Handle POST /exercises/reorder request to reorder exercises

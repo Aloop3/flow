@@ -136,6 +136,23 @@ class TestDayAPI(BaseTest):
             notes="Heavy squat day",
         )
 
+    def test_create_day_direct_json_decode_error(self):
+        """
+        Test the JSONDecodeError handler in create_day (line 41)
+        """
+        # Setup - create event with invalid JSON
+        event = {"body": "{invalid-json"}
+        context = {}
+
+        # Call the function directly using __wrapped__ to bypass middleware
+        # This ensures we're testing the function's own exception handling
+        response = day_api.create_day.__wrapped__(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Invalid JSON in request body")
+
     @patch("src.services.day_service.DayService.get_days_for_week")
     def test_get_days_for_week_success(self, mock_get_days):
         """

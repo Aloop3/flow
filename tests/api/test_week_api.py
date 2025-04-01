@@ -87,8 +87,36 @@ class TestWeekAPI(BaseTest):
         response = week_api.create_week(event, context)
 
         # Assert
-        self.assertEqual(response["statusCode"], 500)
+        self.assertEqual(response["statusCode"], 400)
         self.assertIn("error", json.loads(response["body"]))
+
+    @patch("src.services.week_service.WeekService.create_week")
+    def test_create_week_service_exception(self, mock_create_week):
+        """
+        Test exception handling in create_week
+        """
+        # Setup - make the service throw an exception
+        mock_create_week.side_effect = Exception("Service error")
+
+        event = {
+            "body": json.dumps(
+                {"block_id": "block456", "week_number": 1, "notes": "Test week"}
+            )
+        }
+        context = {}
+
+        # Call API directly with __wrapped__ to bypass middleware
+        response = week_api.create_week.__wrapped__(event, context)
+
+        # Assert that the exception was caught and a 500 response was returned
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Service error")
+
+        # Verify that the service was called with the right parameters
+        mock_create_week.assert_called_once_with(
+            block_id="block456", week_number=1, notes="Test week"
+        )
 
     @patch("src.services.week_service.WeekService.get_weeks_for_block")
     def test_get_weeks_for_block_success(self, mock_get_weeks):

@@ -2,6 +2,8 @@ import json
 import logging
 from src.services.week_service import WeekService
 from src.utils.response import create_response
+from src.middleware.middleware import with_middleware
+from src.middleware.common_middleware import log_request, handle_errors
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,6 +11,7 @@ logger.setLevel(logging.INFO)
 week_service = WeekService()
 
 
+@with_middleware([log_request, handle_errors])
 def create_week(event, context):
     """
     Handle POST /weeks request to create a new week in a training block
@@ -37,6 +40,7 @@ def create_week(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_weeks_for_block(event, context):
     """
     Handle GET /blocks/{block_id}/weeks request to get all weeks for a training block
@@ -54,6 +58,7 @@ def get_weeks_for_block(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def update_week(event, context):
     """
     Handle PUT /weeks/{week_id} request to update a week by ID
@@ -75,6 +80,7 @@ def update_week(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def delete_week(event, context):
     """
     Handle DELETE /weeks/{week_id} request to delete a week by ID

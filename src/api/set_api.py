@@ -3,6 +3,8 @@ import logging
 from src.services.set_service import SetService
 from src.services.workout_service import WorkoutService
 from src.utils.response import create_response
+from src.middleware.middleware import with_middleware
+from src.middleware.common_middleware import log_request, handle_errors
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -11,6 +13,7 @@ set_service = SetService()
 workout_service = WorkoutService()
 
 
+@with_middleware([log_request, handle_errors])
 def get_set(event, context):
     """
     Handle GET /sets/{set_id} request to get a set by ID
@@ -32,6 +35,7 @@ def get_set(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_sets_for_exercise(event, context):
     """
     Handle GET /exercises/{exercise_id}/sets request to get all sets for an exercise
@@ -52,6 +56,7 @@ def get_sets_for_exercise(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def create_set(event, context):
     """
     Handle POST /exercises/{exercise_id}/sets request to create a new set
@@ -99,6 +104,7 @@ def create_set(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def update_set(event, context):
     """
     Handle PUT /sets/{set_id} request to update a set
@@ -121,6 +127,7 @@ def update_set(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def delete_set(event, context):
     """
     Handle DELETE /sets/{set_id} request to delete a set
