@@ -2,6 +2,8 @@ import json
 import logging
 from src.services.day_service import DayService
 from src.utils.response import create_response
+from src.middleware.middleware import with_middleware
+from src.middleware.common_middleware import log_request, handle_errors
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,6 +11,7 @@ logger.setLevel(logging.INFO)
 day_service = DayService()
 
 
+@with_middleware([log_request, handle_errors])
 def create_day(event, context):
     """
     Handle POST /days request to create a new day
@@ -41,6 +44,7 @@ def create_day(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_days_for_week(event, context):
     """
     Handle GET /weeks/{week_id}/days request to get all days for a training week
@@ -59,6 +63,7 @@ def get_days_for_week(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def update_day(event, context):
     """
     Lambda function to update a day by ID
@@ -81,6 +86,7 @@ def update_day(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def delete_day(event, context):
     """
     Handle DELETE /days/{day_id} request to delete day

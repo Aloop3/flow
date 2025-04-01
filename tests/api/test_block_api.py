@@ -83,6 +83,22 @@ class TestBlockAPI(BaseTest):
         self.assertIn("Invalid JSON in request body", response_body["error"])
         mock_create_block.assert_not_called()
 
+    def test_create_block_direct_json_decode_error(self):
+        """
+        Test direct JSON decode error handling in create_block
+        """
+        # Setup event with invalid JSON
+        event = {"body": "{invalid:'json"}
+        context = {}
+
+        # Call the function directly using __wrapped__ to bypass middleware
+        response = block_api.create_block.__wrapped__(event, context)
+
+        # Assert that the JSON error was caught specifically in the function
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Invalid JSON in request body")
+
     @patch("src.services.block_service.BlockService.create_block")
     def test_create_block_missing_fields(self, mock_create_block):
         """
@@ -368,6 +384,22 @@ class TestBlockAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Invalid JSON in request body", response_body["error"])
         mock_update_block.assert_not_called()
+
+    def test_update_block_direct_json_decode_error(self):
+        """
+        Test direct JSON decode error handling in update_block
+        """
+        # Setup event with valid path parameters but invalid JSON
+        event = {"pathParameters": {"block_id": "block123"}, "body": "{invalid-json"}
+        context = {}
+
+        # Call the function directly using __wrapped__ to bypass middleware
+        response = block_api.update_block.__wrapped__(event, context)
+
+        # Assert that the JSON error was caught specifically in the function
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Invalid JSON in request body")
 
     @patch("src.services.block_service.BlockService.update_block")
     def test_update_block_success(self, mock_update_block):

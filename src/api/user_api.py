@@ -60,9 +60,6 @@ def get_user(event, context):
 
         return create_response(200, user.to_dict())
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in request body: {str(e)}")
-        return create_response(400, {"error": "Invalid JSON in request body"})
     except Exception as e:
         logger.error(f"Error getting user: {str(e)}")
         return create_response(500, {"error": str(e)})

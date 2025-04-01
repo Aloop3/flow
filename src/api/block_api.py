@@ -2,6 +2,9 @@ import json
 import logging
 from src.services.block_service import BlockService
 from src.utils.response import create_response
+from src.middleware.middleware import with_middleware
+from src.middleware.common_middleware import log_request, handle_errors
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -9,6 +12,7 @@ logger.setLevel(logging.INFO)
 block_service = BlockService()
 
 
+@with_middleware([log_request, handle_errors])
 def create_block(event, context):
     """
     Handle POST /blocks request to create a new training block
@@ -50,6 +54,7 @@ def create_block(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_block(event, context):
     """
     Handle GET /blocks/{block_id} request to get a block by ID
@@ -77,6 +82,7 @@ def get_block(event, context):
         return create_response(500, {"error": f"Internal server error: {str(e)}"})
 
 
+@with_middleware([log_request, handle_errors])
 def get_blocks_by_athlete(event, context):
     """
     Handle GET/athletes/{athlete_id}/blocks request to get blocks by athlete ID
@@ -100,6 +106,7 @@ def get_blocks_by_athlete(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def update_block(event, context):
     """
     Handle PUT /blocks/{block_id} request to update a block by ID
@@ -136,6 +143,7 @@ def update_block(event, context):
         return create_response(500, {"error": f"Internal server error: {str(e)}"})
 
 
+@with_middleware([log_request, handle_errors])
 def delete_block(event, context):
     """
     Handle DELETE /blocks/{block_id} request to delete a block by ID

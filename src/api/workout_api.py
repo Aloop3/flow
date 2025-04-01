@@ -3,6 +3,8 @@ import logging
 from src.services.workout_service import WorkoutService
 from src.repositories.workout_repository import WorkoutRepository
 from src.utils.response import create_response
+from src.middleware.middleware import with_middleware
+from src.middleware.common_middleware import log_request, handle_errors
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -10,6 +12,7 @@ logger.setLevel(logging.INFO)
 workout_service = WorkoutService()
 
 
+@with_middleware([log_request, handle_errors])
 def create_workout(event, context):
     """
     Handle POST /workouts request to create a new workout
@@ -48,6 +51,7 @@ def create_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_workout(event, context):
     """
     Handle GET /workouts/{workout_id} request to get a workout by ID
@@ -69,6 +73,7 @@ def get_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_workouts_by_athlete(event, context):
     """
     Handle GET /athletes/{athlete_id}/workouts request to get workouts by athlete ID
@@ -89,6 +94,7 @@ def get_workouts_by_athlete(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def get_workout_by_day(event, context):
     """
     Handle GET /athletes/{athlete_id}/days/{day_id}/workout request to get a workout for a specific day
@@ -111,6 +117,7 @@ def get_workout_by_day(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def update_workout(event, context):
     """
     Handle PUT /workouts/{workout_id} request to update a workout
@@ -133,6 +140,7 @@ def update_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
+@with_middleware([log_request, handle_errors])
 def delete_workout(event, context):
     """
     Handle DELETE /workouts/{workout_id} request to delete a workout by ID
