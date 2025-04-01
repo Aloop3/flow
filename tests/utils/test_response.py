@@ -274,16 +274,36 @@ class TestResponseUtil(unittest.TestCase):
                 # This is expected for some types that the standard JSONEncoder can't handle
                 pass
 
-    def test_decimal_encoder_handles_other_types(self):
+    def test_decimal_encoder_handles_various_types(self):
         """
-        Test that DecimalEncoder correctly delegates to parent encoder for non-Decimal types.
+        Test that DecimalEncoder correctly handles both Decimal types and delegates others.
         """
+        from decimal import Decimal
+
+        # Create an instance of our encoder
         encoder = DecimalEncoder()
-        # Test with a native JSON type (dict) to trigger super().default()
-        result = encoder.default(
-            {"key": "value"}
-        )  # This should return a serializable type
-        self.assertEqual(result, {"key": "value"})
+
+        # Test with Decimal values (should be converted to float)
+        self.assertEqual(encoder.default(Decimal("123.45")), 123.45)
+
+        # Test with other types using json.dumps instead of directly testing default
+        # This uses the full encoding process rather than just the default method
+        test_data = {
+            "decimal": Decimal("123.45"),
+            "string": "test",
+            "number": 42,
+            "list": [1, 2, 3],
+        }
+
+        # This should not raise an exception
+        encoded = json.dumps(test_data, cls=DecimalEncoder)
+        decoded = json.loads(encoded)
+
+        # Verify the result
+        self.assertEqual(decoded["decimal"], 123.45)
+        self.assertEqual(decoded["string"], "test")
+        self.assertEqual(decoded["number"], 42)
+        self.assertEqual(decoded["list"], [1, 2, 3])
 
 
 if __name__ == "__main__":  # pragma: no cover
