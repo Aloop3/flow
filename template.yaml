@@ -305,34 +305,18 @@ Resources:
           Projection:
             ProjectionType: ALL
   
-  # Main API Lambda function that handles all requests
-  FlowApiFunction:
+  # User Lambda function
+  UserFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: .
-      Handler: handler.lambda_handler
-      Description: Main Lambda handler for Flow API
-      MemorySize: 512  # Increased memory for combined function
+      Handler: src/lambdas/user_lambda.handler
+      Description: Lambda handler for user-related endpoints
       Timeout: 30
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref BlocksTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref WeeksTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref DaysTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ExercisesTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref WorkoutsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref CompletedExercisesTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RelationshipsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref SetsTable
+
       Events:
         # User API Routes
         CreateUser:
@@ -353,7 +337,22 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /users/{user_id}
             Method: put
-            
+  
+  # Block Lambda function
+  BlockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambdas/block_lambda.handler
+      Description: Lambda handler for block-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WeeksTable
+
+      Events:
         # Block API Routes
         CreateBlock:
           Type: Api
@@ -386,6 +385,21 @@ Resources:
             Path: /blocks/{block_id}
             Method: delete
 
+  # WeekFunction
+  WeekFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambdas/week_lambda.handler
+      Description: Lambda handler for week-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+
+      Events:
         # Week API Routes
         CreateWeek:
           Type: Api
@@ -411,7 +425,21 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /weeks/{week_id}
             Method: delete
+  # Day Lambda function
+  DayFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambdas/day_lambda.handler
+      Description: Lambda handler for day-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
 
+      Events:
         # Day API Routes
         CreateDay:
           Type: Api
@@ -438,6 +466,19 @@ Resources:
             Path: /days/{day_id}
             Method: delete
 
+  # ExerciseFunction
+  ExerciseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambdas/exercise_lambda.handler
+      Description: Lambda handler for exercise-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
+
+      Events:
         # Exercise API Routes
         CreateExercise:
           Type: Api
@@ -469,7 +510,21 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /exercises/reorder
             Method: post
+  # Workout Lambda function
+  WorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambdas/workout_lambda.handler
+      Description: Lambda handler for workout-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CompletedExercisesTable
 
+      Events:
         # Workout API Routes
         CreateWorkout:
           Type: Api
@@ -489,6 +544,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /athletes/{athlete_id}/workouts
             Method: get
+        GetWorkoutByDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/days/{day_id}/workout
+            Method: get
         UpdateWorkout:
           Type: Api
           Properties:
@@ -501,7 +562,20 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /workouts/{workout_id}
             Method: delete
+  
+  # Relationship Lambda function
+  RelationshipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambdas/relationship_lambda.handler
+      Description: Lambda handler for relationship-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RelationshipsTable
 
+      Events:
         # Relationship API Routes
         CreateRelationship:
           Type: Api
@@ -527,6 +601,55 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /coaches/{coach_id}/relationships
             Method: get
+        GetRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}
+            Method: get
+  # Set Lambda function
+  SetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambdas/set_lambda.handler
+      Description: Lambda handler for set-related endpoints
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SetsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CompletedExercisesTable
+      Events:
+        GetSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /sets/{set_id}
+            Method: get
+        GetSetsForExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/sets
+            Method: get
+        CreateSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/sets
+            Method: post
+        UpdateSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /sets/{set_id}
+            Method: put
+        DeleteSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /sets/{set_id}
+            Method: delete
 
 Outputs:
   FlowApi:
