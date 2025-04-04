@@ -1,12 +1,12 @@
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
-import os
+from src.config.day_config import DayConfig
 
 
 class DayRepository(BaseRepository):
     def __init__(self):
-        super().__init__(os.environ.get("DAYS_TABLE", "Days"))
+        super().__init__(DayConfig.TABLE_NAME)
 
     def get_day(self, day_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -25,7 +25,9 @@ class DayRepository(BaseRepository):
         :return: A list of dictionaries representing the days for the given week
         """
         response = self.table.query(
-            IndexName="week-index", KeyConditionExpression=Key("week_id").eq(week_id)
+            IndexName=DayConfig.WEEK_INDEX,
+            KeyConditionExpression=Key("week_id").eq(week_id),
+            Limit=DayConfig.MAX_ITEMS,
         )
 
         return response.get("Items", [])
@@ -54,7 +56,7 @@ class DayRepository(BaseRepository):
             update_expression += f"{key} = :{key}, "
             expression_values[f":{key}"] = value
 
-        # Remove training comma and space
+        # Remove trailing comma and space
         update_expression = update_expression[:-2]
 
         return self.update({"day_id": day_id}, update_expression, expression_values)
@@ -68,12 +70,12 @@ class DayRepository(BaseRepository):
         """
         return self.delete({"day_id": day_id})
 
-    def delete_day_by_week(self, week_id: str) -> Dict[str, Any]:
+    def delete_days_by_week(self, week_id: str) -> int:
         """
         Delete all days associated with a given week_id (cascading delete)
 
         :param week_id: The ID of the week to delete days for
-        :return: The response from the delete operation
+        :return: The number of days deleted
         """
         days = self.get_days_by_week(week_id)
 

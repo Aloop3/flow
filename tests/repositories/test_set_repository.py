@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 from src.repositories.set_repository import SetRepository
+from src.config.set_config import SetConfig
 
 
 class TestSetRepository(unittest.TestCase):
@@ -91,7 +92,9 @@ class TestSetRepository(unittest.TestCase):
 
         # Assert query was called with correct args
         self.mock_table.query.assert_called_once_with(
-            IndexName="exercise-index", KeyConditionExpression=unittest.mock.ANY
+            IndexName=SetConfig.EXERCISE_INDEX,
+            KeyConditionExpression=unittest.mock.ANY,
+            Limit=20,
         )
 
         # Assert the result matches our mock data
@@ -129,7 +132,9 @@ class TestSetRepository(unittest.TestCase):
 
         # Assert query was called with correct args
         self.mock_table.query.assert_called_once_with(
-            IndexName="workout-index", KeyConditionExpression=unittest.mock.ANY
+            IndexName=SetConfig.WORKOUT_INDEX,
+            KeyConditionExpression=unittest.mock.ANY,
+            Limit=20,
         )
 
         # Assert the result matches our mock data

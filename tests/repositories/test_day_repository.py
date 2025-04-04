@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from boto3.dynamodb.conditions import Key
 from src.repositories.day_repository import DayRepository
+from src.config.day_config import DayConfig
 
 
 class TestDayRepository(unittest.TestCase):
@@ -30,7 +31,7 @@ class TestDayRepository(unittest.TestCase):
         new_dynamodb_mock = MagicMock()
 
         # Test that DayRepository initializes with the correct table name
-        with patch("os.environ.get", return_value="test-days-table"):
+        with patch("src.config.day_config.DayConfig.TABLE_NAME", "test-days-table"):
             with patch("boto3.resource", return_value=new_dynamodb_mock):
                 repository = DayRepository()
                 new_dynamodb_mock.Table.assert_called_once_with("test-days-table")
@@ -103,7 +104,9 @@ class TestDayRepository(unittest.TestCase):
 
         # Assert the query was called with correct parameters
         self.table_mock.query.assert_called_once_with(
-            IndexName="week-index", KeyConditionExpression=Key("week_id").eq("week123")
+            IndexName="week-index",
+            KeyConditionExpression=Key("week_id").eq("week123"),
+            Limit=7,
         )
 
         # Assert the result is the list of mock days
@@ -121,8 +124,9 @@ class TestDayRepository(unittest.TestCase):
 
         # Assert the query was called with correct parameters
         self.table_mock.query.assert_called_once_with(
-            IndexName="week-index",
+            IndexName=DayConfig.WEEK_INDEX,
             KeyConditionExpression=Key("week_id").eq("emptyweek"),
+            Limit=DayConfig.MAX_ITEMS,
         )
 
         # Assert the result is an empty list
@@ -223,7 +227,7 @@ class TestDayRepository(unittest.TestCase):
         # Assert the result is the returned Attributes
         self.assertEqual(result, mock_response["Attributes"])
 
-    def test_delete_day_by_week(self):
+    def test_delete_days_by_week(self):
         """
         Test deleting all days for a week
         """
@@ -254,7 +258,7 @@ class TestDayRepository(unittest.TestCase):
             )
 
             # Call the method
-            result = self.day_repository.delete_day_by_week("week123")
+            result = self.day_repository.delete_days_by_week("week123")
 
             # Assert get_days_by_week was called
             self.day_repository.get_days_by_week.assert_called_once_with("week123")
@@ -270,7 +274,7 @@ class TestDayRepository(unittest.TestCase):
             # Assert the result is the number of days deleted
             self.assertEqual(result, 2)
 
-    def test_delete_day_by_week_empty(self):
+    def test_delete_days_by_week_empty(self):
         """
         Test deleting days for a week with no days
         """
@@ -283,7 +287,7 @@ class TestDayRepository(unittest.TestCase):
             )
 
             # Call the method
-            result = self.day_repository.delete_day_by_week("emptyweek")
+            result = self.day_repository.delete_days_by_week("emptyweek")
 
             # Assert get_days_by_week was called
             self.day_repository.get_days_by_week.assert_called_once_with("emptyweek")

@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional, List
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
-import os
+from src.config.block_config import BlockConfig
 
 
 class BlockRepository(BaseRepository):
@@ -12,7 +12,7 @@ class BlockRepository(BaseRepository):
     """
 
     def __init__(self):
-        super().__init__(os.environ.get("BLOCKS_TABLE"))
+        super().__init__(BlockConfig.TABLE_NAME)
 
     def get_block(self, block_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -31,8 +31,9 @@ class BlockRepository(BaseRepository):
         :return: A list of block dictionaries associated with the athlete.
         """
         response = self.table.query(
-            IndexName="athlete-index",
+            IndexName=BlockConfig.ATHLETE_INDEX,
             KeyConditionExpression=Key("athlete_id").eq(athlete_id),
+            Limit=BlockConfig.MAX_ITEMS,
         )
         return response.get("Items", [])
 
@@ -44,7 +45,9 @@ class BlockRepository(BaseRepository):
         :return: A list of block dictionaries associated with the coach.
         """
         response = self.table.query(
-            IndexName="coach-index", KeyConditionExpression=Key("coach_id").eq(coach_id)
+            IndexName=BlockConfig.COACH_INDEX,
+            KeyConditionExpression=Key("coach_id").eq(coach_id),
+            Limit=BlockConfig.MAX_ITEMS,
         )
         return response.get("Items", [])
 

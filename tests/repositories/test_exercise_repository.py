@@ -98,6 +98,41 @@ class TestExerciseRepository(unittest.TestCase):
         # Assert the result is correct
         self.assertEqual(result, exercises_data)
 
+    def test_get_exercises_by_day(self):
+        """
+        Test getting all exercises for a day
+        """
+        # Mock data
+        exercises_data = [
+            {
+                "exercise_id": "ex1",
+                "day_id": "day123",
+                "exercise_type": "Squat",
+            },
+            {
+                "exercise_id": "ex2",
+                "day_id": "day123",
+                "exercise_type": "Bench Press",
+            },
+        ]
+
+        # Configure mock
+        self.table_mock.query.return_value = {"Items": exercises_data}
+
+        # Call the repository method
+        result = self.repository.get_exercises_by_day("day123")
+
+        # Assert the table was called correctly
+        self.table_mock.query.assert_called_once()
+        call_args = self.table_mock.query.call_args[1]
+        self.assertEqual(call_args["IndexName"], "day-index")
+        # Check that the KeyConditionExpression is a condition on day_id
+        self.assertTrue("KeyConditionExpression" in call_args)
+        self.assertTrue("Limit" in call_args)
+
+        # Assert the result is correct
+        self.assertEqual(result, exercises_data)
+
     def test_create_exercise(self):
         """
         Test creating an exercise
@@ -235,6 +270,55 @@ class TestExerciseRepository(unittest.TestCase):
 
             # Assert the result is the number of deleted exercises
             self.assertEqual(result, 2)
+
+    def test_delete_exercises_by_day(self):
+        """
+        Test deleting all exercises for a day
+        """
+        # Mock data
+        exercises_data = [
+            {
+                "exercise_id": "ex1",
+                "day_id": "day123",
+                "exercise_type": "Squat",
+            },
+            {
+                "exercise_id": "ex2",
+                "day_id": "day123",
+                "exercise_type": "Bench Press",
+            },
+            {
+                "exercise_id": "ex3",
+                "day_id": "day123",
+                "exercise_type": "Deadlift",
+            },
+        ]
+
+        # Configure mocks
+        # First, mock the get_exercises_by_day method to return our sample data
+        with patch.object(
+            self.repository, "get_exercises_by_day", return_value=exercises_data
+        ):
+            # Mock the batch_writer context manager
+            batch_writer_mock = MagicMock()
+            self.table_mock.batch_writer.return_value.__enter__.return_value = (
+                batch_writer_mock
+            )
+
+            # Call the repository method
+            result = self.repository.delete_exercises_by_day("day123")
+
+            # Assert batch_writer was called
+            self.table_mock.batch_writer.assert_called_once()
+
+            # Assert delete_item was called for each exercise
+            self.assertEqual(batch_writer_mock.delete_item.call_count, 3)
+            batch_writer_mock.delete_item.assert_any_call(Key={"exercise_id": "ex1"})
+            batch_writer_mock.delete_item.assert_any_call(Key={"exercise_id": "ex2"})
+            batch_writer_mock.delete_item.assert_any_call(Key={"exercise_id": "ex3"})
+
+            # Assert the result is the number of deleted exercises
+            self.assertEqual(result, 3)
 
 
 if __name__ == "__main__":  # pragma: no cover

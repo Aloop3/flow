@@ -1,7 +1,7 @@
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
-import os
+from src.config.set_config import SetConfig
 
 
 class SetRepository(BaseRepository):
@@ -12,7 +12,7 @@ class SetRepository(BaseRepository):
     """
 
     def __init__(self):
-        super().__init__(os.environ.get("SETS_TABLE", "Sets"))
+        super().__init__(SetConfig.TABLE_NAME)
 
     def get_set(self, set_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -33,11 +33,13 @@ class SetRepository(BaseRepository):
         """
 
         response = self.table.query(
-            IndexName="exercise-index",
+            IndexName=SetConfig.EXERCISE_INDEX,
             KeyConditionExpression=Key("completed_exercise_id").eq(
                 completed_exercise_id
             ),
+            Limit=SetConfig.MAX_ITEMS,
         )
+
         return response.get("Items", [])
 
     def get_sets_by_workout(self, workout_id: str) -> List[Dict[str, Any]]:
@@ -49,8 +51,9 @@ class SetRepository(BaseRepository):
         """
 
         response = self.table.query(
-            IndexName="workout-index",
+            IndexName=SetConfig.WORKOUT_INDEX,
             KeyConditionExpression=Key("workout_id").eq(workout_id),
+            Limit=SetConfig.MAX_ITEMS,
         )
         return response.get("Items", [])
 
@@ -116,7 +119,7 @@ class SetRepository(BaseRepository):
         """
         Deletes all sets for a specific workout (cascading delete).
 
-        :param workout_id: The ID of the workout.
+        :param workout_id: The ID of the workout to delete sets for.
         :return: The number of sets deleted.
         """
         sets = self.get_sets_by_workout(workout_id)

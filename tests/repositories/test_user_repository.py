@@ -64,6 +64,88 @@ class TestUserRepository(unittest.TestCase):
         self.mock_table.get_item.assert_called_once_with(Key={"user_id": "nonexistent"})
         self.assertIsNone(result)
 
+    def test_get_user_by_email(self):
+        """
+        Test retrieving a user by email address
+        """
+        # Setup mock return value
+        mock_user = {
+            "user_id": "user123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+        }
+        self.mock_table.query.return_value = {"Items": [mock_user]}
+
+        # Call the method
+        result = self.repository.get_user_by_email("test@example.com")
+
+        # Assert
+        self.mock_table.query.assert_called_once_with(
+            IndexName="email-index",
+            KeyConditionExpression="email = :email",
+            ExpressionAttributeValues={":email": "test@example.com"},
+            Limit=1,
+        )
+        self.assertEqual(result, mock_user)
+
+    def test_get_user_by_email_not_found(self):
+        """
+        Test retrieving a user by email when the email doesn't exist
+        """
+        # Setup mock return value for not found case
+        self.mock_table.query.return_value = {"Items": []}
+
+        # Call the method
+        result = self.repository.get_user_by_email("nonexistent@example.com")
+
+        # Assert
+        self.mock_table.query.assert_called_once_with(
+            IndexName="email-index",
+            KeyConditionExpression="email = :email",
+            ExpressionAttributeValues={":email": "nonexistent@example.com"},
+            Limit=1,
+        )
+        self.assertIsNone(result)
+
+    def test_get_user_by_email_multiple_results(self):
+        """
+        Test retrieving a user by email when multiple results are returned
+
+        Although the database should enforce uniqueness on email addresses,
+        this test verifies that the method returns only the first item if
+        multiple items are returned for some reason.
+        """
+        # Setup mock return value with multiple items
+        mock_users = [
+            {
+                "user_id": "user123",
+                "email": "duplicate@example.com",
+                "name": "First User",
+                "role": "athlete",
+            },
+            {
+                "user_id": "user456",
+                "email": "duplicate@example.com",
+                "name": "Second User",
+                "role": "coach",
+            },
+        ]
+        self.mock_table.query.return_value = {"Items": mock_users}
+
+        # Call the method
+        result = self.repository.get_user_by_email("duplicate@example.com")
+
+        # Assert
+        self.mock_table.query.assert_called_once_with(
+            IndexName="email-index",
+            KeyConditionExpression="email = :email",
+            ExpressionAttributeValues={":email": "duplicate@example.com"},
+            Limit=1,
+        )
+        # Should return only the first item
+        self.assertEqual(result, mock_users[0])
+
     def test_create_user(self):
         """
         Test creating a new user

@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from src.repositories.workout_repository import WorkoutRepository
 
 
@@ -185,7 +185,9 @@ class TestWorkoutRepository(unittest.TestCase):
 
         # Assert query was called with correct parameters
         self.mock_table.query.assert_called_once_with(
-            IndexName="athlete-index", KeyConditionExpression=unittest.mock.ANY
+            IndexName="athlete-index",
+            KeyConditionExpression=unittest.mock.ANY,
+            Limit=unittest.mock.ANY,
         )
 
         # Assert get_sets_by_workout was called for each workout

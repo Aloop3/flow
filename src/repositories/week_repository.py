@@ -1,12 +1,12 @@
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
-import os
+from src.config.week_config import WeekConfig
 
 
 class WeekRepository(BaseRepository):
     def __init__(self):
-        super().__init__(os.environ.get("WEEKS_TABLE", "Weeks"))
+        super().__init__(WeekConfig.TABLE_NAME)
 
     def get_week(self, week_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -25,7 +25,9 @@ class WeekRepository(BaseRepository):
         :return: A list of week dictionaries associated with the block.
         """
         response = self.table.query(
-            IndexName="block-index", KeyConditionExpression=Key("block_id").eq(block_id)
+            IndexName=WeekConfig.BLOCK_INDEX,
+            KeyConditionExpression=Key("block_id").eq(block_id),
+            Limit=WeekConfig.MAX_ITEMS,
         )
         return response.get("Items", [])
 

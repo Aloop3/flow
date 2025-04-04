@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 from .base_repository import BaseRepository
-import os
+from src.config.user_config import UserConfig
 
 
 class UserRepository(BaseRepository):
@@ -11,7 +11,7 @@ class UserRepository(BaseRepository):
     """
 
     def __init__(self):
-        super().__init__(os.environ.get("USERS_TABLE"))
+        super().__init__(UserConfig.TABLE_NAME)
 
     def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -21,6 +21,23 @@ class UserRepository(BaseRepository):
         :return: A dictionary containing user details if found, else None.
         """
         return self.get_by_id("user_id", user_id)
+
+    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves a user by their email address using the email index.
+
+        :param email: The email address to search for
+        :return: A dictionary containing user details if found, else None
+        """
+        response = self.table.query(
+            IndexName=UserConfig.EMAIL_INDEX,
+            KeyConditionExpression="email = :email",
+            ExpressionAttributeValues={":email": email},
+            Limit=1,
+        )
+
+        items = response.get("Items", [])
+        return items[0] if items else None
 
     def create_user(self, user_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
