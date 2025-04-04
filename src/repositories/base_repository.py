@@ -1,20 +1,21 @@
 import boto3
 from typing import Dict, Any, Optional
 from src.utils.decimal_converter import convert_floats_to_decimals
+from src.config.app_config import AppConfig
 
 
 class BaseRepository:
     """
     A base repository class for interacting with an AWS DynamoDB table.
 
-    This will be inherited by other entities (e.g., User, Block, etc) to resuse functionalities.
+    This will be inherited by other entities (e.g., User, Block, etc) to reuse functionalities.
     """
 
     def __init__(self, table_name: str):
         """
         :param table_name: Name of DynamoDB table.
         """
-        self.dynamodb = boto3.resource("dynamodb")
+        self.dynamodb = boto3.resource("dynamodb", region_name=AppConfig.AWS_REGION)
         self.table = self.dynamodb.Table(table_name)
 
     def get_by_id(self, id_name: str, id_value: str) -> Optional[Dict[str, Any]]:
@@ -32,7 +33,7 @@ class BaseRepository:
         """
         Inserts a new item into DynamoDB table.
         """
-        # Convert any  float values to Decimal types for DynamoDB compatibility
+        # Convert any float values to Decimal types for DynamoDB compatibility
         dynamo_item = convert_floats_to_decimals(item)
 
         self.table.put_item(Item=dynamo_item)

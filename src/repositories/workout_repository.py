@@ -2,12 +2,12 @@ from .base_repository import BaseRepository
 from .set_repository import SetRepository
 from boto3.dynamodb.conditions import Key, Attr
 from typing import Dict, Any, Optional, List
-import os
+from src.config.workout_config import WorkoutConfig
 
 
 class WorkoutRepository(BaseRepository):
     def __init__(self):
-        super().__init__(os.environ.get("WORKOUTS_TABLE", "Workouts"))
+        super().__init__(WorkoutConfig.TABLE_NAME)
         self.set_repository = SetRepository()
 
     def get_workout(self, workout_id: str) -> Optional[Dict[str, Any]]:
@@ -51,8 +51,9 @@ class WorkoutRepository(BaseRepository):
         :return: A list of dictionaries containing the workout data.
         """
         response = self.table.query(
-            IndexName="athlete-index",
+            IndexName=WorkoutConfig.ATHLETE_INDEX,
             KeyConditionExpression=Key("athlete_id").eq(athlete_id),
+            Limit=WorkoutConfig.MAX_ITEMS,
         )
 
         workouts = response.get("Items", [])
@@ -132,10 +133,11 @@ class WorkoutRepository(BaseRepository):
         :return: A list of dictionaries containing the completed workout data.
         """
         response = self.table.query(
-            IndexName="athlete-index",
+            IndexName=WorkoutConfig.ATHLETE_INDEX,
             KeyConditionExpression=Key("athlete_id").eq(athlete_id),
             FilterExpression=Attr("date").gte(start_date)
             & Attr("status").eq("completed"),
+            Limit=WorkoutConfig.MAX_ITEMS,
         )
 
         workouts = response.get("Items", [])

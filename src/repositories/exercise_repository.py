@@ -1,12 +1,12 @@
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
-import os
+from src.config.exercise_config import ExerciseConfig
 
 
 class ExerciseRepository(BaseRepository):
     def __init__(self):
-        super().__init__(os.environ.get("EXERCISES_TABLE", "Exercises"))
+        super().__init__(ExerciseConfig.TABLE_NAME)
 
     def get_exercise(self, exercise_id: str) -> Optional[Dict[str, Any]]:
         return self.get_by_id("exercise_id", exercise_id)
@@ -19,8 +19,24 @@ class ExerciseRepository(BaseRepository):
         :return: A list of exercises for the given workout_id
         """
         response = self.table.query(
-            IndexName="workout-index",
+            IndexName=ExerciseConfig.WORKOUT_INDEX,
             KeyConditionExpression=Key("workout_id").eq(workout_id),
+            Limit=ExerciseConfig.MAX_ITEMS,
+        )
+
+        return response.get("Items", [])
+
+    def get_exercises_by_day(self, day_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all exercises for a given day_id
+
+        :param day_id: The day_id to filter exercises by
+        :return: A list of exercises for the given day_id
+        """
+        response = self.table.query(
+            IndexName=ExerciseConfig.DAY_INDEX,
+            KeyConditionExpression=Key("day_id").eq(day_id),
+            Limit=ExerciseConfig.MAX_ITEMS,
         )
 
         return response.get("Items", [])
@@ -29,7 +45,7 @@ class ExerciseRepository(BaseRepository):
         """
         Create a new exercise
 
-        :param exercis_dict: The exercise to create
+        :param exercise_dict: The exercise to create
         :return: The created exercise dictionary
         """
         return self.create(exercise_dict)
@@ -41,7 +57,7 @@ class ExerciseRepository(BaseRepository):
         Update an existing exercise by exercise_id
 
         :param exercise_id: The ID of the exercise to update
-        :param update_dict: A dictionary conatining the updated exercise data
+        :param update_dict: A dictionary containing the updated exercise data
         :return: The updated exercise dictionary
         """
         update_expression = "set "
@@ -75,6 +91,22 @@ class ExerciseRepository(BaseRepository):
         :return: The number of exercises deleted
         """
         exercises = self.get_exercises_by_workout(workout_id)
+
+        # Batch delete all exercises
+        with self.table.batch_writer() as batch:
+            for exercise in exercises:
+                batch.delete_item(Key={"exercise_id": exercise["exercise_id"]})
+
+        return len(exercises)
+
+    def delete_exercises_by_day(self, day_id: str) -> int:
+        """
+        Delete all exercises associated with a given day_id (cascading delete)
+
+        :param day_id: The day_id to filter exercises by
+        :return: The number of exercises deleted
+        """
+        exercises = self.get_exercises_by_day(day_id)
 
         # Batch delete all exercises
         with self.table.batch_writer() as batch:

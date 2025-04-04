@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import MagicMock, patch
 from src.repositories.relationship_repository import RelationshipRepository
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 
 import unittest
 from unittest.mock import MagicMock, patch
 from src.repositories.relationship_repository import RelationshipRepository
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 
 
 class TestRelationshipRepository(unittest.TestCase):
@@ -102,6 +102,7 @@ class TestRelationshipRepository(unittest.TestCase):
         self.mock_table.query.assert_called_once_with(
             IndexName="coach-index",
             KeyConditionExpression=Key("coach_id").eq("coach123"),
+            Limit=unittest.mock.ANY,
         )
         self.assertEqual(result, mock_items)
 
@@ -164,6 +165,86 @@ class TestRelationshipRepository(unittest.TestCase):
 
         # Verify the result matches expected items
         self.assertEqual(result, mock_items)
+
+    def test_get_relationships_for_athlete(self):
+        """
+        Test retrieving relationships by athlete ID
+        """
+        # Setup mock return value
+        mock_items = [
+            {
+                "relationship_id": "rel1",
+                "coach_id": "coach1",
+                "athlete_id": "athlete123",
+                "status": "active",
+            },
+            {
+                "relationship_id": "rel2",
+                "coach_id": "coach2",
+                "athlete_id": "athlete123",
+                "status": "pending",
+            },
+        ]
+        self.mock_table.query.return_value = {"Items": mock_items}
+
+        # Call the method
+        result = self.repository.get_relationships_for_athlete("athlete123")
+
+        # Assert
+        self.mock_table.query.assert_called_once_with(
+            IndexName="athlete-index",
+            KeyConditionExpression=Key("athlete_id").eq("athlete123"),
+            Limit=unittest.mock.ANY,
+        )
+        self.assertEqual(result, mock_items)
+
+    def test_get_relationships_for_athlete_with_status(self):
+        """
+        Test retrieving relationships by athlete ID with status filter
+        """
+        # Setup mock return value
+        mock_items = [
+            {
+                "relationship_id": "rel1",
+                "coach_id": "coach1",
+                "athlete_id": "athlete123",
+                "status": "active",
+            }
+        ]
+        self.mock_table.query.return_value = {"Items": mock_items}
+
+        # Call the method
+        result = self.repository.get_relationships_for_athlete("athlete123", "active")
+
+        # Assert query was called with correct parameters
+        self.mock_table.query.assert_called_once()
+        call_args = self.mock_table.query.call_args[1]
+        self.assertEqual(call_args["IndexName"], "athlete-index")
+
+        # Verify expressions exist without examining details
+        self.assertIn("KeyConditionExpression", call_args)
+        self.assertIn("FilterExpression", call_args)
+
+        # Verify the result matches expected items
+        self.assertEqual(result, mock_items)
+
+    def test_get_relationships_for_athlete_empty_result(self):
+        """
+        Test retrieving relationships by athlete ID when none exist
+        """
+        # Setup mock return value for empty result
+        self.mock_table.query.return_value = {"Items": []}
+
+        # Call the method
+        result = self.repository.get_relationships_for_athlete("athlete123")
+
+        # Assert
+        self.mock_table.query.assert_called_once_with(
+            IndexName="athlete-index",
+            KeyConditionExpression=Key("athlete_id").eq("athlete123"),
+            Limit=unittest.mock.ANY,
+        )
+        self.assertEqual(result, [])
 
     def test_get_active_relationship_not_found(self):
         """

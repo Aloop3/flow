@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from boto3.dynamodb.conditions import Key
 from src.repositories.block_repository import BlockRepository
+from src.config.block_config import BlockConfig
 
 
 class TestBlockRepository(unittest.TestCase):
@@ -29,11 +30,18 @@ class TestBlockRepository(unittest.TestCase):
         # Create a new mock to avoid interference from setUp
         new_dynamodb_mock = MagicMock()
 
-        # Test that BlockRepository initializes with the correct table name
-        with patch("os.environ.get", return_value="test-blocks-table"):
-            with patch("boto3.resource", return_value=new_dynamodb_mock):
-                repository = BlockRepository()
-                new_dynamodb_mock.Table.assert_called_once_with("test-blocks-table")
+        # Save original value to restore later
+        original_table_name = BlockConfig.TABLE_NAME
+
+        try:
+            # Update the table name for this test only
+            with patch.object(BlockConfig, "TABLE_NAME", "test-blocks-table"):
+                with patch("boto3.resource", return_value=new_dynamodb_mock):
+                    repository = BlockRepository()
+                    new_dynamodb_mock.Table.assert_called_once_with("test-blocks-table")
+        finally:
+            # Ensure we restore the original value even if the test fails
+            BlockConfig.TABLE_NAME = original_table_name
 
     def test_get_block(self):
         """
@@ -92,8 +100,9 @@ class TestBlockRepository(unittest.TestCase):
 
         # Assert query was called with correct parameters
         self.table_mock.query.assert_called_once_with(
-            IndexName="athlete-index",
+            IndexName=BlockConfig.ATHLETE_INDEX,
             KeyConditionExpression=Key("athlete_id").eq("athlete123"),
+            Limit=BlockConfig.MAX_ITEMS,
         )
 
         # Assert the result is the list of mock blocks
@@ -111,8 +120,9 @@ class TestBlockRepository(unittest.TestCase):
 
         # Assert query was called with correct parameters
         self.table_mock.query.assert_called_once_with(
-            IndexName="athlete-index",
+            IndexName=BlockConfig.ATHLETE_INDEX,
             KeyConditionExpression=Key("athlete_id").eq("athlete_no_blocks"),
+            Limit=BlockConfig.MAX_ITEMS,
         )
 
         # Assert the result is an empty list
@@ -148,8 +158,9 @@ class TestBlockRepository(unittest.TestCase):
 
         # Assert query was called with correct parameters
         self.table_mock.query.assert_called_once_with(
-            IndexName="coach-index",
+            IndexName=BlockConfig.COACH_INDEX,
             KeyConditionExpression=Key("coach_id").eq("coach456"),
+            Limit=BlockConfig.MAX_ITEMS,
         )
 
         # Assert the result is the list of mock blocks
@@ -167,8 +178,9 @@ class TestBlockRepository(unittest.TestCase):
 
         # Assert query was called with correct parameters
         self.table_mock.query.assert_called_once_with(
-            IndexName="coach-index",
+            IndexName=BlockConfig.COACH_INDEX,
             KeyConditionExpression=Key("coach_id").eq("coach_no_blocks"),
+            Limit=BlockConfig.MAX_ITEMS,
         )
 
         # Assert the result is an empty list

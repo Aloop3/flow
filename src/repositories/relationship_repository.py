@@ -1,12 +1,12 @@
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key, Attr
 from typing import Dict, Any, Optional, List
-import os
+from src.config.relationship_config import RelationshipConfig
 
 
 class RelationshipRepository(BaseRepository):
     def __init__(self):
-        super().__init__(os.environ.get("RELATIONSHIPS_TABLE", "Relationships"))
+        super().__init__(RelationshipConfig.TABLE_NAME)
 
     def get_relationship(self, relationship_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -28,8 +28,31 @@ class RelationshipRepository(BaseRepository):
         :return: A list of dictionaries containing the relationships data.
         """
         query_params = {
-            "IndexName": "coach-index",
+            "IndexName": RelationshipConfig.COACH_INDEX,
             "KeyConditionExpression": Key("coach_id").eq(coach_id),
+            "Limit": RelationshipConfig.MAX_ITEMS,
+        }
+
+        if status:
+            query_params["FilterExpression"] = Attr("status").eq(status)
+
+        response = self.table.query(**query_params)
+        return response.get("Items", [])
+
+    def get_relationships_for_athlete(
+        self, athlete_id: str, status: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieves relationships by athlete ID, optionally filtered by status.
+
+        :param athlete_id: The ID of the athlete.
+        :param status: The status of the relationship (optional).
+        :return: A list of dictionaries containing the relationships data.
+        """
+        query_params = {
+            "IndexName": RelationshipConfig.ATHLETE_INDEX,
+            "KeyConditionExpression": Key("athlete_id").eq(athlete_id),
+            "Limit": RelationshipConfig.MAX_ITEMS,
         }
 
         if status:
@@ -42,14 +65,14 @@ class RelationshipRepository(BaseRepository):
         self, coach_id: str, athlete_id: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Retrieves active relationship between coac and athlete if exists
+        Retrieves active relationship between coach and athlete if exists
 
         :param coach_id: The ID of the coach.
         :param athlete_id: The ID of the athlete.
         :return: A dictionary containing the relationship data if found, None otherwise.
         """
         response = self.table.query(
-            IndexName="coach-athlete-index",
+            IndexName=RelationshipConfig.COACH_ATHLETE_INDEX,
             KeyConditionExpression=Key("coach_id").eq(coach_id)
             & Key("athlete_id").eq(athlete_id),
             FilterExpression=Attr("status").eq("active"),
