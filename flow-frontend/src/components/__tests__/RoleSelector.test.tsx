@@ -26,7 +26,6 @@ describe('RoleSelector Component', () => {
     expect(screen.getByText('Welcome to Flow')).toBeInTheDocument();
     expect(screen.getByText('Athlete')).toBeInTheDocument();
     expect(screen.getByText('Coach')).toBeInTheDocument();
-    expect(screen.getByText('Both')).toBeInTheDocument();
     
     // Continue button should be disabled initially
     const continueButton = screen.getByText('Continue');
@@ -71,7 +70,6 @@ describe('RoleSelector Component', () => {
     render(<RoleSelector user={mockUser} onRoleSelected={mockOnRoleSelected} />);
     
     // Select a role and submit
-    fireEvent.click(screen.getByText('Both'));
     fireEvent.click(screen.getByText('Continue'));
     
     // Error message should be displayed

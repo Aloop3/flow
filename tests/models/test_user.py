@@ -36,19 +36,6 @@ class TestUserModel(unittest.TestCase):
         self.assertEqual(user.name, "John Doe")
         self.assertEqual(user.role, "coach")
 
-    def test_user_initialization_both(self):
-        """
-        Test User model initialization with both roles
-        """
-        user = User(
-            user_id="user789", email="both@example.com", name="Jane Lee", role="both"
-        )
-
-        self.assertEqual(user.user_id, "user789")
-        self.assertEqual(user.email, "both@example.com")
-        self.assertEqual(user.name, "Jane Lee")
-        self.assertEqual(user.role, "both")
-
     def test_user_to_dict(self):
         """
         Test User model to_dict method

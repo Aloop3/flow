@@ -57,7 +57,7 @@ export interface User {
   user_id: string;
   email: string;
   name: string;
-  role: 'athlete' | 'coach' | 'both';
+  role: 'athlete' | 'coach';
 }
 
 export interface CompletedExercise {

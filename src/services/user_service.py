@@ -20,7 +20,7 @@ class UserService:
             return User(**user_data)
         return None
 
-    def create_user(self, email: str, name: str, role: str) -> User:
+    def create_user(self, email: str, name: str, role: Optional[str] = None) -> User:
         """
         Creates a new user
 

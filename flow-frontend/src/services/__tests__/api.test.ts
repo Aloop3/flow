@@ -56,7 +56,7 @@ describe('API Services', () => {
       const userData = {
         email: 'new@example.com',
         name: 'New User',
-        role: 'coach' as 'athlete' | 'coach' | 'both'
+        role: 'coach' as 'athlete' | 'coach'
       };
       
       const mockResponse = { ...userData, user_id: 'new-user-id' };

@@ -62,7 +62,17 @@ Resources:
           AttributeDataType: String
           Mutable: true
           Required: false
+      LambdaConfig:
+        PostConfirmation: !GetAtt CognitoPostConfirmationFunction.Arn
   
+  CognitoTriggerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref CognitoPostConfirmationFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt FlowUserPool.Arn
+
   # Cognito User Pool Client
   FlowUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -650,6 +660,20 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /sets/{set_id}
             Method: delete
+
+  CognitoPostConfirmationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambdas/cognito_triggers.post_confirmation_handler
+      Runtime: python3.9
+      Timeout: 30
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
 
 Outputs:
   FlowApi:
