@@ -91,7 +91,7 @@ export interface Set {
 }
 
 // Helper to get auth headers
-const getAuthHeaders = async () => {
+export const getAuthHeaders = async () => {
   try {
     const { tokens } = await fetchAuthSession();
     return {
@@ -344,7 +344,7 @@ export const createWorkout = async (workoutData: Omit<Workout, 'workout_id'>): P
       path: '/workouts',
       options: {
         headers,
-        body: workoutData
+        body: JSON.parse(JSON.stringify(workoutData))
       }
     });
     return response.body as Workout;
@@ -397,7 +397,7 @@ export const getSetsForExercise = async (exerciseId: string): Promise<Set[]> => 
       path: `/exercises/${exerciseId}/sets`,
       options: { headers }
     });
-    return response.body.sets as Set[];
+    return response.body as Set[];
   } catch (error) {
     console.error('Error fetching sets:', error);
     throw error;
