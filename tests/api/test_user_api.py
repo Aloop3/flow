@@ -207,7 +207,7 @@ class TestUserAPI(BaseTest):
             self.assertEqual(response_body["error"], "Test error")
 
     def test_create_user_json_decode_error(self):
-        """Test create_user with a JSON decode error to cover line 29"""
+        """Test create_user with a JSON decode error"""
         # Setup
         event = {"body": "invalid:-json"}
         context = {}
@@ -221,30 +221,36 @@ class TestUserAPI(BaseTest):
         self.assertIn("Invalid JSON", response_body["error"])
 
     def test_create_user_direct_validation(self):
-        """Test line 29: Validation logic for missing fields"""
+        """Validation logic for missing fields"""
         # Setup different test cases for the same validation logic
         test_cases = [
-            {"body": json.dumps({"name": "Test", "role": "athlete"})},  # Missing email
             {
-                "body": json.dumps({"email": "test@example.com", "role": "athlete"})
-            },  # Missing name
+                "event": {"body": json.dumps({"name": "Test", "role": "athlete"})},
+                "expected_error": "Missing required fields",
+            },
             {
-                "body": json.dumps({"email": "test@example.com", "name": "Test"})
-            },  # Missing role
+                "event": {
+                    "body": json.dumps({"email": "test@example.com", "role": "athlete"})
+                },
+                "expected_error": "Missing required fields",
+            },
+            {
+                "event": {
+                    "body": json.dumps({"email": "test@example.com", "name": "Test"})
+                },
+                "expected_error": "Invalid role",
+            },
         ]
 
-        for event in test_cases:
-            with self.subTest(event=event):
-                # Direct call to function without middleware
-                response = user_api.create_user.__wrapped__(event, {})
-
-                # Assert
+        for case in test_cases:
+            with self.subTest(event=case["event"]):
+                response = user_api.create_user.__wrapped__(case["event"], {})
                 self.assertEqual(response["statusCode"], 400)
                 response_body = json.loads(response["body"])
-                self.assertEqual(response_body["error"], "Missing required fields")
+                self.assertEqual(response_body["error"], case["expected_error"])
 
     def test_create_user_invalid_role_direct(self):
-        """Test line 33: Validation logic for invalid role"""
+        """Validation logic for invalid role"""
         # Setup
         event = {
             "body": json.dumps(
@@ -409,8 +415,8 @@ class TestUserAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("error", response_body)
 
-    def test_get_user_keyerror_exception_lines64_65(self):
-        """Test for lines 64-65: KeyError exception in get_user when pathParameters is missing"""
+    def test_get_user_keyerror_exception(self):
+        """KeyError exception in get_user when pathParameters is missing"""
         # Setup - event that will cause KeyError when accessing pathParameters['user_id']
         event = {"pathParameters": {}}  # pathParameters exists but user_id is missing
         context = {}
@@ -423,7 +429,7 @@ class TestUserAPI(BaseTest):
         self.assertIn("error", json.loads(response["body"]))
 
     def test_get_user_exception(self):
-        """Test for lines 64-65: Exception in get_user"""
+        """Exception in get_user"""
         # Setup - event that will cause KeyError when accessing pathParameters
         event = {}  # No pathParameters at all
         context = {}
@@ -436,7 +442,7 @@ class TestUserAPI(BaseTest):
         self.assertIn("error", json.loads(response["body"]))
 
     def test_get_user_exception(self):
-        """Test for lines 64-65: Exception in get_user"""
+        """Exception in get_user"""
         # Setup - event that will cause KeyError when accessing pathParameters
         event = {}  # No pathParameters at all
         context = {}
@@ -659,7 +665,7 @@ class TestUserAPI(BaseTest):
         self.assertEqual(response_body["error"], "Database connection error")
 
     def test_update_user_exception(self):
-        """Test for lines 88-93: Exception in update_user"""
+        """Exception in update_user"""
         # Setup - event that will cause exception in JSON parsing
         event = {"pathParameters": {"user_id": "123"}, "body": "{invalid:json}"}
         context = {}
@@ -671,8 +677,8 @@ class TestUserAPI(BaseTest):
         self.assertEqual(response["statusCode"], 400)
         self.assertIn("error", json.loads(response["body"]))
 
-    def test_update_user_json_exception_lines91_93(self):
-        """Test for lines 91-93: JSON decode exception in update_user"""
+    def test_update_user_json_exception(self):
+        """JSON decode exception in update_user"""
         # Setup - event with valid pathParameters but invalid JSON body
         event = {
             "pathParameters": {"user_id": "123"},

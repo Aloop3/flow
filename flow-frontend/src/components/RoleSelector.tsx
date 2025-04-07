@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createUser } from '../services/api';
+import { updateUser } from '../services/api';
 
 interface RoleSelectorProps {
   user: any;
@@ -7,7 +7,7 @@ interface RoleSelectorProps {
 }
 
 const RoleSelector = ({ user, onRoleSelected }: RoleSelectorProps) => {
-  const [role, setRole] = useState<'athlete' | 'coach' | 'both' | null>(null);
+  const [role, setRole] = useState<'athlete' | 'coach' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,14 +18,8 @@ const RoleSelector = ({ user, onRoleSelected }: RoleSelectorProps) => {
     setError(null);
     
     try {
-      // Create user in DynamoDB with selected role
-      console.log('Creating user with role:', role);
-      await createUser({
-        email: user.attributes?.email || '',
-        name: user.attributes?.name || user.username || '',
-        role
-      });
-      console.log('User created successfully, calling onRoleSelected');
+      // Update user with selected role instead of creating
+      await updateUser(user.userId, { role });
       onRoleSelected();
     } catch (error) {
       console.error('Error setting user role:', error);
@@ -45,7 +39,7 @@ const RoleSelector = ({ user, onRoleSelected }: RoleSelectorProps) => {
           Select how you'll be using the app
         </p>
       </div>
-
+  
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {error && (
@@ -65,7 +59,7 @@ const RoleSelector = ({ user, onRoleSelected }: RoleSelectorProps) => {
             >
               <div className="text-left">
                 <p className="font-medium">Athlete</p>
-                <p className="text-sm text-gray-500">Track workouts and progress</p>
+                <p className="text-sm text-gray-500">Track workouts and self-coach</p>
               </div>
             </button>
             
@@ -82,31 +76,17 @@ const RoleSelector = ({ user, onRoleSelected }: RoleSelectorProps) => {
                 <p className="text-sm text-gray-500">Create programs for athletes</p>
               </div>
             </button>
-            
-            <button
-              onClick={() => setRole('both')}
-              className={`w-full p-4 rounded-lg border-2 flex items-center justify-center ${
-                role === 'both' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <div className="text-left">
-                <p className="font-medium">Both</p>
-                <p className="text-sm text-gray-500">Coach athletes and track your own workouts</p>
-              </div>
-            </button>
-          </div>
-          
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={handleRoleSelection}
-              disabled={!role || isSubmitting}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Setting up your account...' : 'Continue'}
-            </button>
+  
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={handleRoleSelection}
+                disabled={!role || isSubmitting}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? 'Setting up your account...' : 'Continue'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

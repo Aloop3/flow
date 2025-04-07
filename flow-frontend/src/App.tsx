@@ -26,8 +26,8 @@ function App() {
         try {
           // Try to get the user from our database
           const userData = await getUser(user.userId);
-          // If we got user data back, the user is set up
-          setUserSetupComplete(!!userData);
+          // Check if user exists AND has a role
+          setUserSetupComplete(!!userData && !!userData.role);
         } catch (error) {
           // If we got an error, the user likely doesn't exist in our database yet
           setUserSetupComplete(false);
