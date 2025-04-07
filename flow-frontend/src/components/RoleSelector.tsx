@@ -19,11 +19,13 @@ const RoleSelector = ({ user, onRoleSelected }: RoleSelectorProps) => {
     
     try {
       // Create user in DynamoDB with selected role
+      console.log('Creating user with role:', role);
       await createUser({
         email: user.attributes?.email || '',
         name: user.attributes?.name || user.username || '',
         role
       });
+      console.log('User created successfully, calling onRoleSelected');
       onRoleSelected();
     } catch (error) {
       console.error('Error setting user role:', error);

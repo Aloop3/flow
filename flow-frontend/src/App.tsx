@@ -17,28 +17,23 @@ function App() {
   const [userSetupComplete, setUserSetupComplete] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const checkUserSetup = async (user: any) => {
-    setIsLoading(true);
-    try {
-      // Try to get the user from our database
-      const userData = await getUser(user.userId);
-      // If we got user data back, the user is set up
-      setUserSetupComplete(!!userData);
-    } catch (error) {
-      // If we got an error, the user likely doesn't exist in our database yet
-      setUserSetupComplete(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // This effect will check user setup whenever the component renders
-  // We'll need to check after login and after role selection
   useEffect(() => {
     const initializeUser = async () => {
       try {
         const user = await getCurrentUser();
-        await checkUserSetup(user);
+        setIsLoading(true);
+        try {
+          // Try to get the user from our database
+          const userData = await getUser(user.userId);
+          // If we got user data back, the user is set up
+          setUserSetupComplete(!!userData);
+        } catch (error) {
+          // If we got an error, the user likely doesn't exist in our database yet
+          setUserSetupComplete(false);
+        } finally {
+          setIsLoading(false);
+        }
       } catch (error) {
         // User is not logged in, which is fine
         setIsLoading(false);
@@ -53,8 +48,16 @@ function App() {
   };
 
   return (
-    <Authenticator>
+    <Authenticator 
+      // Use signUpAttributes to include name in signup without customizing form
+      signUpAttributes={['name']}
+    >
       {({ signOut, user }) => {
+        // If not authenticated, let Authenticator handle it
+        if (!user) {
+          return null;
+        }
+        
         // If still checking user setup, show loading
         if (isLoading) {
           return (
