@@ -484,7 +484,6 @@ Resources:
            Path: /days/{day_id}
            Method: delete
 
-
   # ExerciseFunction
   ExerciseFunction:
    Type: AWS::Serverless::Function
