@@ -47,7 +47,8 @@ jobs:
         
     - name: Check formatting with black
       run: |
-        black --check .
+        cd backend
+        black --check --exclude "layers/vendor" .
         
     - name: Run tests with coverage
       env:
