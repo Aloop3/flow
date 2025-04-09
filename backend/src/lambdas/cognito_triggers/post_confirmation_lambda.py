@@ -30,7 +30,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         users_table.put_item(Item=user_item)
         logger.info(f"Created user in DynamoDB: {user_attributes['sub']}")
 
-        
         return event
 
     except Exception as e:
