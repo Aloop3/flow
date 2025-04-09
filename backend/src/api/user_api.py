@@ -29,7 +29,7 @@ def create_user(event, context):
             return create_response(400, {"error": "Missing required fields"})
 
         # Validate role
-        if role not in ["athlete", "coach"]:
+        if role is not None and role not in ["athlete", "coach"]:
             return create_response(400, {"error": "Invalid role"})
 
         # Create user

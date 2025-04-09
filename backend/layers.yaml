@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda Layers for Flow App
+
+Resources:
+  VendorLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: flow-vendor-layer
+      Description: Third-party dependencies for Flow app
+      ContentUri: layers/vendor/
+      CompatibleRuntimes:
+        - python3.9
+      RetentionPolicy: Retain
+
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: flow-common-layer
+      Description: Common utilities and shared code for Flow app
+      ContentUri: layers/common/
+      CompatibleRuntimes:
+        - python3.9
+      RetentionPolicy: Retain
+
+Outputs:
+  VendorLayerArn:
+    Description: ARN for the Vendor Layer
+    Value: !Ref VendorLayer
+    Export:
+      Name: flow-layers-VendorLayerArn-us-east-1
+
+  CommonLayerArn:
+    Description: ARN for the Common Layer
+    Value: !Ref CommonLayer
+    Export:
+      Name: flow-layers-CommonLayerArn-us-east-1
