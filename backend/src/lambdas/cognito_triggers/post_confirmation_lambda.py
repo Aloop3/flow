@@ -10,10 +10,10 @@ dynamodb = boto3.resource("dynamodb")
 users_table = dynamodb.Table(os.environ["USERS_TABLE"])
 
 
-def post_confirmation_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Lambda trigger for Cognito post confirmation event.
-    Creates user in DynamoDB after successful Cognito registration.
+    Creates user in DynamoDB after successful registration.
     """
     try:
         # Extract user attributes
@@ -30,7 +30,6 @@ def post_confirmation_handler(event: Dict[str, Any], context: Any) -> Dict[str, 
         users_table.put_item(Item=user_item)
         logger.info(f"Created user in DynamoDB: {user_attributes['sub']}")
 
-        # Return event to continue Cognito flow
         return event
 
     except Exception as e:

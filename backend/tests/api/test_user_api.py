@@ -220,34 +220,68 @@ class TestUserAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Invalid JSON", response_body["error"])
 
-    def test_create_user_direct_validation(self):
-        """Validation logic for missing fields"""
-        # Setup different test cases for the same validation logic
-        test_cases = [
-            {
-                "event": {"body": json.dumps({"name": "Test", "role": "athlete"})},
-                "expected_error": "Missing required fields",
-            },
-            {
-                "event": {
-                    "body": json.dumps({"email": "test@example.com", "role": "athlete"})
-                },
-                "expected_error": "Missing required fields",
-            },
-            {
-                "event": {
-                    "body": json.dumps({"email": "test@example.com", "name": "Test"})
-                },
-                "expected_error": "Invalid role",
-            },
-        ]
+    def test_create_user_missing_email(self):
+        """Test validation when email is missing"""
+        # Setup
+        event = {"body": json.dumps({"name": "Test", "role": "athlete"})}
 
-        for case in test_cases:
-            with self.subTest(event=case["event"]):
-                response = user_api.create_user.__wrapped__(case["event"], {})
-                self.assertEqual(response["statusCode"], 400)
-                response_body = json.loads(response["body"])
-                self.assertEqual(response_body["error"], case["expected_error"])
+        # Call API
+        response = user_api.create_user.__wrapped__(event, {})
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Missing required fields")
+
+    def test_create_user_missing_name(self):
+        """Test validation when name is missing"""
+        # Setup
+        event = {"body": json.dumps({"email": "test@example.com", "role": "athlete"})}
+
+        # Call API
+        response = user_api.create_user.__wrapped__(event, {})
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Missing required fields")
+
+    def test_create_user_invalid_role(self):
+        """Test validation when role is invalid"""
+        # Setup
+        event = {
+            "body": json.dumps(
+                {"email": "test@example.com", "name": "Test", "role": "invalid"}
+            )
+        }
+
+        # Call API
+        response = user_api.create_user.__wrapped__(event, {})
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Invalid role")
+
+    def test_create_user_null_role_allowed(self):
+        """Test that null role is allowed"""
+        # Mock the user service
+        with patch.object(user_api, "user_service") as mock_service:
+            mock_user = MagicMock()
+            mock_user.to_dict.return_value = {
+                "user_id": "123",
+                "email": "test@example.com",
+                "name": "Test",
+            }
+            mock_service.create_user.return_value = mock_user
+
+            event = {"body": json.dumps({"email": "test@example.com", "name": "Test"})}
+            response = user_api.create_user.__wrapped__(event, {})
+
+            self.assertEqual(response["statusCode"], 201)
+            mock_service.create_user.assert_called_with(
+                email="test@example.com", name="Test", role=None
+            )
 
     def test_create_user_invalid_role_direct(self):
         """Validation logic for invalid role"""
