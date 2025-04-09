@@ -56,6 +56,15 @@ jobs:
         AWS_ACCESS_KEY_ID: test
         AWS_SECRET_ACCESS_KEY: test
       run: |
-        coverage run -m unittest discover tests
+        cd backend
+        # Create __init__.py files if they don't exist
+        mkdir -p tests
+        touch tests/__init__.py
+        find tests -type d -exec touch {}/__init__.py \;
+        
+        # Try more robust test discovery 
+        python -m pytest
+        
+        # Generate coverage reports
         coverage report -m
         coverage xml
