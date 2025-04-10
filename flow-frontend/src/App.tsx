@@ -17,24 +17,39 @@ function App() {
   const [userSetupComplete, setUserSetupComplete] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // This effect will check user setup whenever the component renders
+  // Add debugging useEffect
+  useEffect(() => {
+    console.log("Auth state check");
+    getCurrentUser()
+      .then(user => console.log("Current user exists:", user))
+      .catch(err => console.log("No current user:", err));
+  }, []);
+
+  // Your existing useEffect remains the same
   useEffect(() => {
     const initializeUser = async () => {
       try {
         const user = await getCurrentUser();
         setIsLoading(true);
         try {
+          // Log the user ID to debug
+          console.log("Checking user in DB with ID:", user.userId);
+          
           // Try to get the user from our database
           const userData = await getUser(user.userId);
+          console.log("User data from DB:", userData);
+          
           // Check if user exists AND has a role
           setUserSetupComplete(!!userData && !!userData.role);
         } catch (error) {
+          console.error("Error fetching user:", error);
           // If we got an error, the user likely doesn't exist in our database yet
           setUserSetupComplete(false);
         } finally {
           setIsLoading(false);
         }
       } catch (error) {
+        console.log("No authenticated user:", error);
         // User is not logged in, which is fine
         setIsLoading(false);
       }
@@ -49,8 +64,9 @@ function App() {
 
   return (
     <Authenticator 
-      // Use signUpAttributes to include name in signup without customizing form
       signUpAttributes={['name']}
+      // Force showing login first
+      initialState="signIn"
     >
       {({ signOut, user }) => {
         // If not authenticated, let Authenticator handle it
@@ -58,18 +74,40 @@ function App() {
           return null;
         }
         
+        // Add a debug button (remove in production)
+        const DebugButton = () => (
+          <button 
+            onClick={() => {
+              console.log("Clearing auth state");
+              signOut();
+              localStorage.clear();
+              sessionStorage.clear();
+              window.location.reload();
+            }}
+            className="fixed bottom-4 right-4 px-3 py-2 bg-red-600 text-white text-xs rounded"
+          >
+            Reset Auth
+          </button>
+        );
+        
         // If still checking user setup, show loading
         if (isLoading) {
           return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              <DebugButton />
             </div>
           );
         }
 
         // If user exists but hasn't completed setup, show role selector
         if (userSetupComplete === false) {
-          return <RoleSelector user={user} onRoleSelected={handleRoleSelected} />;
+          return (
+            <>
+              <RoleSelector user={user} onRoleSelected={handleRoleSelected} />
+              <DebugButton />
+            </>
+          );
         }
 
         // If user is set up, show the app
@@ -83,6 +121,7 @@ function App() {
               <Route path="/profile" element={<Profile user={user} signOut={signOut} />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <DebugButton />
           </Router>
         );
       }}

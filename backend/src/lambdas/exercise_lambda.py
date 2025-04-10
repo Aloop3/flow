@@ -1,5 +1,6 @@
 import json
 import logging
+from utils.cors_utils import add_cors_headers
 from src.api import exercise_api
 
 logger = logging.getLogger()
@@ -32,12 +33,17 @@ def handler(event, context):
         handler_func = ROUTE_MAP.get(route_key)
 
         if handler_func:
-            return handler_func(event, context)
+            response = handler_func(event, context)
+            return add_cors_headers(response)
         else:
-            return {"statusCode": 404, "body": json.dumps({"error": "Route not found"})}
+            return add_cors_headers(
+                {"statusCode": 404, "body": json.dumps({"error": "Route not found"})}
+            )
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": f"Internal server error: {str(e)}"}),
-        }
+        return add_cors_headers(
+            {
+                "statusCode": 500,
+                "body": json.dumps({"error": f"Internal server error: {str(e)}"}),
+            }
+        )
