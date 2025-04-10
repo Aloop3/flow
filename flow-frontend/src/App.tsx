@@ -16,6 +16,7 @@ import { getUser } from './services/api';
 function App() {
   const [userSetupComplete, setUserSetupComplete] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const validRoles = ['athlete', 'coach'];
 
   // Add debugging useEffect
   useEffect(() => {
@@ -25,36 +26,34 @@ function App() {
       .catch(err => console.log("No current user:", err));
   }, []);
 
-  // Your existing useEffect remains the same
   useEffect(() => {
     const initializeUser = async () => {
+      setIsLoading(true);
+  
       try {
-        const user = await getCurrentUser();
-        setIsLoading(true);
-        try {
-          // Log the user ID to debug
-          console.log("Checking user in DB with ID:", user.userId);
-          
-          // Try to get the user from our database
-          const userData = await getUser(user.userId);
-          console.log("User data from DB:", userData);
-          
-          // Check if user exists AND has a role
-          setUserSetupComplete(!!userData && !!userData.role);
-        } catch (error) {
-          console.error("Error fetching user:", error);
-          // If we got an error, the user likely doesn't exist in our database yet
+        const cognitoUser = await getCurrentUser();
+        const userId = cognitoUser.userId;
+        console.log("Checking user in DB with ID:", userId);
+  
+        // Get user data directly
+        const userData = await getUser(userId);
+        console.log("User data from DB:", userData);
+  
+        if (userData?.role && validRoles.includes(userData.role)) {
+          console.log("Valid user role detected:", userData.role);
+          setUserSetupComplete(true);
+        } else {
+          console.warn("Invalid or missing role. Got:", userData?.role);
           setUserSetupComplete(false);
-        } finally {
-          setIsLoading(false);
         }
       } catch (error) {
-        console.log("No authenticated user:", error);
-        // User is not logged in, which is fine
+        console.error("Error in user data fetch or no authenticated user:", error);
+        setUserSetupComplete(false);
+      } finally {
         setIsLoading(false);
       }
     };
-
+  
     initializeUser();
   }, []);
 
