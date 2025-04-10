@@ -45,3 +45,6 @@ coverage
 .amplify
 amplify_outputs*
 amplifyconfiguration*
+
+# VITE
+.vite
