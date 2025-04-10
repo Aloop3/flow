@@ -26,7 +26,7 @@ def create_response(
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
             "Access-Control_Allow-Methods": "OPTIONS,GET,POST,PUT,DELETE",
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
         },
         "body": json.dumps(body, cls=DecimalEncoder),
     }

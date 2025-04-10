@@ -4,58 +4,87 @@ Description: >
  Flow - Powerlifting Tracking App
  SAM Template for Flow backend services
 
+Parameters:
+  CorsOrigin:
+    Type: String
+    Default: 'http://localhost:5173'
+    Description: 'CORS allowed origin'
 
 # Global values that are applied to all resources
 Globals:
- Function:
-   Timeout: 30  # Lambda function timeout in seconds
-   Runtime: python3.9
-   MemorySize: 256
-   Layers:
-     - !ImportValue flow-layers-VendorLayerArn-us-east-1
-     - !ImportValue flow-layers-CommonLayerArn-us-east-1
-   Environment:
-     Variables:
-       USERS_TABLE: !Ref UsersTable
-       BLOCKS_TABLE: !Ref BlocksTable
-       WEEKS_TABLE: !Ref WeeksTable
-       DAYS_TABLE: !Ref DaysTable
-       EXERCISES_TABLE: !Ref ExercisesTable
-       WORKOUTS_TABLE: !Ref WorkoutsTable
-       COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
-       RELATIONSHIPS_TABLE: !Ref RelationshipsTable
-       SETS_TABLE: !Ref SetsTable
-       LOG_LEVEL: INFO
-       REGION: !Ref AWS::Region
-
+  Function:
+    Timeout: 30  # Lambda function timeout in seconds
+    Runtime: python3.9
+    MemorySize: 256
+    Layers:
+      - !ImportValue flow-layers-VendorLayerArn-us-east-1
+      - !ImportValue flow-layers-CommonLayerArn-us-east-1
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        BLOCKS_TABLE: !Ref BlocksTable
+        WEEKS_TABLE: !Ref WeeksTable
+        DAYS_TABLE: !Ref DaysTable
+        EXERCISES_TABLE: !Ref ExercisesTable
+        WORKOUTS_TABLE: !Ref WorkoutsTable
+        COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+        RELATIONSHIPS_TABLE: !Ref RelationshipsTable
+        SETS_TABLE: !Ref SetsTable
+        LOG_LEVEL: INFO
+        REGION: !Ref AWS::Region
+        CORS_ALLOWED_ORIGIN: !Ref CorsOrigin
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
+      AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,Access-Control-Allow-Origin'"
+      AllowOrigin: !Sub "'${CorsOrigin}'"
+      AllowCredentials: true
+    GatewayResponses:
+      DEFAULT_4XX:
+        ResponseParameters:
+          Headers:
+            Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+            Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
+            Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+            Access-Control-Allow-Credentials: "'true'"
+      DEFAULT_5XX:
+        ResponseParameters:
+          Headers:
+            Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+            Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
+            Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+            Access-Control-Allow-Credentials: "'true'"
 
 Resources:
   # API Gateway Definition
   FlowAPI:
-   Type: AWS::Serverless::Api
-   Properties:
-     StageName: dev
-     Cors:
-       AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-       AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
-       AllowOrigin: "'*'"
-     Auth:
-       DefaultAuthorizer: CognitoAuthorizer
-       Authorizers:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,Access-Control-Allow-Origin'"
+        AllowOrigin: !Sub "'${CorsOrigin}'"
+        AllowCredentials: true
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
          CognitoAuthorizer:
-           UserPoolArn: !GetAtt FlowUserPool.Arn
+            UserPoolArn: !GetAtt FlowUserPool.Arn
+        AddDefaultAuthorizerToCorsPreflight: false
+  
   # Cognito User Pool for Authentication
   FlowUserPool:
-   Type: AWS::Cognito::UserPool
-   Properties:
-     UserPoolName: flow-user-pool
-     LambdaConfig:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: flow-user-pool
+      LambdaConfig:
        PostConfirmation: !GetAtt CognitoPostConfirmationFunction.Arn
-     AdminCreateUserConfig:
+      AdminCreateUserConfig:
        AllowAdminCreateUserOnly: false
-     AutoVerifiedAttributes:
+      AutoVerifiedAttributes:
        - email
-     Schema:
+      Schema:
        - Name: email
          AttributeDataType: String
          Mutable: true
@@ -70,25 +99,25 @@ Resources:
          Required: false
 
   CognitoTriggerPermission:
-   Type: AWS::Lambda::Permission
-   Properties:
-     Action: lambda:InvokeFunction
-     FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
-     Principal: cognito-idp.amazonaws.com
-     SourceArn: !GetAtt FlowUserPool.Arn
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt FlowUserPool.Arn
 
 
   # Cognito User Pool Client
   FlowUserPoolClient:
-   Type: AWS::Cognito::UserPoolClient
-   Properties:
-     ClientName: flow-user-pool-client
-     UserPoolId: !Ref FlowUserPool
-     ExplicitAuthFlows:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: flow-user-pool-client
+      UserPoolId: !Ref FlowUserPool
+      ExplicitAuthFlows:
        - ALLOW_USER_PASSWORD_AUTH
        - ALLOW_REFRESH_TOKEN_AUTH
        - ALLOW_USER_SRP_AUTH
-     GenerateSecret: false
+      GenerateSecret: false
   # DynamoDB Tables
   UsersTable:
     Type: AWS::DynamoDB::Table
@@ -320,37 +349,37 @@ Resources:
 
   # User Lambda function
   UserFunction:
-   Type: AWS::Serverless::Function
-   Properties:
-     CodeUri: src/lambdas/
-     Handler: user_lambda.handler
-     Description: Lambda handler for user-related endpoints
-     Timeout: 30
-     Policies:
-       - DynamoDBCrudPolicy:
-           TableName: !Ref UsersTable
-
-
-     Events:
-       # User API Routes
-       CreateUser:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /users
-           Method: post
-       GetUser:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /users/{user_id}
-           Method: get
-       UpdateUser:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /users/{user_id}
-           Method: put
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: user_lambda.handler
+      Description: Lambda handler for user-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      
+      
+      Events:
+        # User API Routes
+        CreateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users
+            Method: post
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users/{user_id}
+            Method: get
+        UpdateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users/{user_id}
+            Method: put
   
   # Block Lambda function
   BlockFunction:
@@ -362,317 +391,319 @@ Resources:
       Timeout: 30
       Policies:
        - DynamoDBCrudPolicy:
-           TableName: !Ref BlocksTable
+            TableName: !Ref BlocksTable
        - DynamoDBCrudPolicy:
-           TableName: !Ref WeeksTable
+            TableName: !Ref WeeksTable
 
 
       Events:
-       # Block API Routes
-       CreateBlock:
-         Type: Api
-         Properties:
+        # Block API Routes
+        CreateBlock:
+          Type: Api
+          Properties:
            RestApiId: !Ref FlowAPI
            Path: /blocks
            Method: post
-       GetBlock:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /blocks/{block_id}
-           Method: get
-       GetBlocksByAthlete:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /athletes/{athlete_id}/blocks
-           Method: get
-       UpdateBlock:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /blocks/{block_id}
-           Method: put
-       DeleteBlock:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /blocks/{block_id}
-           Method: delete
+        GetBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: get
+        GetBlocksByAthlete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/blocks
+            Method: get
+        UpdateBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: put
+        DeleteBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: delete
 
   # WeekFunction
   WeekFunction:
-   Type: AWS::Serverless::Function
-   Properties:
-     CodeUri: src/lambdas/
-     Handler: week_lambda.handler
-     Description: Lambda handler for week-related endpoints
-     Timeout: 30
-     Policies:
-       - DynamoDBCrudPolicy:
-           TableName: !Ref WeeksTable
-       - DynamoDBCrudPolicy:
-           TableName: !Ref DaysTable
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: week_lambda.handler
+      Description: Lambda handler for week-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
 
 
-     Events:
-       # Week API Routes
-       CreateWeek:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /weeks
-           Method: post
-       GetWeeksForBlock:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /blocks/{block_id}/weeks
-           Method: get
-       UpdateWeek:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /weeks/{week_id}
-           Method: put
-       DeleteWeek:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /weeks/{week_id}
-           Method: delete
+      Events:
+        # Week API Routes
+        CreateWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks
+            Method: post
+        GetWeeksForBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}/weeks
+            Method: get
+        UpdateWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}
+            Method: put
+        DeleteWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}
+            Method: delete
   
   # Day Lambda function
   DayFunction:
-   Type: AWS::Serverless::Function
-   Properties:
-     CodeUri: src/lambdas/
-     Handler: day_lambda.handler
-     Description: Lambda handler for day-related endpoints
-     Timeout: 30
-     Policies:
-       - DynamoDBCrudPolicy:
-           TableName: !Ref DaysTable
-       - DynamoDBCrudPolicy:
-           TableName: !Ref ExercisesTable
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: day_lambda.handler
+      Description: Lambda handler for day-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
 
 
-     Events:
-       # Day API Routes
-       CreateDay:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /days
-           Method: post
-       GetDaysForWeek:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /weeks/{week_id}/days
-           Method: get
-       UpdateDay:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /days/{day_id}
-           Method: put
-       DeleteDay:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /days/{day_id}
-           Method: delete
+      Events:
+        # Day API Routes
+        CreateDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days
+            Method: post
+        GetDaysForWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}/days
+            Method: get
+        UpdateDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}
+            Method: put
+        DeleteDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}
+            Method: delete
 
   # ExerciseFunction
   ExerciseFunction:
-   Type: AWS::Serverless::Function
-   Properties:
-     CodeUri: src/lambdas/
-     Handler: exercise_lambda.handler
-     Description: Lambda handler for exercise-related endpoints
-     Timeout: 30
-     Policies:
-       - DynamoDBCrudPolicy:
-           TableName: !Ref ExercisesTable
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: exercise_lambda.handler
+      Description: Lambda handler for exercise-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExercisesTable
 
 
-     Events:
-       # Exercise API Routes
-       CreateExercise:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /exercises
-           Method: post
-       GetExercisesForDay:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /days/{day_id}/exercises
-           Method: get
-       UpdateExercise:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /exercises/{exercise_id}
-           Method: put
-       DeleteExercise:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /exercises/{exercise_id}
-           Method: delete
-       ReorderExercises:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /exercises/reorder
-           Method: post
+      Events:
+        # Exercise API Routes
+        CreateExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises
+            Method: post
+        GetExercisesForDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}/exercises
+            Method: get
+        UpdateExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}
+            Method: put
+        DeleteExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}
+            Method: delete
+        ReorderExercises:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/reorder
+            Method: post
   
   # Workout Lambda function
   WorkoutFunction:
-   Type: AWS::Serverless::Function
-   Properties:
-     CodeUri: src/lambdas/
-     Handler: workout_lambda.handler
-     Description: Lambda handler for workout-related endpoints
-     Timeout: 30
-     Policies:
-       - DynamoDBCrudPolicy:
-           TableName: !Ref WorkoutsTable
-       - DynamoDBCrudPolicy:
-           TableName: !Ref CompletedExercisesTable
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: workout_lambda.handler
+      Description: Lambda handler for workout-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkoutsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CompletedExercisesTable
 
 
-     Events:
-       # Workout API Routes
-       CreateWorkout:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /workouts
-           Method: post
-       GetWorkout:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /workouts/{workout_id}
-           Method: get
-       GetWorkoutsByAthlete:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /athletes/{athlete_id}/workouts
-           Method: get
-       GetWorkoutByDay:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /athletes/{athlete_id}/days/{day_id}/workout
-           Method: get
-       UpdateWorkout:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /workouts/{workout_id}
-           Method: put
-       DeleteWorkout:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /workouts/{workout_id}
-           Method: delete
+      Events:
+        # Workout API Routes
+        CreateWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts
+            Method: post
+        GetWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: get
+        GetWorkoutsByAthlete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/workouts
+            Method: get
+        GetWorkoutByDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/days/{day_id}/workout
+            Method: get
+        UpdateWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: put
+        DeleteWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: delete
   
   # Relationship Lambda function
   RelationshipFunction:
-   Type: AWS::Serverless::Function
-   Properties:
-     CodeUri: src/lambdas/
-     Handler: relationship_lambda.handler
-     Description: Lambda handler for relationship-related endpoints
-     Timeout: 30
-     Policies:
-       - DynamoDBCrudPolicy:
-           TableName: !Ref RelationshipsTable
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: relationship_lambda.handler
+      Description: Lambda handler for relationship-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RelationshipsTable
 
 
-     Events:
-       # Relationship API Routes
-       CreateRelationship:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /relationships
-           Method: post
-       AcceptRelationship:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /relationships/{relationship_id}/accept
-           Method: post
-       EndRelationship:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /relationships/{relationship_id}/end
-           Method: post
-       GetCoachRelationships:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /coaches/{coach_id}/relationships
-           Method: get
-       GetRelationship:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /relationships/{relationship_id}
-           Method: get
+      Events:
+        # Relationship API Routes
+        CreateRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships
+            Method: post
+        AcceptRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}/accept
+            Method: post
+        EndRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}/end
+            Method: post
+        GetCoachRelationships:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /coaches/{coach_id}/relationships
+            Method: get
+        GetRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}
+            Method: get
           
   # Set Lambda function
   SetFunction:
-   Type: AWS::Serverless::Function
-   Properties:
-     CodeUri: src/lambdas/
-     Handler: set_lambda.handler
-     Description: Lambda handler for set-related endpoints
-     Policies:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: set_lambda.handler
+      Description: Lambda handler for set-related endpoints
+      Policies:
        - DynamoDBCrudPolicy:
-           TableName: !Ref SetsTable
+            TableName: !Ref SetsTable
        - DynamoDBCrudPolicy:
-           TableName: !Ref CompletedExercisesTable
-     Events:
-       GetSet:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /sets/{set_id}
-           Method: get
-       GetSetsForExercise:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /exercises/{exercise_id}/sets
-           Method: get
-       CreateSet:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /exercises/{exercise_id}/sets
-           Method: post
-       UpdateSet:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /sets/{set_id}
-           Method: put
-       DeleteSet:
-         Type: Api
-         Properties:
-           RestApiId: !Ref FlowAPI
-           Path: /sets/{set_id}
-           Method: delete
+            TableName: !Ref CompletedExercisesTable
+      
+      
+      Events:
+        GetSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /sets/{set_id}
+            Method: get
+        GetSetsForExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/sets
+            Method: get
+        CreateSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/sets
+            Method: post
+        UpdateSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /sets/{set_id}
+            Method: put
+        DeleteSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /sets/{set_id}
+            Method: delete
   
   CognitoPostConfirmationFunction:
     Type: AWS::Serverless::Function

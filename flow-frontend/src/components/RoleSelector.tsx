@@ -18,8 +18,16 @@ const RoleSelector = ({ user, onRoleSelected }: RoleSelectorProps) => {
     setError(null);
     
     try {
-      // Update user with selected role instead of creating
-      await updateUser(user.userId, { role });
+      // Log the user object to see what we're working with
+      console.log("User object from Cognito:", user);
+      
+      // Get the correct user ID - Cognito stores it in different places depending on the SDK version
+      const userId = user.userId || user.username || user.attributes?.sub;
+      console.log("Using user ID for update:", userId);
+      
+      // Update user with selected role
+      await updateUser(userId, { role });
+      console.log("Role update successful");
       onRoleSelected();
     } catch (error) {
       console.error('Error setting user role:', error);

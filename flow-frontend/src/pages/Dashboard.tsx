@@ -19,20 +19,22 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
       setIsLoading(true);
       try {
         const blocksData = await getBlocks(user.userId);
-        setBlocks(blocksData);
-        
-        // Find active block
-        const active = blocksData.find(block => block.status === 'active');
+        setBlocks(blocksData || []); // fallback here
+  
+        const active = (blocksData || []).find(block => block.status === 'active');
         setActiveBlock(active || null);
       } catch (error) {
         console.error('Error fetching blocks:', error);
+        setBlocks([]);         // <- ensure empty array fallback on error
+        setActiveBlock(null);  // <- optional: clear activeBlock too
       } finally {
         setIsLoading(false);
       }
     };
-
+  
     fetchData();
   }, [user]);
+  
 
   return (
     <Layout user={user} signOut={signOut}>
