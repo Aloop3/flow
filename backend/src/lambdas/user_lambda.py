@@ -1,7 +1,7 @@
 import json
 import logging
+from src.utils.cors_utils import add_cors_headers
 from src.api import user_api
-from utils.cors_utils import add_cors_headers
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

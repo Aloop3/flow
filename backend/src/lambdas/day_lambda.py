@@ -1,6 +1,6 @@
 import json
 import logging
-from utils.cors_utils import add_cors_headers
+from src.utils.cors_utils import add_cors_headers
 from src.api import day_api
 
 logger = logging.getLogger()
