@@ -123,15 +123,42 @@ export const createUser = async (userData: Omit<User, 'user_id'>): Promise<User>
   }
 };
 
-export const getUser = async (userId: string): Promise<User> => {
+export const getUser = async (userId: string): Promise<User | null> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await get({
+    
+    // Make the API request
+    const apiResponse = await get({
       apiName: 'flow-api',
       path: `/users/${userId}`,
       options: { headers }
     });
-    return response.body as User;
+    
+    // Log the full response for debugging
+    console.log('Complete API response:', apiResponse);
+    
+    // In Amplify v6, we need to await the response promise
+    const actualResponse = await apiResponse.response;
+    console.log('Actual response after awaiting:', actualResponse);
+    
+    // Extract the body from the actual response
+    if (actualResponse && actualResponse.body) {
+      // Handle both string and object responses
+      let userData = actualResponse.body;
+      if (typeof userData === 'string') {
+        try {
+          userData = JSON.parse(userData);
+        } catch (e) {
+          console.error('Failed to parse response body:', e);
+        }
+      }
+      
+      console.log('Extracted user data:', userData);
+      return userData;
+    }
+    
+    console.log('No user data found in response');
+    return null;
   } catch (error) {
     console.error('Error fetching user:', error);
     throw error;
@@ -141,7 +168,7 @@ export const getUser = async (userId: string): Promise<User> => {
 export const updateUser = async (userId: string, userData: Partial<User>): Promise<User> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await put({
+    const apiResponse = await put({
       apiName: 'flow-api',
       path: `/users/${userId}`,
       options: {
@@ -149,7 +176,17 @@ export const updateUser = async (userId: string, userData: Partial<User>): Promi
         body: userData
       }
     });
-    return response.body as User;
+    
+    // Await the response promise
+    const actualResponse = await apiResponse.response;
+    
+    // Extract the body
+    let responseBody = actualResponse.body;
+    if (typeof responseBody === 'string') {
+      responseBody = JSON.parse(responseBody);
+    }
+    
+    return responseBody;
   } catch (error) {
     console.error('Error updating user:', error);
     throw error;
