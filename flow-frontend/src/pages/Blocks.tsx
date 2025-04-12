@@ -14,10 +14,12 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('User object in Blocks', user)
     const fetchBlocks = async () => {
       setIsLoading(true);
       try {
-        const blocksData = await getBlocks(user.userId);
+        const blocksData = await getBlocks(user.user_id);
+        console.log('Blocks data:', blocksData)
         setBlocks(blocksData);
       } catch (error) {
         console.error('Error fetching blocks:', error);
@@ -50,7 +52,8 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {blocks.map((block) => (
+            {blocks && blocks.length > 0 ? (
+              blocks.map((block) => (
               <Link
                 key={block.block_id}
                 to={`/blocks/${block.block_id}`}
@@ -67,13 +70,18 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
                     : block.status === 'completed'
                     ? 'bg-blue-100 text-blue-800'
                     : 'bg-gray-100 text-gray-800'
-                }`}>
+                  }`}>
                   {block.status.charAt(0).toUpperCase() + block.status.slice(1)}
                 </span>
               </Link>
-            ))}
-          </div>
-        )}
+            ))
+          ) : (
+            <div className="col-span-3 bg-white p-6 text-center rounded-lg shadow">
+              <p className="text-gray-500">No training programs found. Create your first program to get started.</p>
+            </div>
+          )}
+        </div>
+      )}
       </div>
     </Layout>
   );
