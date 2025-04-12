@@ -27,7 +27,7 @@ def create_block(event, context):
         description = body.get("description")
         start_date = body.get("start_date")
         end_date = body.get("end_date")
-        coach_id = body.get("coach_id") or athlete_id # For athlete programming self
+        coach_id = body.get("coach_id") or athlete_id  # For athlete programming self
         status = body.get("status")
 
         # Validate required fields
