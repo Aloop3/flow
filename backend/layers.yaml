@@ -11,7 +11,7 @@ Resources:
       ContentUri: layers/vendor/
       CompatibleRuntimes:
         - python3.9
-      RetentionPolicy: Retain
+      RetentionPolicy: Delete
 
   CommonLayer:
     Type: AWS::Serverless::LayerVersion
@@ -21,7 +21,7 @@ Resources:
       ContentUri: layers/common/
       CompatibleRuntimes:
         - python3.9
-      RetentionPolicy: Retain
+      RetentionPolicy: Delete
 
 Outputs:
   VendorLayerArn:

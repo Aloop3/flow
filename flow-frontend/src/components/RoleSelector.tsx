@@ -25,12 +25,14 @@ const RoleSelector = ({ user, onRoleSelected }: RoleSelectorProps) => {
       const userId = user.userId || user.username || user.attributes?.sub;
       console.log("Using user ID for update:", userId);
       
-      if (!userId) {
-        throw new Error("Could not determine user ID");
-      }
+      // Make sure we're sending a properly formatted request
+      const userData = {
+        role: role
+      };
+      console.log("Sending role update:", userData);
       
       // Update user with selected role
-      const updatedUser = await updateUser(userId, { role });
+      const updatedUser = await updateUser(userId, userData);
       console.log("Role update successful:", updatedUser);
       
       onRoleSelected();

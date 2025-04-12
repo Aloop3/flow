@@ -90,6 +90,11 @@ export interface Set {
   completed?: boolean;
 }
 
+console.log('API Config:', {
+  apiName: 'flow-api',
+  endpoint: import.meta.env.VITE_API_URL || 'API_URL_NOT_SET'
+});
+
 // Helper to get auth headers
 export const getAuthHeaders = async () => {
   try {
@@ -143,17 +148,15 @@ export const getUser = async (userId: string): Promise<User | null> => {
     
     // Extract the body from the actual response
     if (actualResponse && actualResponse.body) {
-      // Handle both string and object responses
-      let userData = actualResponse.body;
-      if (typeof userData === 'string') {
-        try {
-          userData = JSON.parse(userData);
-        } catch (e) {
-          console.error('Failed to parse response body:', e);
-        }
+      // Handle ReadableStream responses
+      let objectData = actualResponse.body;
+      let userData: any;
+      try {
+        userData = await objectData.json();
+      } catch (e) {
+        console.error('Failed to parse response body:', e);
       }
       
-      console.log('Extracted user data:', userData);
       return userData;
     }
     
@@ -165,7 +168,7 @@ export const getUser = async (userId: string): Promise<User | null> => {
   }
 };
 
-export const updateUser = async (userId: string, userData: Partial<User>): Promise<User> => {
+export const updateUser = async (userId: string, newUserData: Partial<User>): Promise<User | null> => {
   try {
     const headers = await getAuthHeaders();
     const apiResponse = await put({
@@ -173,7 +176,7 @@ export const updateUser = async (userId: string, userData: Partial<User>): Promi
       path: `/users/${userId}`,
       options: {
         headers,
-        body: userData
+        body: newUserData
       }
     });
     
@@ -181,12 +184,21 @@ export const updateUser = async (userId: string, userData: Partial<User>): Promi
     const actualResponse = await apiResponse.response;
     
     // Extract the body
-    let responseBody = actualResponse.body;
-    if (typeof responseBody === 'string') {
-      responseBody = JSON.parse(responseBody);
+    if (actualResponse && actualResponse.body) {
+      let userData: any;
+      try {
+        userData = await actualResponse.body.json();
+      } catch (e) {
+        console.error('Failed to parse response body in updateUser:', e);
+        return null;
+      }
+
+      console.log('Extracted user data after update:', userData);
+      return userData;
     }
-    
-    return responseBody;
+
+    console.log('No user data found in update response');
+    return null;
   } catch (error) {
     console.error('Error updating user:', error);
     throw error;
@@ -194,30 +206,88 @@ export const updateUser = async (userId: string, userData: Partial<User>): Promi
 };
 
 // Block endpoints
-export const getBlocks = async (athleteId: string): Promise<Block[]> => {
+export const getBlocks = async (user_id: string): Promise<Block[]> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await get({
+    
+    console.log("Fetching blocks for user ID:", user_id);
+    
+    // Make the API request using the same pattern as getUser
+    const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/athletes/${athleteId}/blocks`,
+      path: `/athletes/${user_id}/blocks`,
       options: { headers }
     });
-    return response.body as Block[];
+    
+    // Log the full response for debugging
+    console.log('Complete API response:', apiResponse);
+    
+    // Await the response promise as in getUser
+    const actualResponse = await apiResponse.response;
+    console.log('Actual response after awaiting:', actualResponse);
+    
+    // Extract the body from the actual response
+    if (actualResponse && actualResponse.body) {
+      // Handle ReadableStream responses
+      let objectData = actualResponse.body;
+      let blocksData: any;
+      
+      try {
+        const parsedData = await objectData.json();
+        console.log('Parsed blocks data:', parsedData);
+        blocksData = Array.isArray(parsedData) ? parsedData : [];
+      } catch (e) {
+        console.error('Failed to parse response body:', e);
+      }
+      
+      return blocksData;
+    }
+    
+    console.log('No blocks data found in response');
+    return [];
   } catch (error) {
     console.error('Error fetching blocks:', error);
     throw error;
   }
 };
 
-export const getBlock = async (blockId: string): Promise<Block> => {
+
+export const getBlock = async (blockId: string): Promise<Block | null> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await get({
+    console.log('Fetching block with ID:', blockId);
+    const apiResponse = await get({
       apiName: 'flow-api',
       path: `/blocks/${blockId}`,
       options: { headers }
     });
-    return response.body as Block;
+
+    console.log('Complete API response:', apiResponse);
+
+    // Await the response promise
+    const actualResponse = await apiResponse.response;
+    console.log('Actual response after awaiting:', actualResponse);
+
+    // Extract the body from the actual response
+    if (actualResponse && actualResponse.body) {
+      // Handle ReadableStream responses
+      let objectData = actualResponse.body;
+      let blockData: any;
+      
+      try {
+        const parsedData = await objectData.json();
+        console.log('Parsed block data:', parsedData);
+        blockData = parsedData;
+      } catch (e) {
+        console.error('Failed to parse response body:', e);
+        return null;
+      }
+      
+      return blockData;
+    }
+    
+    console.log('No block data found in response');
+    return null;
   } catch (error) {
     console.error('Error fetching block:', error);
     throw error;
@@ -226,18 +296,28 @@ export const getBlock = async (blockId: string): Promise<Block> => {
 
 export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<Block> => {
   try {
+    console.log('Sending block data:', JSON.stringify(blockData, null, 2)); // Better debugging
+    
+    // Make sure the date format is correct (YYYY-MM-DD)
+    const formattedData = {
+      ...blockData,
+      // Ensure dates are in correct format
+      start_date: blockData.start_date.split('T')[0], // Remove any time component
+      end_date: blockData.end_date.split('T')[0], // Remove any time component
+    };
+    
     const headers = await getAuthHeaders();
     const response = await post({
       apiName: 'flow-api',
       path: '/blocks',
       options: {
         headers,
-        body: blockData
+        body: formattedData
       }
     });
     return response.body as Block;
   } catch (error) {
-    console.error('Error creating block:', error);
+    console.error('Error creating block (details):', error);
     throw error;
   }
 };
