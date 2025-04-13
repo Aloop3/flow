@@ -29,6 +29,7 @@ class TestBlockAPI(BaseTest):
             "end_date": "2025-04-01",
             "status": "draft",
             "coach_id": "coach789",
+            "number_of_weeks": 4,
         }
         mock_create_block.return_value = mock_block
 
@@ -42,6 +43,7 @@ class TestBlockAPI(BaseTest):
                     "end_date": "2025-04-01",
                     "status": "draft",
                     "coach_id": "coach789",
+                    "number_of_weeks": 4,
                 }
             )
         }
@@ -63,6 +65,7 @@ class TestBlockAPI(BaseTest):
             end_date="2025-04-01",
             status="draft",
             coach_id="coach789",
+            number_of_weeks=4,
         )
 
     @patch("src.services.block_service.BlockService.create_block")

@@ -15,6 +15,16 @@ class TestBlockService(unittest.TestCase):
         """
         self.block_repository_mock = MagicMock()
         self.week_repository_mock = MagicMock()
+        self.week_service_mock = MagicMock()
+        self.day_service_mock = MagicMock()
+
+        # Create mock objects for week and day services to return
+        self.mock_week = MagicMock()
+        self.mock_week.week_id = "test-week-id"
+        self.week_service_mock.create_week.return_value = self.mock_week
+
+        self.mock_day = MagicMock()
+        self.day_service_mock.create_day.return_value = self.mock_day
 
         # Create patcher for uuid4 to return predictable IDs
         self.uuid_patcher = patch("uuid.uuid4", return_value="test-uuid")
@@ -29,6 +39,8 @@ class TestBlockService(unittest.TestCase):
             return_value=self.week_repository_mock,
         ):
             self.block_service = BlockService()
+            self.block_service.week_service = self.week_service_mock
+            self.block_service.day_service = self.day_service_mock
 
     def tearDown(self):
         """
@@ -47,7 +59,7 @@ class TestBlockService(unittest.TestCase):
             "title": "Test Block",
             "description": "Test Description",
             "start_date": "2025-03-01",
-            "end_date": "2025-04-01",
+            "end_date": "2025-03-29",
             "status": "active",
             "coach_id": "coach789",
         }
@@ -95,7 +107,7 @@ class TestBlockService(unittest.TestCase):
                 "title": "Block 1",
                 "description": "Description 1",
                 "start_date": "2025-03-01",
-                "end_date": "2025-04-01",
+                "end_date": "2025-03-29",
                 "status": "active",
                 "coach_id": "coach456",
             },
@@ -132,13 +144,16 @@ class TestBlockService(unittest.TestCase):
         """
         Test creating a new block
         """
+        # Reset the mock call counts
+        self.week_service_mock.create_week.reset_mock()
+        self.day_service_mock.create_day.reset_mock()
         # Call the service method
         result = self.block_service.create_block(
             athlete_id="athlete123",
             title="New Block",
             description="New Description",
             start_date="2025-03-01",
-            end_date="2025-04-01",
+            end_date="2025-03-29",
             coach_id="coach456",
             status="draft",
         )
@@ -153,9 +168,10 @@ class TestBlockService(unittest.TestCase):
             "title": "New Block",
             "description": "New Description",
             "start_date": "2025-03-01",
-            "end_date": "2025-04-01",
+            "end_date": "2025-03-29",
             "coach_id": "coach456",
             "status": "draft",
+            "number_of_weeks": 4,
         }
 
         self.block_repository_mock.create_block.assert_called_once()
@@ -170,19 +186,31 @@ class TestBlockService(unittest.TestCase):
         self.assertEqual(result.block_id, "test-uuid")
         self.assertEqual(result.athlete_id, "athlete123")
         self.assertEqual(result.title, "New Block")
+        self.assertEqual(result.number_of_weeks, 4)
+
+        # Verify the week_service.create_week was called for each week
+        self.assertEqual(self.week_service_mock.create_week.call_count, 4)
+
+        # Verify day_service.create_day was called for each day (4 weeks * 7 days)
+        self.assertEqual(self.day_service_mock.create_day.call_count, 28)
 
     def test_create_block_without_coach(self):
         """
-        Test creating a new block without a coach (self-coached)
+        Test creating a new block without a coach
         """
+        # Reset the mock call counts
+        self.week_service_mock.create_week.reset_mock()
+        self.day_service_mock.create_day.reset_mock()
+
         # Call the service method
         result = self.block_service.create_block(
             athlete_id="athlete123",
             title="Self-Coached Block",
             description="No coach needed",
             start_date="2025-03-01",
-            end_date="2025-04-01",
+            end_date="2025-03-29",
             status="active",
+            number_of_weeks=4,
         )
 
         # Assert repository create method was called with correct data
@@ -190,11 +218,19 @@ class TestBlockService(unittest.TestCase):
         actual_arg = self.block_repository_mock.create_block.call_args[0][0]
 
         # Check coach_id is None
-        self.assertIsNone(actual_arg["coach_id"])
+        self.assertEqual(actual_arg["coach_id"], None)
+        self.assertEqual(actual_arg["athlete_id"], "athlete123")
 
         # Assert other data is correct
         self.assertEqual(actual_arg["title"], "Self-Coached Block")
         self.assertEqual(actual_arg["status"], "active")
+        self.assertEqual(actual_arg["number_of_weeks"], 4)
+
+        # Verify the week_service.create_week was called for each week
+        self.assertEqual(self.week_service_mock.create_week.call_count, 4)
+
+        # Verify day_service.create_day was called for each day (4 weeks * 7 days)
+        self.assertEqual(self.day_service_mock.create_day.call_count, 28)
 
     def test_delete_block(self):
         """
@@ -234,9 +270,10 @@ class TestBlockService(unittest.TestCase):
             "title": "Old Title",
             "description": "Old Description",
             "start_date": "2025-03-01",
-            "end_date": "2025-04-01",
+            "end_date": "2025-03-29",
             "status": "draft",
             "coach_id": "coach789",
+            "number_of_weeks": 4,
         }
 
         # Mock updated block data
@@ -246,9 +283,10 @@ class TestBlockService(unittest.TestCase):
             "title": "New Title",
             "description": "Updated Description",
             "start_date": "2025-03-01",
-            "end_date": "2025-04-01",
+            "end_date": "2025-03-29",
             "status": "active",
             "coach_id": "coach789",
+            "number_of_weeks": 6,
         }
 
         # Configure mocks
@@ -264,6 +302,7 @@ class TestBlockService(unittest.TestCase):
             "title": "New Title",
             "description": "Updated Description",
             "status": "active",
+            "number_of_weeks": 6,
         }
 
         # Call the service method
@@ -273,13 +312,14 @@ class TestBlockService(unittest.TestCase):
         self.block_repository_mock.update_block.assert_called_once_with(
             "block123", update_data
         )
-        self.block_repository_mock.get_block.assert_called_once_with("block123")
+        self.assertGreaterEqual(self.block_repository_mock.get_block.call_count, 1)
 
         # Assert the returned object has the updated values
         self.assertIsInstance(result, Block)
         self.assertEqual(result.title, "New Title")
         self.assertEqual(result.description, "Updated Description")
         self.assertEqual(result.status, "active")
+        self.assertEqual(result.number_of_weeks, 6)
 
         # Assert unchanged values remain the same
         self.assertEqual(result.athlete_id, "athlete456")

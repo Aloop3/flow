@@ -1,104 +1,54 @@
 import { useState, FormEvent } from 'react';
 
 interface DayFormProps {
-  weekId: string;
-  suggestedDayNumber: number;
+  day: {
+    day_id: string;
+    day_number: number;
+    date: string;
+    focus?: string;
+    notes?: string;
+  };
   onSubmit: (dayData: any) => Promise<void>;
   isLoading: boolean;
   onCancel: () => void;
 }
 
-const DayForm = ({ weekId, suggestedDayNumber, onSubmit, isLoading, onCancel }: DayFormProps) => {
+const DayForm = ({ day, onSubmit, isLoading, onCancel }: DayFormProps) => {
   const [formData, setFormData] = useState({
-    week_id: weekId,
-    day_number: suggestedDayNumber,
-    date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
-    focus: '',
-    notes: '',
+    day_id: day.day_id,
+    focus: day.focus || '',
+    notes: day.notes || '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'day_number' ? parseInt(value) || 0 : value 
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
     
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    
-    if (formData.day_number <= 0) {
-      newErrors.day_number = 'Day number must be positive';
-    }
-    
-    if (!formData.date) {
-      newErrors.date = 'Date is required';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
     
     try {
       await onSubmit(formData);
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error('Error updating day:', error);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="day_number" className="block text-sm font-medium text-gray-700">
-          Day Number
-        </label>
-        <input
-          type="number"
-          id="day_number"
-          name="day_number"
-          min="1"
-          value={formData.day_number}
-          onChange={handleChange}
-          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-            errors.day_number ? 'border-red-300' : ''
-          }`}
-        />
-        {errors.day_number && <p className="mt-1 text-sm text-red-600">{errors.day_number}</p>}
-      </div>
-      
-      <div>
-        <label htmlFor="date" className="block text-sm font-medium text-gray-700">
-          Date
-        </label>
-        <input
-          type="date"
-          id="date"
-          name="date"
-          value={formData.date}
-          onChange={handleChange}
-          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-            errors.date ? 'border-red-300' : ''
-          }`}
-        />
-        {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
+      <div className="mb-4">
+        <h3 className="text-md font-medium text-gray-700">Day {day.day_number} - {new Date(day.date).toLocaleDateString()}</h3>
       </div>
       
       <div>
         <label htmlFor="focus" className="block text-sm font-medium text-gray-700">
-          Focus
+          Training Focus
         </label>
         <select
           id="focus"
@@ -127,6 +77,7 @@ const DayForm = ({ weekId, suggestedDayNumber, onSubmit, isLoading, onCancel }: 
           value={formData.notes}
           onChange={handleChange}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          placeholder="Optional training notes for this day"
         />
       </div>
       
@@ -143,7 +94,7 @@ const DayForm = ({ weekId, suggestedDayNumber, onSubmit, isLoading, onCancel }: 
           disabled={isLoading}
           className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400"
         >
-          {isLoading ? 'Adding...' : 'Add Day'}
+          {isLoading ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
     </form>

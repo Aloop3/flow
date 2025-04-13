@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { Block } from '../services/api';
 
 interface BlockFormProps {
@@ -14,7 +14,25 @@ const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) =>
     start_date: initialData.start_date || '',
     end_date: initialData.end_date || '',
     status: initialData.status || 'draft',
+    number_of_weeks: initialData.number_of_weeks || 4,
   });
+
+  useEffect(() => {
+    if (formData.start_date && formData.number_of_weeks) {
+      const startDate = new Date(formData.start_date);
+      // Calculate end date: start date + (number_of_weeks * 7) days
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + (formData.number_of_weeks * 7));
+      
+      // Format as YYYY-MM-DD
+      const formattedEndDate = endDate.toISOString().split('T')[0];
+      setFormData(prev => ({
+        ...prev,
+        end_date: formattedEndDate
+      }));
+    }
+  }, [formData.start_date, formData.number_of_weeks]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -32,6 +50,10 @@ const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) =>
       newErrors.title = 'Title is required';
     }
     
+    if (formData.number_of_weeks < 4 || formData.number_of_weeks > 12) {
+      newErrors.number_of_weeks = 'Number of weeks must be between 4 and 12';
+    }
+
     if (!formData.start_date) {
       newErrors.start_date = 'Start date is required';
     }
@@ -121,15 +143,32 @@ const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) =>
             id="end_date"
             name="end_date"
             value={formData.end_date}
-            onChange={handleChange}
-            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-              errors.end_date ? 'border-red-300' : ''
-            }`}
+            readOnly
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.end_date && <p className="mt-1 text-sm text-red-600">{errors.end_date}</p>}
         </div>
       </div>
       
+      <div>
+        <label htmlFor="number_of_weeks" className="block text-sm font-medium text-gray-700">
+          Number of Weeks
+        </label>
+        <input
+          type="number"
+          id="number_of_weeks"
+          name="number_of_weeks"
+          min="4"
+          max="12"
+          value={formData.number_of_weeks}
+          onChange={handleChange}
+          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+            errors.number_of_weeks ? 'border-red-300' : ''
+          }`}
+        />
+        {errors.number_of_weeks && <p className="mt-1 text-sm text-red-600">{errors.number_of_weeks}</p>}
+      </div>
+
       <div>
         <label htmlFor="status" className="block text-sm font-medium text-gray-700">
           Status

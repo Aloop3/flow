@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
-import WeekForm from '../components/WeekForm';
 import DayForm from '../components/DayForm';
-import { getBlock, getWeeks, getDays, createWeek, createDay } from '../services/api';
+import { getBlock, getWeeks, getDays, updateDay } from '../services/api';
 import type { Block, Week, Day } from '../services/api';
 
 interface BlockDetailProps {
@@ -19,12 +18,8 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const [daysMap, setDaysMap] = useState<{[weekId: string]: Day[]}>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeWeek, setActiveWeek] = useState<string | null>(null);
+  const [editingDay, setEditingDay] = useState<any>(null);
   
-  // Modal states
-  const [showAddWeekModal, setShowAddWeekModal] = useState(false);
-  const [showAddDayModal, setShowAddDayModal] = useState(false);
-  const [isAddingWeek, setIsAddingWeek] = useState(false);
-  const [isAddingDay, setIsAddingDay] = useState(false);
 
   useEffect(() => {
     const fetchBlockData = async () => {
@@ -67,26 +62,15 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     fetchBlockData();
   }, [blockId]);
 
-  const handleAddWeek = async (weekData: any) => {
-    setIsAddingWeek(true);
+  const handleUpdateDay = async (dayData: any) => {
     try {
-      await createWeek(weekData);
-      // Refetch weeks data
-      const weeksData = await getWeeks(blockId!);
-      setWeeks(weeksData);
-      setShowAddWeekModal(false);
-    } catch (error) {
-      console.error('Error adding week:', error);
-    } finally {
-      setIsAddingWeek(false);
-    }
-  };
-
-  const handleAddDay = async (dayData: any) => {
-    setIsAddingDay(true);
-    try {
-      await createDay(dayData);
-      // Refetch days for the current week
+      // Call the updateDay API function
+      await updateDay(dayData.day_id, {
+        focus: dayData.focus,
+        notes: dayData.notes
+      });
+      
+      // Refresh the days data for the current week
       if (activeWeek) {
         const daysData = await getDays(activeWeek);
         setDaysMap(prev => ({
@@ -94,14 +78,13 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
           [activeWeek]: daysData
         }));
       }
-      setShowAddDayModal(false);
+      
+      setEditingDay(null);
     } catch (error) {
-      console.error('Error adding day:', error);
-    } finally {
-      setIsAddingDay(false);
+      console.error('Error updating day:', error);
     }
   };
-
+  
   return (
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
@@ -170,12 +153,6 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                         Week {week.week_number}
                       </button>
                     ))}
-                    <button
-                      onClick={() => setShowAddWeekModal(true)}
-                      className="py-4 px-6 text-center border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    >
-                      + Add Week
-                    </button>
                   </nav>
                 </div>
                 
@@ -184,39 +161,33 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {daysMap[activeWeek].map((day) => (
                         <div key={day.day_id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                          <h3 className="text-lg font-medium text-gray-900">Day {day.day_number}</h3>
-                          <p className="text-sm text-gray-500">{new Date(day.date).toLocaleDateString()}</p>
-                          {day.focus && <p className="mt-2 text-sm font-medium text-gray-700">Focus: {day.focus}</p>}
-                          {day.notes && <p className="mt-1 text-sm text-gray-500">{day.notes}</p>}
+                        <h3 className="text-lg font-medium text-gray-900">Day {day.day_number}</h3>
+                        <p className="text-sm text-gray-500">{new Date(day.date).toLocaleDateString()}</p>
+                        {day.focus && <p className="mt-2 text-sm font-medium text-gray-700">Focus: {day.focus}</p>}
+                        {day.notes && <p className="mt-1 text-sm text-gray-500">{day.notes}</p>}
+                        <div className="mt-4 flex justify-between">
                           <button
-                            className="mt-4 w-full px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
+                            onClick={() => setEditingDay(day)}
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                          >
+                            Edit Details
+                          </button>
+                          <button
+                            className="px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
                           >
                             View Exercises
                           </button>
                         </div>
+                      </div>
                       ))}
-                      <button
-                        onClick={() => setShowAddDayModal(true)}
-                        className="border rounded-lg p-4 flex flex-col items-center justify-center text-gray-500 hover:text-gray-700 hover:border-gray-400"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        <span className="mt-2">Add Day</span>
-                      </button>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
               <div className="bg-white shadow rounded-lg p-6 text-center">
-                <p className="text-gray-500 mb-4">No weeks have been added to this program yet.</p>
-                <button
-                  onClick={() => setShowAddWeekModal(true)}
-                  className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Add First Week
-                </button>
+                <p className="text-gray-500 mb-4">The program structure should have been created automatically.</p>
+                <p className="text-gray-500">If you don't see any weeks, please refresh the page or contact support.</p>
               </div>
             )}
           </>
@@ -236,30 +207,16 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       
       {/* Modals */}
       <Modal 
-        isOpen={showAddWeekModal} 
-        onClose={() => setShowAddWeekModal(false)}
-        title="Add New Week"
+        isOpen={!!editingDay} 
+        onClose={() => setEditingDay(null)}
+        title="Edit Day"
       >
-        <WeekForm 
-          blockId={blockId!} 
-          onSubmit={handleAddWeek} 
-          isLoading={isAddingWeek}
-          onCancel={() => setShowAddWeekModal(false)}
-        />
-      </Modal>
-
-      <Modal 
-        isOpen={showAddDayModal} 
-        onClose={() => setShowAddDayModal(false)}
-        title="Add New Day"
-      >
-        {activeWeek && (
+        {editingDay && (
           <DayForm 
-            weekId={activeWeek} 
-            onSubmit={handleAddDay} 
-            isLoading={isAddingDay}
-            onCancel={() => setShowAddDayModal(false)}
-            suggestedDayNumber={activeWeek && daysMap[activeWeek] ? daysMap[activeWeek].length + 1 : 1}
+            day={editingDay}
+            onSubmit={handleUpdateDay} 
+            isLoading={false}
+            onCancel={() => setEditingDay(null)}
           />
         )}
       </Modal>
