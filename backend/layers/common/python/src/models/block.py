@@ -12,6 +12,7 @@ class Block:
         end_date: str,
         status: Literal["draft", "active", "completed"],
         coach_id: Optional[str] = None,
+        number_of_weeks: Optional[int] = None,
     ):
         self.block_id: str = block_id
         self.athlete_id: str = athlete_id
@@ -21,6 +22,7 @@ class Block:
         self.start_date: str = start_date
         self.end_date: str = end_date
         self.status: Literal["draft", "active", "completed"] = status
+        self.number_of_weeks: Optional[int] = number_of_weeks
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -32,4 +34,5 @@ class Block:
             "start_date": self.start_date,
             "end_date": self.end_date,
             "status": self.status,
+            "number_of_weeks": self.number_of_weeks,
         }

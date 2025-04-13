@@ -66,7 +66,7 @@ class BlockRepository(BaseRepository):
         """
         Updates an existing block in the database.
 
-        :param block_id: The unique identifiedr of the block to update.
+        :param block_id: The unique identifier of the block to update.
         :param update_dict: A dictionary containing the attributes to update.
         :return: The response from the update operation.
         """

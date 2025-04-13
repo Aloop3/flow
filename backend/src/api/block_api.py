@@ -27,12 +27,25 @@ def create_block(event, context):
         description = body.get("description")
         start_date = body.get("start_date")
         end_date = body.get("end_date")
-        coach_id = body.get("coach_id") or athlete_id  # For athlete programming self
+        coach_id = (
+            body.get("coach_id") or athlete_id
+        )  # For athlete/coach programming self
         status = body.get("status")
+        number_of_weeks = body.get("number_of_weeks", 4)
 
         # Validate required fields
         if not athlete_id or not title or not start_date or not end_date:
             return create_response(400, {"error": "Missing required fields"})
+
+        # Validate number_of_weeks
+        try:
+            number_of_weeks = int(number_of_weeks)
+            if number_of_weeks < 4 or number_of_weeks > 12:
+                return create_response(
+                    400, {"error": "Number of weeks must be between 4 and 12"}
+                )
+        except (ValueError, TypeError):
+            return create_response(400, {"error": "Number of weeks must be an integer"})
 
         # Create block
         block = block_service.create_block(
@@ -43,6 +56,7 @@ def create_block(event, context):
             end_date=end_date,
             coach_id=coach_id,
             status=status,
+            number_of_weeks=number_of_weeks,
         )
 
         return create_response(201, block.to_dict())

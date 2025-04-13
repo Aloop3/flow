@@ -22,6 +22,7 @@ export interface Block {
   start_date: string;
   end_date: string;
   status: 'draft' | 'active' | 'completed';
+  number_of_weeks?: number;
 }
 
 export interface Week {
@@ -296,7 +297,7 @@ export const getBlock = async (blockId: string): Promise<Block | null> => {
 
 export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<Block> => {
   try {
-    console.log('Sending block data:', JSON.stringify(blockData, null, 2)); // Better debugging
+    console.log('Sending block data:', JSON.stringify(blockData, null, 2));
     
     // Make sure the date format is correct (YYYY-MM-DD)
     const formattedData = {
@@ -304,6 +305,7 @@ export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<B
       // Ensure dates are in correct format
       start_date: blockData.start_date.split('T')[0], // Remove any time component
       end_date: blockData.end_date.split('T')[0], // Remove any time component
+      number_of_week: Number(blockData.number_of_weeks) || 4 // Default to 4 weeks if not provided
     };
     
     const headers = await getAuthHeaders();
@@ -418,6 +420,24 @@ export const createDay = async (dayData: Omit<Day, 'day_id'>): Promise<Day> => {
     return response.body as Day;
   } catch (error) {
     console.error('Error creating day:', error);
+    throw error;
+  }
+};
+
+export const updateDay = async (dayId: string, dayData: Partial<Day>): Promise<Day> => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await put({
+      apiName: 'flow-api',
+      path: `/days/${dayId}`,
+      options: {
+        headers,
+        body: dayData
+      }
+    });
+    return response.body as Day;
+  } catch (error) {
+    console.error('Error updating day:', error);
     throw error;
   }
 };
