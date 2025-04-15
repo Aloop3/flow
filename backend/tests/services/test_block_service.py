@@ -59,7 +59,7 @@ class TestBlockService(unittest.TestCase):
             "title": "Test Block",
             "description": "Test Description",
             "start_date": "2025-03-01",
-            "end_date": "2025-03-29",
+            "end_date": "2025-03-28",
             "status": "active",
             "coach_id": "coach789",
         }
@@ -107,7 +107,7 @@ class TestBlockService(unittest.TestCase):
                 "title": "Block 1",
                 "description": "Description 1",
                 "start_date": "2025-03-01",
-                "end_date": "2025-03-29",
+                "end_date": "2025-03-28",
                 "status": "active",
                 "coach_id": "coach456",
             },
@@ -153,7 +153,7 @@ class TestBlockService(unittest.TestCase):
             title="New Block",
             description="New Description",
             start_date="2025-03-01",
-            end_date="2025-03-29",
+            end_date="2025-03-28",
             coach_id="coach456",
             status="draft",
         )
@@ -168,7 +168,7 @@ class TestBlockService(unittest.TestCase):
             "title": "New Block",
             "description": "New Description",
             "start_date": "2025-03-01",
-            "end_date": "2025-03-29",
+            "end_date": "2025-03-28",
             "coach_id": "coach456",
             "status": "draft",
             "number_of_weeks": 4,
@@ -187,6 +187,7 @@ class TestBlockService(unittest.TestCase):
         self.assertEqual(result.athlete_id, "athlete123")
         self.assertEqual(result.title, "New Block")
         self.assertEqual(result.number_of_weeks, 4)
+        self.assertEqual(result.start_date, "2025-03-01")
 
         # Verify the week_service.create_week was called for each week
         self.assertEqual(self.week_service_mock.create_week.call_count, 4)
@@ -208,7 +209,7 @@ class TestBlockService(unittest.TestCase):
             title="Self-Coached Block",
             description="No coach needed",
             start_date="2025-03-01",
-            end_date="2025-03-29",
+            end_date="2025-03-28",
             status="active",
             number_of_weeks=4,
         )
@@ -270,7 +271,7 @@ class TestBlockService(unittest.TestCase):
             "title": "Old Title",
             "description": "Old Description",
             "start_date": "2025-03-01",
-            "end_date": "2025-03-29",
+            "end_date": "2025-03-28",
             "status": "draft",
             "coach_id": "coach789",
             "number_of_weeks": 4,
@@ -283,7 +284,7 @@ class TestBlockService(unittest.TestCase):
             "title": "New Title",
             "description": "Updated Description",
             "start_date": "2025-03-01",
-            "end_date": "2025-03-29",
+            "end_date": "2025-03-28",
             "status": "active",
             "coach_id": "coach789",
             "number_of_weeks": 6,

@@ -71,7 +71,11 @@ class BlockService:
             start_date.replace("Z", "+00:00") if "Z" in start_date else start_date
         )
 
-        end_date_obj = start_date_obj + dt.timedelta(days=(number_of_weeks * 7))
+        # Force start date to be in UTC, no matter the time zone in the input
+        start_date_utc = start_date_obj.astimezone(dt.timezone.utc)
+        start_date_str = start_date_obj.strftime("%Y-%m-%d")
+
+        end_date_obj = start_date_obj + dt.timedelta(days=(number_of_weeks * 7) - 1)
         calculated_end_date = end_date_obj.strftime("%Y-%m-%d")
 
         # Create block with calculated_end_date
@@ -80,7 +84,7 @@ class BlockService:
             athlete_id=athlete_id,
             title=title,
             description=description,
-            start_date=start_date,
+            start_date=start_date_str,
             end_date=calculated_end_date,
             coach_id=coach_id,
             status=status,
@@ -101,7 +105,7 @@ class BlockService:
 
             for day_number in range(1, 8):
                 # Calculate the date for the day
-                current_date = start_date_obj + dt.timedelta(
+                current_date = start_date_utc + dt.timedelta(
                     days=((week_number - 1) * 7) + (day_number - 1)
                 )
                 formatted_date = current_date.strftime("%Y-%m-%d")
@@ -134,20 +138,25 @@ class BlockService:
 
         # Check if we need to recalculate end_date
         if "start_date" in update_data or "number_of_weeks" in update_data:
-            # Get the calues to use, prioritize new values from update_data
+            # Get the values to use, prioritize new values from update_data
             start_date = update_data.get("start_date", existing_block.start_date)
             number_of_weeks = update_data.get(
                 "number_of_weeks", existing_block.number_of_weeks
             )
 
-            # Caluculate new end_date
+            # Calculate new end_date
             start_date_obj = dt.datetime.fromisoformat(
                 start_date.replace("Z", "+00:00") if "Z" in start_date else start_date
             )
-            end_date_obj = start_date_obj + dt.timedelta(days=(number_of_weeks * 7))
+            # Force start date to be in UTC
+            start_date_utc = start_date_obj.astimezone(dt.timezone.utc)
+            start_date_str = start_date_utc.strftime("%Y-%m-%d")
+
+            end_date_obj = start_date_obj + dt.timedelta(days=(number_of_weeks * 7) - 1)
             calculated_end_date = end_date_obj.strftime("%Y-%m-%d")
 
-            # Update the end_date in the update_data
+            # Update start_date and end_date in the update_data
+            update_data["start_date"] = start_date_str
             update_data["end_date"] = calculated_end_date
 
         # Proceed with update to database

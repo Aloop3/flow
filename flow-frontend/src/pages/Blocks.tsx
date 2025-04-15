@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { getBlocks } from '../services/api';
 import type { Block } from '../services/api';
+import { formatDate } from '../utils/dateUtils';
 
 interface BlocksProps {
   user: any;
@@ -62,7 +63,7 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
                 <h3 className="text-lg font-medium text-gray-900">{block.title}</h3>
                 <p className="mt-1 text-sm text-gray-500">{block.description}</p>
                 <p className="mt-2 text-xs text-gray-500">
-                  {new Date(block.start_date).toLocaleDateString()} - {new Date(block.end_date).toLocaleDateString()}
+                  {formatDate(block.start_date)} - {formatDate(block.end_date)}
                 </p>
                 <span className={`mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                   block.status === 'active' 
