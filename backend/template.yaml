@@ -544,6 +544,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /days/{day_id}/exercises
             Method: get
+        GetExerciseTypes:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/types
+            Method: get
         UpdateExercise:
           Type: Api
           Properties:
