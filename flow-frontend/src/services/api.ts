@@ -54,6 +54,17 @@ export interface Exercise {
   exercise_category?: string;
 }
 
+export interface ExerciseTypeLibrary {
+  barbell: string[];
+  dumbbell: string[];
+  bodyweight: string[];
+  machine: string[];
+  cable: string[];
+  custom: string[];
+  all: string[];
+  [key: string]: string[];
+}
+
 export interface User {
   user_id: string;
   email: string;
@@ -571,6 +582,35 @@ export const getExercisesForWorkout = async (workoutId: string): Promise<Exercis
     return response.body as Exercise[];
   } catch (error) {
     console.error('Error fetching exercises:', error);
+    throw error;
+  }
+};
+
+export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path: '/exercises/types',
+      options: { headers }
+    });
+    
+    // For Amplify v6, we need to await the response and parse it
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const parsedData = await actualResponse.body.json();
+        return parsedData;
+      } catch (e) {
+        console.error('Failed to parse exercise types data:', e);
+        throw new Error('Failed to parse exercise data');
+      }
+    }
+    
+    throw new Error('No exercise data received');
+  } catch (error) {
+    console.error('Error fetching exercise types:', error);
     throw error;
   }
 };
