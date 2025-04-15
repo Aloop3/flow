@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
-import Modal from '../components/Modal';
-import DayForm from '../components/DayForm';
+import FocusTag from '../components/FocusTag';
 import { getBlock, getWeeks, getDays, updateDay } from '../services/api';
 import type { Block, Week, Day } from '../services/api';
+import Modal from '../components/Modal';
+import DayForm from '../components/DayForm';
+import FormButton from '../components/FormButton';
+import { formatDate } from '../utils/dateUtils';
 
 interface BlockDetailProps {
   user: any;
@@ -15,39 +18,41 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const { blockId } = useParams<{ blockId: string }>();
   const [block, setBlock] = useState<Block | null>(null);
   const [weeks, setWeeks] = useState<Week[]>([]);
-  const [daysMap, setDaysMap] = useState<{[weekId: string]: Day[]}>({});
+  const [daysMap, setDaysMap] = useState<{ [weekId: string]: Day[] }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeWeek, setActiveWeek] = useState<string | null>(null);
   const [editingDay, setEditingDay] = useState<any>(null);
-  
+  const [selectedDays, setSelectedDays] = useState<{ [key: string]: boolean }>({});
+  const [bulkFocus, setBulkFocus] = useState<string>('');
+  const [isBulkEditing, setIsBulkEditing] = useState(false);
+  const [applyToAllWeeks, setApplyToAllWeeks] = useState(true);
 
   useEffect(() => {
     const fetchBlockData = async () => {
       if (!blockId) return;
-      
+
       setIsLoading(true);
       try {
         const blockData = await getBlock(blockId);
-        console.log("Block data received:", blockData);
         setBlock(blockData);
-        
+
         if (blockData) {
           const weeksData = await getWeeks(blockId);
-          // Ensure weeksData is an array even if API returns undefined
-          const safeWeeksData = Array.isArray(weeksData) ? weeksData : [];
-          console.log("Weeks data received:", safeWeeksData);
-          setWeeks(safeWeeksData);
-          
-          if (safeWeeksData.length > 0) {
-            setActiveWeek(safeWeeksData[0].week_id);
-            
-            // Fetch days for all weeks
-            const daysObj: {[weekId: string]: Day[]} = {};
-            for (const week of safeWeeksData) {
+          const sortedWeeks = Array.isArray(weeksData)
+            ? [...weeksData].sort((a, b) => a.week_number - b.week_number)
+            : [];
+
+          setWeeks(sortedWeeks);
+          if (sortedWeeks.length > 0) {
+            setActiveWeek(sortedWeeks[0].week_id);
+            const daysObj: { [weekId: string]: Day[] } = {};
+
+            for (const week of sortedWeeks) {
               const daysData = await getDays(week.week_id);
-              // Ensure daysData is an array
-              const safeDaysData = Array.isArray(daysData) ? daysData : [];
-              daysObj[week.week_id] = safeDaysData;
+              const sortedDays = Array.isArray(daysData)
+                ? [...daysData].sort((a, b) => a.day_number - b.day_number)
+                : [];
+              daysObj[week.week_id] = sortedDays;
             }
             setDaysMap(daysObj);
           }
@@ -58,33 +63,173 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
         setIsLoading(false);
       }
     };
-    
+
     fetchBlockData();
   }, [blockId]);
 
-  const handleUpdateDay = async (dayData: any) => {
+  const handleBulkUpdate = async () => {
     try {
-      // Call the updateDay API function
-      await updateDay(dayData.day_id, {
-        focus: dayData.focus,
-        notes: dayData.notes
-      });
-      
-      // Refresh the days data for the current week
-      if (activeWeek) {
-        const daysData = await getDays(activeWeek);
+      const selectedItems = Object.entries(selectedDays)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([dayId]) => {
+          const day = activeWeek ? daysMap[activeWeek]?.find(d => d.day_id === dayId) : undefined;
+          return { dayId, dayNumber: day?.day_number || 0 };
+        });
+
+      if (selectedItems.length === 0 || (!bulkFocus && bulkFocus !== 'clear')) return;
+
+      setIsLoading(true);
+      const isClearingFocus = bulkFocus === 'clear';
+      const updates: { dayId: string; weekId: string }[] = [];
+
+      if (applyToAllWeeks) {
+        const dayNumbers = selectedItems.map(item => item.dayNumber);
+        Object.entries(daysMap).forEach(([weekId, days]) => {
+          days.forEach(day => {
+            if (dayNumbers.includes(day.day_number)) {
+              updates.push({ dayId: day.day_id, weekId });
+            }
+          });
+        });
+      } else {
+        selectedItems.forEach(item => {
+          updates.push({ dayId: item.dayId, weekId: activeWeek! });
+        });
+      }
+
+      const results = [];
+      for (let i = 0; i < updates.length; i++) {
+        const { dayId } = updates[i];
+        try {
+          if (i > 0 && i % 3 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          await updateDay(dayId, { focus: isClearingFocus ? undefined : bulkFocus });
+          results.push({ dayId, success: true });
+        } catch (error) {
+          results.push({ dayId, success: false, error });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      console.log(`Updated focus for ${successCount} days successfully`);
+
+      if (applyToAllWeeks) {
+        Object.keys(daysMap).forEach(async weekId => {
+          const freshDays = await getDays(weekId);
+          setDaysMap(prev => ({
+            ...prev,
+            [weekId]: [...freshDays].sort((a, b) => a.day_number - b.day_number)
+          }));
+        });
+      } else {
+        const freshDays = await getDays(activeWeek!);
         setDaysMap(prev => ({
           ...prev,
-          [activeWeek]: daysData
+          [activeWeek!]: [...freshDays].sort((a, b) => a.day_number - b.day_number)
         }));
       }
-      
-      setEditingDay(null);
+
+      setSelectedDays({});
+      setBulkFocus('');
+      setIsBulkEditing(false);
+      setIsLoading(false);
+      alert(isClearingFocus ? 'Focus cleared successfully!' : 'Focus updated successfully!');
     } catch (error) {
-      console.error('Error updating day:', error);
+      setIsLoading(false);
+      alert('Some updates failed. Please try again with fewer days at once.');
     }
   };
+
+  const handleClearFocus = async () => {
+    try {
+      const selectedItems = Object.entries(selectedDays)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([dayId]) => {
+          const day = activeWeek ? daysMap[activeWeek]?.find(d => d.day_id === dayId) : undefined;
+          return { dayId, dayNumber: day?.day_number || 0 };
+        });
   
+      if (selectedItems.length === 0) return;
+  
+      setIsLoading(true);
+  
+      const updates: { dayId: string; weekId: string }[] = [];
+  
+      // Collect selected days for updates
+      if (applyToAllWeeks) {
+        const dayNumbers = selectedItems.map(item => item.dayNumber);
+        Object.entries(daysMap).forEach(([weekId, days]) => {
+          days.forEach(day => {
+            if (dayNumbers.includes(day.day_number)) {
+              updates.push({ dayId: day.day_id, weekId });
+            }
+          });
+        });
+      } else {
+        selectedItems.forEach(item => {
+          updates.push({ dayId: item.dayId, weekId: activeWeek! });
+        });
+      }
+  
+      const results = [];
+  
+      // Process each selected day update with a delay to prevent throttling
+      for (let i = 0; i < updates.length; i++) {
+        const { dayId } = updates[i];
+        try {
+          if (i > 0 && i % 3 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+  
+          // Set focus to null for clearing it
+          await updateDay(dayId, { focus: null }); 
+          results.push({ dayId, success: true });
+        } catch (error) {
+          console.error(`Error clearing focus for day ${dayId}:`, error);
+          results.push({ dayId, success: false, error });
+        }
+      }
+  
+      const successCount = results.filter(r => r.success).length;
+      console.log(`Cleared focus for ${successCount} days successfully`);
+  
+      // Refresh the days data for all weeks or the active week
+      if (applyToAllWeeks) {
+        for (const weekId of Object.keys(daysMap)) {
+          const freshDays = await getDays(weekId);
+          setDaysMap(prev => ({
+            ...prev,
+            [weekId]: [...freshDays].sort((a, b) => a.day_number - b.day_number),
+          }));
+        }
+      } else {
+        const freshDays = await getDays(activeWeek!);
+        setDaysMap(prev => ({
+          ...prev,
+          [activeWeek!]: [...freshDays].sort((a, b) => a.day_number - b.day_number),
+        }));
+      }
+  
+      setSelectedDays({});
+      setBulkFocus('');
+      setIsBulkEditing(false);
+      setIsLoading(false);
+      alert('Focus cleared successfully!');
+    } catch (error) {
+      setIsLoading(false);
+      console.error('Error clearing focus:', error);
+      alert('Some updates failed. Please try again with fewer days at once.');
+    }
+  };
+
+  const toggleDay = (dayId: string) => {
+    setSelectedDays(prev => ({
+      ...prev,
+      [dayId]: !prev[dayId]
+    }));
+  };
+
   return (
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
@@ -105,18 +250,18 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                 Edit Program
               </Link>
             </div>
-            
+
             <div className="bg-white shadow rounded-lg p-6">
               <p className="mb-4 text-gray-600">{block.description}</p>
-              
+
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Start Date</h3>
-                  <p className="mt-1 text-sm text-gray-900">{new Date(block.start_date).toLocaleDateString()}</p>
+                  <p className="mt-1 text-sm text-gray-900">{formatDate(block.start_date)}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">End Date</h3>
-                  <p className="mt-1 text-sm text-gray-900">{new Date(block.end_date).toLocaleDateString()}</p>
+                  <p className="mt-1 text-sm text-gray-900">{formatDate(block.end_date)}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Status</h3>
@@ -134,9 +279,8 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                 </div>
               </div>
             </div>
-            
-            {/* Weeks and Days section */}
-            {weeks && weeks.length > 0 ? (
+
+            {weeks.length > 0 ? (
               <div className="bg-white shadow rounded-lg overflow-hidden">
                 <div className="border-b border-gray-200">
                   <nav className="flex">
@@ -155,39 +299,146 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                     ))}
                   </nav>
                 </div>
-                
+
                 {activeWeek && daysMap[activeWeek] && (
                   <div className="p-6">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {daysMap[activeWeek].map((day) => (
-                        <div key={day.day_id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <h3 className="text-lg font-medium text-gray-900">Day {day.day_number}</h3>
-                        <p className="text-sm text-gray-500">{new Date(day.date).toLocaleDateString()}</p>
-                        {day.focus && <p className="mt-2 text-sm font-medium text-gray-700">Focus: {day.focus}</p>}
-                        {day.notes && <p className="mt-1 text-sm text-gray-500">{day.notes}</p>}
-                        <div className="mt-4 flex justify-between">
-                          <button
-                            onClick={() => setEditingDay(day)}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            Edit Details
-                          </button>
-                          <button
-                            className="px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
-                          >
-                            View Exercises
-                          </button>
-                        </div>
+                    <div className="flex justify-between items-center mb-6">
+                      <div>
+                        <h2 className="text-lg font-semibold">
+                          Week {weeks.find(w => w.week_id === activeWeek)?.week_number || ''}
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                          {daysMap[activeWeek]?.length > 0 &&
+                            `${formatDate(daysMap[activeWeek][0].date)} - 
+                            ${formatDate(daysMap[activeWeek][daysMap[activeWeek].length - 1].date)}`}
+                        </p>
                       </div>
-                      ))}
+
+                      {!isBulkEditing ? (
+                        <FormButton
+                          onClick={() => setIsBulkEditing(true)}
+                          variant="primary"
+                          size="md"
+                        >
+                          Bulk Edit Focus
+                        </FormButton>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <select
+                            value={bulkFocus}
+                            onChange={(e) => setBulkFocus(e.target.value)}
+                            className="text-sm border-gray-300 rounded-md"
+                          >
+                            <option value="">Select Focus</option>
+                            <option value="squat">Squat</option>
+                            <option value="bench">Bench</option>
+                            <option value="deadlift">Deadlift</option>
+                            <option value="cardio">Cardio</option>
+                            <option value="rest">Rest</option>
+                          </select>
+
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id="applyToAllWeeks"
+                              checked={applyToAllWeeks}
+                              onChange={(e) => setApplyToAllWeeks(e.target.checked)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label
+                              htmlFor="applyToAllWeeks"
+                              className="ml-2 text-sm text-gray-700"
+                            >
+                              Apply to all weeks
+                            </label>
+                          </div>
+
+                          <FormButton
+                            onClick={handleBulkUpdate}
+                            disabled={!bulkFocus || Object.values(selectedDays).filter(Boolean).length === 0}
+                            variant="primary"
+                            size="md"
+                          >
+                            Apply Focus
+                          </FormButton>
+
+                          <FormButton
+                            onClick={handleClearFocus}
+                            disabled={Object.values(selectedDays).filter(Boolean).length === 0}
+                            variant="secondary"
+                            size="md"
+                          >
+                            Clear Focus
+                          </FormButton>
+
+                          <FormButton
+                            onClick={() => {
+                              setIsBulkEditing(false);
+                              setSelectedDays({});
+                              setBulkFocus('');
+                            }}
+                            variant="secondary"
+                            size="md"
+                          >
+                            Cancel
+                          </FormButton>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {[...daysMap[activeWeek]]
+                        .sort((a, b) => a.day_number - b.day_number)
+                        .map((day) => (
+                          <div
+                            key={day.day_id}
+                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
+                              isBulkEditing && selectedDays[day.day_id] ? 'ring-2 ring-blue-500' : ''
+                            }`}
+                            onClick={isBulkEditing ? () => toggleDay(day.day_id) : undefined}
+                            style={isBulkEditing ? { cursor: 'pointer' } : undefined}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h3 className="text-lg font-medium text-gray-900">Day {day.day_number}</h3>
+                              {day.focus && <FocusTag focus={day.focus} />}
+                            </div>
+                            <p className="text-sm text-gray-500 mb-2">
+                              {formatDate(day.date, {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </p>
+                            {day.notes && <p className="mt-1 text-sm text-gray-500">{day.notes}</p>}
+
+                            {!isBulkEditing && (
+                              <div className="mt-4 flex justify-between">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingDay(day);
+                                  }}
+                                  className="text-sm text-blue-600 hover:text-blue-800"
+                                >
+                                  {day.focus ? 'Edit Focus' : 'Set Focus'}
+                                </button>
+                                <button
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
+                                >
+                                  View Exercises
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                     </div>
                   </div>
                 )}
               </div>
             ) : (
               <div className="bg-white shadow rounded-lg p-6 text-center">
-                <p className="text-gray-500 mb-4">The program structure should have been created automatically.</p>
-                <p className="text-gray-500">If you don't see any weeks, please refresh the page or contact support.</p>
+                <p className="text-gray-500">If you don't see any weeks, please refresh the page</p>
               </div>
             )}
           </>
@@ -195,7 +446,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
           <div className="bg-white shadow rounded-lg p-6 text-center">
             <p className="text-gray-500">Block not found or failed to load.</p>
             <p className="text-sm text-gray-400 mt-2">Block ID: {blockId}</p>
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
@@ -204,17 +455,35 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
           </div>
         )}
       </div>
-      
-      {/* Modals */}
-      <Modal 
-        isOpen={!!editingDay} 
+      {/* Day Edit Modal */}
+      <Modal
+        isOpen={!!editingDay}
         onClose={() => setEditingDay(null)}
-        title="Edit Day"
+        title={editingDay ? `Edit Day ${editingDay.day_number}` : ''}
       >
         {editingDay && (
-          <DayForm 
+          <DayForm
             day={editingDay}
-            onSubmit={handleUpdateDay} 
+            onSubmit={async (dayData) => {
+              try {
+                await updateDay(dayData.day_id, {
+                  focus: dayData.focus,
+                  notes: dayData.notes,
+                });
+
+                if (activeWeek) {
+                  const updatedDays = await getDays(activeWeek);
+                  setDaysMap(prev => ({
+                    ...prev,
+                    [activeWeek]: updatedDays,
+                  }));
+                }
+
+                setEditingDay(null);
+              } catch (error) {
+                console.error('Error updating day:', error);
+              }
+            }}
             isLoading={false}
             onCancel={() => setEditingDay(null)}
           />

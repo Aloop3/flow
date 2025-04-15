@@ -16,20 +16,26 @@ const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) =>
     status: initialData.status || 'draft',
     number_of_weeks: initialData.number_of_weeks || 4,
   });
-
   useEffect(() => {
     if (formData.start_date && formData.number_of_weeks) {
+      // Create a new Date object from start date
       const startDate = new Date(formData.start_date);
+      // Get the UTC version of the start date
+      const startDateUTC = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 23, 59, 59));
+      console.log("Start date (UTC):", startDateUTC.toISOString());
       // Calculate end date: start date + (number_of_weeks * 7) days
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + (formData.number_of_weeks * 7));
+      const endDate = new Date(startDateUTC);
+      console.log('Initial end date (UTC):', endDate.toISOString());
+      endDate.setUTCDate(startDateUTC.getUTCDate() + (formData.number_of_weeks * 7) - 1);
       
       // Format as YYYY-MM-DD
       const formattedEndDate = endDate.toISOString().split('T')[0];
       setFormData(prev => ({
         ...prev,
+        start_date: startDateUTC.toISOString().split('T')[0],
         end_date: formattedEndDate
       }));
+      console.log('Updated end date (UTC):', formattedEndDate);
     }
   }, [formData.start_date, formData.number_of_weeks]);
 

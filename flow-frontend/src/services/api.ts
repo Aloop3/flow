@@ -37,7 +37,7 @@ export interface Day {
   week_id: string;
   day_number: number;
   date: string;
-  focus?: string;
+  focus?: string | null;
   notes?: string;
 }
 
@@ -360,15 +360,40 @@ export const deleteBlock = async (blockId: string): Promise<void> => {
 export const getWeeks = async (blockId: string): Promise<Week[]> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await get({
+    console.log('Fetching weeks for block ID:', blockId);
+    const apiResponse = await get({
       apiName: 'flow-api',
       path: `/blocks/${blockId}/weeks`,
       options: { headers }
     });
-    return response.body as Week[];
+
+    // Debug the response structure
+    console.log('Weeks API response:', apiResponse);
+    
+    // For Amplify v6, we need to await the response and parse it
+    const actualResponse = await apiResponse.response;
+    console.log('Weeks actual response after awaiting:', actualResponse);
+    
+    if (actualResponse && actualResponse.body) {
+      // Handle ReadableStream responses
+      let objectData = actualResponse.body;
+      let parsedData;
+      
+      try {
+        parsedData = await objectData.json();
+        console.log('Parsed weeks data:', parsedData);
+        return Array.isArray(parsedData) ? parsedData : [];
+      } catch (e) {
+        console.error('Failed to parse weeks data:', e);
+        return [];
+      }
+    }
+    
+    console.log('No weeks data found in response');
+    return [];
   } catch (error) {
     console.error('Error fetching weeks:', error);
-    throw error;
+    return []; // Return empty array instead of throwing
   }
 };
 
@@ -394,15 +419,40 @@ export const createWeek = async (weekData: Omit<Week, 'week_id'>): Promise<Week>
 export const getDays = async (weekId: string): Promise<Day[]> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await get({
+    console.log('Fetching days for week ID:', weekId);
+    const apiResponse = await get({
       apiName: 'flow-api',
       path: `/weeks/${weekId}/days`,
       options: { headers }
     });
-    return response.body as Day[];
+
+    // Debug the response structure
+    console.log('Days API response:', apiResponse);
+    
+    // For Amplify v6, we need to await the response and parse it
+    const actualResponse = await apiResponse.response;
+    console.log('Days actual response after awaiting:', actualResponse);
+    
+    if (actualResponse && actualResponse.body) {
+      // Handle ReadableStream responses
+      let objectData = actualResponse.body;
+      let parsedData;
+      
+      try {
+        parsedData = await objectData.json();
+        console.log('Parsed days data:', parsedData);
+        return Array.isArray(parsedData) ? parsedData : [];
+      } catch (e) {
+        console.error('Failed to parse days data:', e);
+        return [];
+      }
+    }
+    
+    console.log('No days data found in response');
+    return [];
   } catch (error) {
     console.error('Error fetching days:', error);
-    throw error;
+    return []; // Return empty array instead of throwing
   }
 };
 

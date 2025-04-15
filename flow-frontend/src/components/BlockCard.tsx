@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { formatDate } from '../utils/dateUtils';
 
 interface BlockCardProps {
   block: {
@@ -49,8 +50,8 @@ export default function BlockCard({ block }: BlockCardProps) {
         </div>
         
         <div className="flex justify-between text-xs text-gray-500">
-          <span>{new Date(block.start_date).toLocaleDateString()}</span>
-          <span>{new Date(block.end_date).toLocaleDateString()}</span>
+          <span>{formatDate(block.start_date)}</span>
+          <span>{formatDate(block.start_date)}</span>
         </div>
       </div>
     </Link>

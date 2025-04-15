@@ -1,4 +1,6 @@
 import { useState, FormEvent } from 'react';
+import FocusTag from './FocusTag';
+import { formatDate } from '../utils/dateUtils';
 
 interface DayFormProps {
   day: {
@@ -19,15 +21,18 @@ const DayForm = ({ day, onSubmit, isLoading, onCancel }: DayFormProps) => {
     focus: day.focus || '',
     notes: day.notes || '',
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  const focusOptions = [
+    { value: 'squat', label: 'Squat' },
+    { value: 'bench', label: 'Bench' },
+    { value: 'deadlift', label: 'Deadlift' },
+    { value: 'cardio', label: 'Cardio' },
+    { value: 'rest', label: 'Rest' }
+  ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -43,27 +48,35 @@ const DayForm = ({ day, onSubmit, isLoading, onCancel }: DayFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="mb-4">
-        <h3 className="text-md font-medium text-gray-700">Day {day.day_number} - {new Date(day.date).toLocaleDateString()}</h3>
+        <h3 className="text-md font-medium text-gray-700">Day {day.day_number} - {formatDate(day.date)}</h3>
       </div>
       
       <div>
-        <label htmlFor="focus" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="focus" className="block text-sm font-medium text-gray-700 mb-2">
           Training Focus
         </label>
-        <select
-          id="focus"
-          name="focus"
-          value={formData.focus}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-        >
-          <option value="">Select a focus (optional)</option>
-          <option value="squat">Squat</option>
-          <option value="bench">Bench</option>
-          <option value="deadlift">Deadlift</option>
-          <option value="cardio">Cardio</option>
-          <option value="rest">Rest</option>
-        </select>
+        <div className="grid grid-cols-5 gap-2 mb-3">
+          {focusOptions.map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, focus: option.value }))}
+              className={`p-2 rounded border ${
+                formData.focus === option.value 
+                  ? 'ring-2 ring-blue-500 ring-offset-1' 
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <FocusTag focus={option.value} />
+            </button>
+          ))}
+        </div>
+        {formData.focus && (
+          <div className="mt-2">
+            <span className="text-sm text-gray-500">Selected: </span>
+            <FocusTag focus={formData.focus} />
+          </div>
+        )}
       </div>
       
       <div>
