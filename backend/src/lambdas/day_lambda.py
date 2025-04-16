@@ -9,6 +9,7 @@ logger.setLevel(logging.INFO)
 # Map routes to handler functions
 ROUTE_MAP = {
     "POST /days": day_api.create_day,
+    "GET /days/{day_id}": day_api.get_day,
     "GET /weeks/{week_id}/days": day_api.get_days_for_week,
     "PUT /days/{day_id}": day_api.update_day,
     "DELETE /days/{day_id}": day_api.delete_day,

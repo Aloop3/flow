@@ -572,6 +572,316 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["error"], "Delete error")
         mock_delete_workout.assert_called_once_with("workout123")
 
+    @patch("src.services.day_service.DayService.get_day")
+    @patch("src.services.workout_service.WorkoutService.log_workout")
+    def test_create_day_workout_success(self, mock_log_workout, mock_get_day):
+        """
+        Test successful creation of a workout for a specific day
+        """
+        # Setup mocks
+        mock_day = MagicMock()
+        mock_day.date = "2025-03-15"
+        mock_get_day.return_value = mock_day
+
+        mock_workout = MagicMock()
+        mock_workout.to_dict.return_value = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-03-15",
+            "status": "draft",
+            "exercises": [
+                {
+                    "completed_id": "comp1",
+                    "exercise_id": "ex1",
+                    "exercise_type": "Bench Press",
+                    "sets": 3,
+                    "reps": 10,
+                    "weight": 225.0,
+                }
+            ],
+        }
+        mock_log_workout.return_value = mock_workout
+
+        # Prepare test event
+        event = {
+            "pathParameters": {"day_id": "day789"},
+            "body": json.dumps(
+                {
+                    "exercises": [
+                        {
+                            "exerciseType": "Bench Press",
+                            "sets": 3,
+                            "reps": 10,
+                            "weight": 225.0,
+                            "notes": "",
+                        }
+                    ]
+                }
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.create_day_workout(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 201)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["workout_id"], "workout123")
+        self.assertEqual(response_body["day_id"], "day789")
+        self.assertEqual(response_body["status"], "draft")
+        self.assertEqual(len(response_body["exercises"]), 1)
+
+        # Verify service calls
+        mock_get_day.assert_called_once_with("day789")
+        mock_log_workout.assert_called_once()
+
+        # Check transformed exercises in log_workout call
+        call_args = mock_log_workout.call_args[1]
+        self.assertEqual(call_args["athlete_id"], "athlete456")
+        self.assertEqual(call_args["day_id"], "day789")
+        self.assertEqual(call_args["date"], "2025-03-15")
+
+        exercises = call_args["completed_exercises"]
+        self.assertEqual(len(exercises), 1)
+        self.assertEqual(exercises[0]["exercise_type"], "Bench Press")
+        self.assertEqual(exercises[0]["sets"], 3)
+        self.assertEqual(exercises[0]["reps"], 10)
+        self.assertEqual(exercises[0]["weight"], 225.0)
+
+    @patch("src.services.day_service.DayService.get_day")
+    def test_create_day_workout_day_not_found(self, mock_get_day):
+        """
+        Test workout creation when the day doesn't exist
+        """
+        # Setup - day not found
+        mock_get_day.return_value = None
+
+        event = {
+            "pathParameters": {"day_id": "nonexistent"},
+            "body": json.dumps(
+                {
+                    "exercises": [
+                        {
+                            "exerciseType": "Bench Press",
+                            "sets": 3,
+                            "reps": 10,
+                            "weight": 225.0,
+                        }
+                    ]
+                }
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.create_day_workout(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Day not found")
+        mock_get_day.assert_called_once_with("nonexistent")
+
+    @patch("src.services.day_service.DayService.get_day")
+    def test_create_day_workout_no_exercises(self, mock_get_day):
+        """
+        Test workout creation with no exercises
+        """
+        # Setup
+        mock_day = MagicMock()
+        mock_get_day.return_value = mock_day
+
+        event = {
+            "pathParameters": {"day_id": "day789"},
+            "body": json.dumps({"exercises": []}),  # Empty exercises array
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.create_day_workout(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "No exercises provided")
+
+    @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
+    @patch("src.services.day_service.DayService.get_day")
+    @patch("src.services.workout_service.WorkoutService.log_workout")
+    def test_copy_workout_success(
+        self, mock_log_workout, mock_get_day, mock_get_workout
+    ):
+        """
+        Test successful workout copying from one day to another
+        """
+        # Setup mocks
+        # Source workout with exercises
+        mock_source_workout = MagicMock()
+        mock_source_workout.exercises = [
+            MagicMock(
+                exercise_id="ex1",
+                exercise_type="Bench Press",
+                sets=3,
+                reps=10,
+                weight=225.0,
+                notes="Test notes",
+            ),
+            MagicMock(
+                exercise_id="ex2",
+                exercise_type="Squat",
+                sets=4,
+                reps=8,
+                weight=315.0,
+                notes="",
+            ),
+        ]
+        mock_get_workout.side_effect = [
+            mock_source_workout,
+            None,
+        ]  # First return source workout, then None for target
+
+        # Mock day
+        mock_day = MagicMock()
+        mock_day.date = "2025-03-20"
+        mock_get_day.return_value = mock_day
+
+        # Mock new workout
+        mock_new_workout = MagicMock()
+        mock_new_workout.to_dict.return_value = {
+            "workout_id": "new-workout-123",
+            "athlete_id": "athlete456",
+            "day_id": "target-day-789",
+            "date": "2025-03-20",
+            "status": "not_started",
+        }
+        mock_log_workout.return_value = mock_new_workout
+
+        # Prepare test event
+        event = {
+            "body": json.dumps(
+                {"source_day_id": "source-day-123", "target_day_id": "target-day-789"}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.copy_workout(event, context)
+
+        # Assert response
+        self.assertEqual(response["statusCode"], 201)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["workout_id"], "new-workout-123")
+        self.assertEqual(response_body["day_id"], "target-day-789")
+
+        # Verify service calls
+        mock_get_workout.assert_any_call("athlete456", "source-day-123")
+        mock_get_workout.assert_any_call("athlete456", "target-day-789")
+        mock_get_day.assert_called_once_with("target-day-789")
+
+        # Verify that log_workout was called with transformed exercises
+        mock_log_workout.assert_called_once()
+        call_args = mock_log_workout.call_args[1]
+        self.assertEqual(call_args["athlete_id"], "athlete456")
+        self.assertEqual(call_args["day_id"], "target-day-789")
+        self.assertEqual(call_args["date"], "2025-03-20")
+        self.assertEqual(call_args["status"], "not_started")
+
+        # Check that we properly transformed the exercises
+        exercises = call_args["completed_exercises"]
+        self.assertEqual(len(exercises), 2)
+        self.assertEqual(exercises[0]["exercise_id"], "ex1")
+        self.assertEqual(exercises[0]["exercise_type"], "Bench Press")
+        self.assertEqual(exercises[1]["exercise_id"], "ex2")
+        self.assertEqual(exercises[1]["sets"], 4)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
+    def test_copy_workout_source_not_found(self, mock_get_workout):
+        """
+        Test copying when source workout doesn't exist
+        """
+        # Setup - source workout not found
+        mock_get_workout.return_value = None
+
+        event = {
+            "body": json.dumps(
+                {"source_day_id": "source-day-123", "target_day_id": "target-day-789"}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.copy_workout(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Source workout not found")
+        mock_get_workout.assert_called_once_with("athlete456", "source-day-123")
+
+    @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
+    @patch("src.services.day_service.DayService.get_day")
+    def test_copy_workout_target_not_found(self, mock_get_day, mock_get_workout):
+        """
+        Test copying when target day doesn't exist
+        """
+        # Setup - source workout exists but target day doesn't
+        mock_source_workout = MagicMock()
+        mock_get_workout.return_value = mock_source_workout
+        mock_get_day.return_value = None
+
+        event = {
+            "body": json.dumps(
+                {"source_day_id": "source-day-123", "target_day_id": "target-day-789"}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.copy_workout(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Target day not found")
+        mock_get_workout.assert_called_once_with("athlete456", "source-day-123")
+        mock_get_day.assert_called_once_with("target-day-789")
+
+    @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
+    @patch("src.services.day_service.DayService.get_day")
+    def test_copy_workout_target_has_workout(self, mock_get_day, mock_get_workout):
+        """
+        Test copying when target day already has a workout
+        """
+        # Setup - both source and target workouts exist
+        mock_source_workout = MagicMock()
+        mock_target_workout = MagicMock()
+        mock_get_workout.side_effect = [mock_source_workout, mock_target_workout]
+        mock_get_day.return_value = MagicMock()
+
+        event = {
+            "body": json.dumps(
+                {"source_day_id": "source-day-123", "target_day_id": "target-day-789"}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.copy_workout(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 409)
+        response_body = json.loads(response["body"])
+        self.assertIn("Target day already has a workout", response_body["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

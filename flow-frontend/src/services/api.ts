@@ -54,6 +54,17 @@ export interface Exercise {
   exercise_category?: string;
 }
 
+export interface ExerciseTypeLibrary {
+  barbell: string[];
+  dumbbell: string[];
+  bodyweight: string[];
+  machine: string[];
+  cable: string[];
+  custom: string[];
+  all: string[];
+  [key: string]: string[];
+}
+
 export interface User {
   user_id: string;
   email: string;
@@ -456,6 +467,89 @@ export const getDays = async (weekId: string): Promise<Day[]> => {
   }
 };
 
+export const getDay = async (dayId: string): Promise<Day | null> => {
+  try {
+    const headers = await getAuthHeaders();
+    console.log('Fetching day with ID:', dayId);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path: `/days/${dayId}`,
+      options: { headers }
+    });
+
+    console.log('Complete API response:', apiResponse);
+
+    // Await the response promise
+    const actualResponse = await apiResponse.response;
+    console.log('Actual response after awaiting:', actualResponse);
+
+    // Extract the body from the actual response
+    if (actualResponse && actualResponse.body) {
+      let objectData = actualResponse.body;
+      let dayData: any;
+
+      try {
+        const parsedData = await objectData.json();
+        console.log('Parsed day data:', parsedData);
+        dayData = parsedData;
+      } catch (e) {
+        console.error('Failed to parse response body:', e);
+        return null;
+      }
+
+      return dayData;
+    }
+
+    console.log('No day data found in response');
+    return null;
+  } catch (error) {
+    console.error('Error fetching day:', error);
+    throw error;
+  }
+};
+
+// Get exercises for a specific day
+export const getExercisesForDay = async (dayId: string): Promise<Exercise[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    console.log('Fetching exercises for day with ID:', dayId);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path: `/days/${dayId}/exercises`,
+      options: { headers }
+    });
+
+    console.log('Complete API response:', apiResponse);
+
+    // Await the response promise
+    const actualResponse = await apiResponse.response;
+    console.log('Actual response after awaiting:', actualResponse);
+
+    // Extract the body from the actual response
+    if (actualResponse && actualResponse.body) {
+      let objectData = actualResponse.body;
+      let exercisesData: any;
+
+      try {
+        const parsedData = await objectData.json();
+        console.log('Parsed exercises data:', parsedData);
+        exercisesData = parsedData;
+      } catch (e) {
+        console.error('Failed to parse response body:', e);
+        return [];
+      }
+
+      return Array.isArray(exercisesData) ? exercisesData : [];
+    }
+
+    console.log('No exercises data found in response');
+    return [];
+  } catch (error) {
+    console.error('Error fetching exercises for day:', error);
+    return [];
+  }
+};
+
 export const createDay = async (dayData: Omit<Day, 'day_id'>): Promise<Day> => {
   try {
     const headers = await getAuthHeaders();
@@ -559,18 +653,116 @@ export const updateWorkout = async (workoutId: string, workoutData: Partial<Work
   }
 };
 
+export const copyWorkout = async (
+  sourceDayId: string, 
+  targetDayId: string
+): Promise<any> => {
+  try {
+    const headers = await getAuthHeaders();
+    console.log('Copying workout from day:', sourceDayId, 'to day:', targetDayId);
+    const apiResponse = await post({
+      apiName: 'flow-api',
+      path: '/workouts/copy',
+      options: {
+        headers,
+        body: {
+          source_day_id: sourceDayId,
+          target_day_id: targetDayId
+        }
+      }
+    });
+    
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const result = await actualResponse.body.json();
+        console.log('Copy workout result:', result);
+        return result;
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        throw new Error('Failed to copy workout');
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error copying workout:', error);
+    throw error;
+  }
+};
+
 // Exercise endpoints
 export const getExercisesForWorkout = async (workoutId: string): Promise<Exercise[]> => {
   try {
+    if (!workoutId) {
+      console.error('Missing workoutId parameter in getExercisesForWorkout');
+      return [];
+    }
+    
+    console.log(`Fetching exercises for workout: ${workoutId}`);
     const headers = await getAuthHeaders();
-    const response = await get({
+    const apiResponse = await get({
       apiName: 'flow-api',
       path: `/workouts/${workoutId}/exercises`,
       options: { headers }
     });
-    return response.body as Exercise[];
+    
+    console.log('Exercise API response:', apiResponse);
+    
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    console.log('Actual exercise response:', actualResponse);
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseText = await actualResponse.body.text();
+        console.log('Exercise response text:', responseText);
+        
+        if (responseText) {
+          const data = JSON.parse(responseText);
+          console.log('Parsed exercise data:', data);
+          return Array.isArray(data) ? data : [];
+        }
+      } catch (e) {
+        console.error('Error parsing exercise response:', e);
+      }
+    }
+    
+    return [];
   } catch (error) {
-    console.error('Error fetching exercises:', error);
+    console.error('Error fetching exercises for workout:', error);
+    return [];
+  }
+};
+
+
+export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path: '/exercises/types',
+      options: { headers }
+    });
+    
+    // For Amplify v6, we need to await the response and parse it
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const parsedData = await actualResponse.body.json();
+        return parsedData;
+      } catch (e) {
+        console.error('Failed to parse exercise types data:', e);
+        throw new Error('Failed to parse exercise data');
+      }
+    }
+    
+    throw new Error('No exercise data received');
+  } catch (error) {
+    console.error('Error fetching exercise types:', error);
     throw error;
   }
 };

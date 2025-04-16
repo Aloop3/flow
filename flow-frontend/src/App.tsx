@@ -14,6 +14,7 @@ import Profile from './pages/Profile';
 import { getUser } from './services/api';
 import BlockCreate from './pages/BlockCreate';
 import BlockEdit from './pages/BlockEdit';
+import DayDetail from './pages/DayDetail';
 
 //  AuthenticatedApp component extracted
 const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void }) => {
@@ -107,6 +108,7 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
           <Route path="/blocks/:blockId" element={<BlockDetail user={userData} signOut={signOut} />} />
           <Route path="/blocks/:blockId/edit" element={<BlockEdit user={userData} signOut={signOut} />} />
           <Route path="/workout/:workoutId" element={<Workout user={userData} signOut={signOut} />} />
+          <Route path="/days/:dayId" element={<DayDetail user={userData} signOut={signOut} />} />
           <Route path="/profile" element={<Profile user={userData} signOut={signOut} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

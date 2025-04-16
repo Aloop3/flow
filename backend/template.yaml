@@ -498,6 +498,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /days
             Method: post
+        GetDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}
+            Method: get
         GetDaysForWeek:
           Type: Api
           Properties:
@@ -544,6 +550,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /days/{day_id}/exercises
             Method: get
+        GetExerciseTypes:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/types
+            Method: get
         UpdateExercise:
           Type: Api
           Properties:
@@ -575,6 +587,8 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref WorkoutsTable
         - DynamoDBCrudPolicy:
+            TableName: !Ref DaysTable
+        - DynamoDBCrudPolicy:
             TableName: !Ref CompletedExercisesTable
 
 
@@ -585,6 +599,12 @@ Resources:
           Properties:
             RestApiId: !Ref FlowAPI
             Path: /workouts
+            Method: post
+        CreateDayWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}/workout
             Method: post
         GetWorkout:
           Type: Api
@@ -616,6 +636,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /workouts/{workout_id}
             Method: delete
+        CopyWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/copy
+            Method: post
   
   # Relationship Lambda function
   RelationshipFunction:

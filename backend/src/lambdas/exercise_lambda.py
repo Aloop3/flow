@@ -2,6 +2,7 @@ import json
 import logging
 from src.utils.cors_utils import add_cors_headers
 from src.api import exercise_api
+from src.api import exercise_type_api
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -10,6 +11,7 @@ logger.setLevel(logging.INFO)
 ROUTE_MAP = {
     "POST /exercises": exercise_api.create_exercise,
     "GET /days/{day_id}/exercises": exercise_api.get_exercises_for_workout,
+    "GET /exercises/types": exercise_type_api.get_exercise_types,
     "PUT /exercises/{exercise_id}": exercise_api.update_exercise,
     "DELETE /exercises/{exercise_id}": exercise_api.delete_exercise,
     "POST /exercises/reorder": exercise_api.reorder_exercises,
