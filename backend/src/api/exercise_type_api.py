@@ -1,4 +1,3 @@
-import json
 import logging
 from src.models.exercise_type import ExerciseType, ExerciseCategory
 from src.utils.response import create_response

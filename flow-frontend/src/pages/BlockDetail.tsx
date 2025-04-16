@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FocusTag from '../components/FocusTag';
 import { getBlock, getWeeks, getDays, updateDay } from '../services/api';
@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import DayForm from '../components/DayForm';
 import FormButton from '../components/FormButton';
 import { formatDate } from '../utils/dateUtils';
+
 
 interface BlockDetailProps {
   user: any;
@@ -26,6 +27,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const [bulkFocus, setBulkFocus] = useState<string>('');
   const [isBulkEditing, setIsBulkEditing] = useState(false);
   const [applyToAllWeeks, setApplyToAllWeeks] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchBlockData = async () => {
@@ -423,7 +425,10 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                   {day.focus ? 'Edit Focus' : 'Set Focus'}
                                 </button>
                                 <button
-                                  onClick={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/days/${day.day_id}?blockId=${blockId}`);
+                                  }}
                                   className="px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
                                 >
                                   View Exercises

@@ -45,6 +45,28 @@ def create_day(event, context):
 
 
 @with_middleware([log_request, handle_errors])
+def get_day(event, context):
+    """
+    Handle GET /days/{day_id} request to get a day by ID
+    """
+    try:
+        # Extract day_id from path parameters
+        day_id = event["pathParameters"]["day_id"]
+
+        # Get day
+        day = day_service.get_day(day_id)
+
+        if not day:
+            return create_response(404, {"error": "Day not found"})
+
+        return create_response(200, day.to_dict())
+
+    except Exception as e:
+        logger.error(f"Error getting day: {str(e)}")
+        return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
 def get_days_for_week(event, context):
     """
     Handle GET /weeks/{week_id}/days request to get all days for a training week
