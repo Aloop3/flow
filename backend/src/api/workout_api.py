@@ -26,7 +26,7 @@ def create_workout(event, context):
         athlete_id = body.get("athlete_id")
         day_id = body.get("day_id")
         date = body.get("date")
-        completed_exercises = body.get("exercises", [])
+        exercises = body.get("exercises", [])
         notes = body.get("notes")
         status = body.get("status")
 
@@ -34,12 +34,12 @@ def create_workout(event, context):
         if not athlete_id or not day_id or not date:
             return create_response(400, {"error": "Missing required fields"})
 
-        # Log workout
-        workout = workout_service.log_workout(
+        # Create a Workout
+        workout = workout_service.create_workout(
             athlete_id=athlete_id,
             day_id=day_id,
             date=date,
-            completed_exercises=completed_exercises,
+            exercises=exercises,
             notes=notes,
             status=status,
         )
@@ -95,12 +95,12 @@ def create_day_workout(event, context):
             )
 
         # Create the workout
-        workout = workout_service.log_workout(
+        workout = workout_service.create_workout(
             athlete_id=athlete_id,
             day_id=day_id,
             date=date,
-            completed_exercises=transformed_exercises,
-            status="draft",
+            exercises=transformed_exercises,
+            status="not_started",
         )
 
         return create_response(201, workout.to_dict())
@@ -278,11 +278,11 @@ def copy_workout(event, context):
             )
 
         # Create new workout for target day
-        new_workout = workout_service.log_workout(
+        new_workout = workout_service.create_workout(
             athlete_id=athlete_id,
             day_id=target_day_id,
             date=target_day.date,
-            completed_exercises=exercises_to_copy,
+            exercises=exercises_to_copy,
             status="not_started",
         )
 
