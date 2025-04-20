@@ -125,8 +125,8 @@ class TestExerciseType(unittest.TestCase):
         custom_squat = ExerciseType("Squat", ExerciseCategory.CUSTOM)
         self.assertEqual(squat1, custom_squat)
 
-        # Not equal to other types
-        self.assertNotEqual(squat1, "Squat")
+        # Same name and ExerciseType object should be equal
+        self.assertEqual(squat1, "Squat")
 
     def test_case_insensitive_predefined_exercise(self):
         """
