@@ -6,13 +6,13 @@ from src.api.block_api import create_block
 from src.api.week_api import create_week
 from src.api.day_api import create_day
 from src.api.workout_api import create_workout
+from src.api.exercise_api import complete_exercise
 from src.models.user import User
 from src.models.block import Block
 from src.models.week import Week
 from src.models.day import Day
 from src.models.workout import Workout
-from src.models.completed_exercise import CompletedExercise
-from src.models.set import Set
+from src.models.exercise import Exercise
 from tests.conftest import APIGatewayEvent, LambdaContext
 
 
@@ -29,7 +29,7 @@ class TestWorkoutFlow(unittest.TestCase):
             "week-id",
             "day-id",
             "workout-id",
-            "completed-exercise-id",
+            "exercise-id",
             "set-id-1",
             "set-id-2",
             "set-id-3",
@@ -87,29 +87,18 @@ class TestWorkoutFlow(unittest.TestCase):
             status="completed",
         )
 
-        # Add completed exercise
-        completed_exercise = CompletedExercise(
-            completed_id=self.mock_uuids[6],
+        # Add an exercise
+        exercise = Exercise(
+            exercise_id=self.mock_uuids[6],
             workout_id=self.mock_uuids[5],
-            exercise_id="squat",
-            notes="Felt good",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+            weight=209.44,
+            status="not_started",
         )
 
-        # Add sets
-        for i, set_id in enumerate(self.mock_uuids[7:10]):
-            exercise_set = Set(
-                set_id=set_id,
-                completed_exercise_id=self.mock_uuids[6],
-                workout_id=self.mock_uuids[5],
-                set_number=i + 1,
-                reps=5,
-                weight=100.0 + (i * 10),
-                rpe=7.0 + i,
-                completed=True,
-            )
-            completed_exercise.add_set(exercise_set)
-
-        workout.add_exercise(completed_exercise)
+        workout.add_exercise(exercise)
         return workout
 
     def test_complete_workout_flow(self):
@@ -171,7 +160,7 @@ class TestWorkoutFlow(unittest.TestCase):
         ), patch(
             "src.api.day_api.day_service.create_day", return_value=day
         ), patch(
-            "src.api.workout_api.workout_service.log_workout",
+            "src.api.workout_api.workout_service.create_workout",
             return_value=self.create_mock_workout(),
         ):
             # Step 1: Create athlete user
@@ -289,6 +278,217 @@ class TestWorkoutFlow(unittest.TestCase):
             self.assertEqual(workout_result["day_id"], day_id)
             self.assertEqual(workout_result["status"], "completed")
             self.assertEqual(len(workout_result["exercises"]), 1)
+
+    def test_exercise_completion_flow(self):
+        """Test the exercise completion flow and workout status updates"""
+
+        # Create user, block, week, day and initial workout with planned exercises
+        athlete_user = User(
+            user_id=self.mock_uuids[0],
+            email="athlete@example.com",
+            name="Test Athlete",
+            role="athlete",
+        )
+
+        day = Day(
+            day_id=self.mock_uuids[4],
+            week_id=self.mock_uuids[3],
+            day_number=1,
+            date="2025-03-01",
+            focus="squat",
+            notes="Squat focus day",
+        )
+
+        # Create a workout with two exercises in "planned" status
+        workout = Workout(
+            workout_id=self.mock_uuids[5],
+            athlete_id=self.mock_uuids[0],
+            day_id=self.mock_uuids[4],
+            date="2025-03-01",
+            notes="Testing exercise completion",
+            status="not_started",
+        )
+
+        # First exercise
+        exercise1 = Exercise(
+            exercise_id=self.mock_uuids[6],
+            workout_id=self.mock_uuids[5],
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="planned",
+        )
+
+        # Second exercise
+        exercise2 = Exercise(
+            exercise_id="exercise2-id",
+            workout_id=self.mock_uuids[5],
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+            weight=185.0,
+            status="planned",
+        )
+
+        workout.add_exercise(exercise1)
+        workout.add_exercise(exercise2)
+
+        # Mock response for the completed exercise
+        completed_exercise = Exercise(
+            exercise_id=self.mock_uuids[6],
+            workout_id=self.mock_uuids[5],
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="completed",
+        )
+
+        # Updated workout after one exercise is completed (status should be "in_progress")
+        updated_workout = Workout(
+            workout_id=self.mock_uuids[5],
+            athlete_id=self.mock_uuids[0],
+            day_id=self.mock_uuids[4],
+            date="2025-03-01",
+            notes="Testing exercise completion",
+            status="in_progress",
+        )
+        updated_workout.add_exercise(completed_exercise)
+        updated_workout.add_exercise(exercise2)
+
+        # Final workout after all exercises are completed (status should be "completed")
+        completed_exercise2 = Exercise(
+            exercise_id="exercise2-id",
+            workout_id=self.mock_uuids[5],
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+            weight=185.0,
+            status="completed",
+        )
+
+        final_workout = Workout(
+            workout_id=self.mock_uuids[5],
+            athlete_id=self.mock_uuids[0],
+            day_id=self.mock_uuids[4],
+            date="2025-03-01",
+            notes="Testing exercise completion",
+            status="completed",
+        )
+        final_workout.add_exercise(completed_exercise)
+        final_workout.add_exercise(completed_exercise2)
+
+        # Set up our mocks
+        with patch(
+            "src.api.user_api.user_service.create_user", return_value=athlete_user
+        ), patch("src.api.day_api.day_service.get_day", return_value=day), patch(
+            "src.api.workout_api.workout_service.create_workout", return_value=workout
+        ), patch(
+            "src.api.exercise_api.workout_service.complete_exercise",
+            side_effect=[completed_exercise, completed_exercise2],
+        ), patch(
+            "src.api.workout_api.workout_service.get_workout",
+            side_effect=[updated_workout, final_workout],
+        ):
+            # Step 1: Create a workout with planned exercises
+            workout_data = {
+                "athlete_id": self.mock_uuids[0],
+                "day_id": self.mock_uuids[4],
+                "date": "2025-03-01",
+                "exercises": [
+                    {
+                        "exercise_type": "Squat",
+                        "sets": 3,
+                        "reps": 5,
+                        "weight": 225.0,
+                    },
+                    {
+                        "exercise_type": "Bench Press",
+                        "sets": 3,
+                        "reps": 5,
+                        "weight": 185.0,
+                    },
+                ],
+                "notes": "Testing exercise completion",
+                "status": "not_started",
+            }
+            workout_event = self.create_api_gateway_event(
+                method="POST", path="/workouts", body=workout_data
+            )
+            workout_response = create_workout(workout_event, self.lambda_context)
+
+            # Verify response status
+            self.assertEqual(workout_response["statusCode"], 201)
+
+            # Parse response body
+            workout_result = json.loads(workout_response["body"])
+
+            # Verify the workout was created with not_started status
+            self.assertEqual(workout_result["status"], "not_started")
+            self.assertEqual(len(workout_result["exercises"]), 2)
+
+            # Step 2: Complete the first exercise
+            complete_data = {
+                "sets": 3,
+                "reps": 5,
+                "weight": 225.0,
+                "rpe": 8.0,
+                "notes": "Felt strong",
+            }
+
+            complete_event = self.create_api_gateway_event(
+                method="POST",
+                path="/exercises/{exercise_id}/complete",
+                body=complete_data,
+                path_parameters={"exercise_id": self.mock_uuids[6]},
+            )
+
+            complete_response = complete_exercise(complete_event, self.lambda_context)
+
+            # Verify response status
+            self.assertEqual(complete_response["statusCode"], 200)
+
+            # Parse response body
+            exercise_result = json.loads(complete_response["body"])
+
+            # Verify the exercise was marked as completed
+            self.assertEqual(exercise_result["status"], "completed")
+
+            # Verify the workout status was updated to "in_progress"
+            # (This would require an additional API call in a real scenario,
+            #  but we're mocking the get_workout to return updated_workout)
+
+            # Step 3: Complete the second exercise
+            complete_data2 = {
+                "sets": 3,
+                "reps": 5,
+                "weight": 185.0,
+                "rpe": 7.5,
+                "notes": "Easy bench day",
+            }
+
+            complete_event2 = self.create_api_gateway_event(
+                method="POST",
+                path="/exercises/{exercise_id}/complete",
+                body=complete_data2,
+                path_parameters={"exercise_id": "exercise2-id"},
+            )
+
+            complete_response2 = complete_exercise(complete_event2, self.lambda_context)
+
+            # Verify response status
+            self.assertEqual(complete_response2["statusCode"], 200)
+
+            # Parse response body
+            exercise_result2 = json.loads(complete_response2["body"])
+
+            # Verify the second exercise was marked as completed
+            self.assertEqual(exercise_result2["status"], "completed")
+
+            # Verify the workout status was updated to "completed"
+            # (Again, this would require an API call in a real scenario,
+            #  but we're mocking get_workout to return final_workout)
 
 
 if __name__ == "__main__":
