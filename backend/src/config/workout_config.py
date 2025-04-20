@@ -41,7 +41,7 @@ class WorkoutConfig(BaseConfig):
     MAX_ITEMS = BaseConfig.get_int_env("WORKOUT_MAX_ITEMS", 25)
 
     # Workout Status Options
-    STATUS_OPTIONS = ["completed", "partial", "skipped"]
+    STATUS_OPTIONS = ["not_started", "in_progress", "completed", "skipped"]
 
     # Validation Constants
     MAX_NOTES_LENGTH = 1000
