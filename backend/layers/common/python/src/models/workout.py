@@ -1,6 +1,5 @@
 from typing import Dict, List, Literal, Any, Optional
-from .completed_exercise import CompletedExercise
-from .set import Set
+from .exercise import Exercise
 
 
 class Workout:
@@ -11,20 +10,22 @@ class Workout:
         day_id: str,
         date: str,
         notes: Optional[str] = None,
-        status: Literal["completed", "partial", "skipped"] = None,
+        status: Literal[
+            "not_started", "in_progress", "completed", "skipped"
+        ] = "not_started",
     ):
         self.workout_id: str = workout_id
         self.athlete_id: str = athlete_id
         self.day_id: str = day_id
         self.date: str = date
         self.notes: Optional[str] = notes
-        self._status: Literal["completed", "partial", "skipped"] = status
-        self.exercises: List[
-            CompletedExercise
-        ] = []  # List of CompletedExercise objects
+        self._status: Literal[
+            "not_started", "in_progress", "completed", "skipped"
+        ] = status
+        self.exercises: List[Exercise] = []
 
     @property
-    def status(self) -> Literal["completed", "partial", "skipped"]:
+    def status(self) -> Literal["not_started", "in_progress", "completed", "skipped"]:
         """
         Return the workout status, using explicit status if set
 
@@ -35,55 +36,58 @@ class Workout:
         if self._status:
             return self._status
 
-        # Default to partial if no status was explicitly set
-        return "partial"
+        # Calculate status based on exercises
+        if not self.exercises:
+            return "not_started"
+
+        # Count exercises with "completed" status
+        completed_count = sum(1 for ex in self.exercises if ex.status == "completed")
+        total_count = len(self.exercises)
+
+        # Debug
+        print(f"Completed count: {completed_count}, Total: {total_count}")
+        for i, ex in enumerate(self.exercises):
+            print(f"Exercise {i+1}: {ex.exercise_id}, Status: {ex.status}")
+
+        # Calculate workout status based on completed exercises
+        if completed_count == 0:
+            return "not_started"
+        elif completed_count == total_count:
+            return "completed"
+        else:
+            return "in_progress"
 
     @status.setter
-    def status(self, value: Literal["completed", "partial", "skipped"]):
+    def status(
+        self, value: Literal["not_started", "in_progress", "completed", "skipped"]
+    ):
         """
         Set the workout status explicitly
 
         :param value: The status to set
         """
 
-        if value not in ["completed", "partial", "skipped"]:
-            raise ValueError("Status must be one of: completed, partial, skipped")
+        if value not in ["not_started", "in_progress", "completed", "skipped"]:
+            raise ValueError(
+                "Status must be one of: not_started, in_progress, completed, skipped"
+            )
         self._status = value
 
-    def add_exercise(self, exercise: CompletedExercise) -> None:
+    def add_exercise(self, exercise: Exercise) -> None:
         """
-        Add a completed exercise to the workout
+        Add an exercise to the workout
 
-        :param exercise: The CompletedExercise object to add
+        :param exercise: The Exercise object to add
         """
 
         self.exercises.append(exercise)
 
-    def add_set_to_exercise(self, exercise_id: str, exercise_set: Set) -> bool:
+    def get_exercise(self, exercise_id: str) -> Optional[Exercise]:
         """
-        Add a set to a specific exercise in this workout
-
-        :param exercise_id: ID of the exercise to add the set to
-        :param exercise_set: The Set to add
-        :return: True if the set was added, False if the exercise wasn't found
-        """
-        exercise = next(
-            (ex for ex in self.exercises if ex.completed_id == exercise_id), None
-        )
-
-        if not exercise:
-            return False
-
-        exercise.add_set(exercise_set)
-
-        return True
-
-    def get_exercise(self, exercise_id: str) -> Optional[CompletedExercise]:
-        """
-        Get a completed exercise by its ID.
+        Get an exercise by its ID.
 
         :param exercise_id: The ID of the exercise to find
-        :return: The CompletedExercise if found, None otherwise
+        :return: The Exercise if found, None otherwise
         """
         for exercise in self.exercises:
             if exercise.exercise_id == exercise_id:
@@ -92,7 +96,7 @@ class Workout:
 
     def remove_exercise(self, exercise_id: str) -> bool:
         """
-        Remove a completed exercise by its ID.
+        Remove an exercise by its ID.
 
         :param exercise_id: The ID of the exercise to remove
         :return: True if the exercise was found and removed, False otherwise
@@ -112,11 +116,59 @@ class Workout:
         total_volume = 0.0
 
         for exercise in self.exercises:
-            for exercise_set in exercise.sets:
-                if exercise_set.completed:
-                    total_volume += exercise_set.reps * exercise_set.weight
+            if exercise.status == "completed":
+                total_volume += exercise.sets * exercise.reps * exercise.weight
 
         return total_volume
+
+    def complete_exercise(
+        self,
+        exercise_id: str,
+        sets: int,
+        reps: int,
+        weight: float,
+        rpe: Optional[float] = None,
+        notes: Optional[str] = None,
+    ) -> Optional[Exercise]:
+        """
+        Records the completion of an exercise
+
+        :param exercise_id: ID of the exercise
+        :param sets: Number of sets completed
+        :param reps: Number of reps completed
+        :param weight: Weight used
+        :param rpe: Rate of Perceived Exertion (optional)
+        :param notes: Additional notes (optional)
+        :return: Updated Exercise object if found, else None
+        """
+        # Find the exercise
+        target_exercise = None
+        for exercise in self.exercises:
+            if exercise.exercise_id == exercise_id:
+                target_exercise = exercise
+                break
+
+        if not target_exercise:
+            return None
+
+        # Update exercise details
+        target_exercise.sets = sets
+        target_exercise.reps = reps
+        target_exercise.weight = weight
+
+        if rpe is not None:
+            target_exercise.rpe = rpe
+
+        if notes:
+            target_exercise.notes = notes
+
+        # Set status to completed
+        target_exercise.status = "completed"
+
+        # Explicitly reset the cached status to force recalculation
+        self._status = None
+
+        return target_exercise
 
     def to_dict(self) -> Dict[str, Any]:
         return {
