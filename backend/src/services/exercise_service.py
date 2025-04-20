@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Literal
 from src.repositories.exercise_repository import ExerciseRepository
 from src.models.exercise import Exercise
 
@@ -42,6 +42,7 @@ class ExerciseService:
         reps: int,
         weight: float,
         rpe: Optional[Union[int, float]] = None,
+        status: Optional[Literal["planned", "completed", "skipped"]] = "planned",
         notes: Optional[str] = None,
         order: Optional[int] = None,
         exercise_category: Optional[str] = None,
@@ -55,6 +56,8 @@ class ExerciseService:
         :param reps: The number of reps
         :param weight: The weight used
         :param rpe: The RPE rating
+        :param status: The status of the exercise (planned, completed, skipped)
+        :param exercise_category: The category of the exercise
         :param notes: Any additional notes
         :param order: The order of the exercise
         :return: The created Exercise object
@@ -76,6 +79,7 @@ class ExerciseService:
             reps=reps,
             weight=weight,
             rpe=rpe,
+            status=status,
             notes=notes,
             order=order,
         )

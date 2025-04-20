@@ -9,6 +9,12 @@ class ExerciseRepository(BaseRepository):
         super().__init__(ExerciseConfig.TABLE_NAME)
 
     def get_exercise(self, exercise_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get an exercise by its ID
+
+        :param exercise_id: The ID of the exercise to get
+        :return: The exercise data, or None if not found
+        """
         return self.get_by_id("exercise_id", exercise_id)
 
     def get_exercises_by_workout(self, workout_id: str) -> List[Dict[str, Any]]:
@@ -40,6 +46,20 @@ class ExerciseRepository(BaseRepository):
         )
 
         return response.get("Items", [])
+
+    def get_completed_exercises_by_type(
+        self, athlete_id: str, exercise_type: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all completed exercises of a specific type
+
+        :param athlete_id: The athlete's ID
+        :param exercise_type: The type of exercise to filter by
+        :return: A list of completed exercises
+        """
+        # This would need to join with the workout table
+        # Consider implementing a denormalized data pattern for better performance
+        pass
 
     def create_exercise(self, exercise_dict: Dict[str, Any]) -> Dict[str, Any]:
         """

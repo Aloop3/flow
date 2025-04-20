@@ -3,10 +3,8 @@ from typing import Dict, List, Any, Optional
 from src.repositories.workout_repository import WorkoutRepository
 from src.repositories.day_repository import DayRepository
 from src.repositories.exercise_repository import ExerciseRepository
-from src.services.set_service import SetService
 from src.models.workout import Workout
-from src.models.completed_exercise import CompletedExercise
-from src.models.set import Set
+from src.models.exercise import Exercise
 
 
 class WorkoutService:
@@ -14,11 +12,10 @@ class WorkoutService:
         self.workout_repository: WorkoutRepository = WorkoutRepository()
         self.day_repository: DayRepository = DayRepository()
         self.exercise_repository: ExerciseRepository = ExerciseRepository()
-        self.set_service: SetService = SetService()
 
     def get_workout(self, workout_id: str) -> Optional[Workout]:
         """
-        Retrieves a workout by workout_id with all its sets
+        Retrieves a workout by workout_id with all its exercises
 
         :param workout_id: The ID of the workout to retrieve
         :return: The Workout object if found, else None
@@ -28,43 +25,27 @@ class WorkoutService:
         if not workout_data:
             return None
 
-        # Create Workout object with base data
-        workout = Workout(**{k: v for k, v in workout_data.items() if k != "exercises"})
+        # Create workout with required fields
+        workout = Workout(
+            workout_id=workout_data.get("workout_id"),
+            athlete_id=workout_data.get("athlete_id"),
+            day_id=workout_data.get("day_id"),
+            date=workout_data.get("date"),
+            notes=workout_data.get("notes"),
+            status=workout_data.get("status", "not_started"),
+        )
 
-        # Load completed exercises with their sets
-        if "exercises" in workout_data:
+        # Add exercises if they exist
+        if "exercises" in workout_data and workout_data["exercises"]:
             for exercise_data in workout_data["exercises"]:
-                # Create base exercise object
-                completed_exercise = CompletedExercise(
-                    completed_id=exercise_data.get("completed_id"),
-                    workout_id=exercise_data.get("workout_id"),
-                    exercise_id=exercise_data.get("exercise_id"),
-                    notes=exercise_data.get("notes"),
-                )
-
-                # Add sets if they exist
-                if "sets" in exercise_data:
-                    for set_data in exercise_data["sets"]:
-                        exercise_set = Set(
-                            set_id=set_data.get("set_id"),
-                            completed_exercise_id=set_data.get("completed_exercise_id"),
-                            workout_id=set_data.get("workout_id"),
-                            set_number=set_data.get("set_number"),
-                            reps=set_data.get("reps"),
-                            weight=set_data.get("weight"),
-                            rpe=set_data.get("rpe"),
-                            notes=set_data.get("notes"),
-                        )
-                        completed_exercise.add_set(exercise_set)
-
-                # Add exercise to workout
-                workout.add_exercise(completed_exercise)
+                exercise = Exercise(**exercise_data)
+                workout.add_exercise(exercise)
 
         return workout
 
     def get_workout_by_day(self, athlete_id: str, day_id: str) -> Optional[Workout]:
         """
-        Retrieves a workout by athlete_id and day_id with all its sets
+        Retrieves a workout by athlete_id and day_id with all its exercises
 
         :param athlete_id: The ID of the athlete
         :param day_id: The ID of the day
@@ -78,58 +59,51 @@ class WorkoutService:
         # Create Workout object with base data
         workout = Workout(**{k: v for k, v in workout_data.items() if k != "exercises"})
 
-        # Load completed exercises with their sets
+        # Load exercises
         if "exercises" in workout_data:
             for exercise_data in workout_data["exercises"]:
-                # Create base exercise object
-                completed_exercise = CompletedExercise(
-                    completed_id=exercise_data.get("completed_id"),
-                    workout_id=exercise_data.get("workout_id"),
+                # Create exercise object
+                exercise = Exercise(
                     exercise_id=exercise_data.get("exercise_id"),
+                    workout_id=exercise_data.get("workout_id"),
+                    exercise_type=exercise_data.get("exercise_type"),
+                    sets=exercise_data.get("sets"),
+                    reps=exercise_data.get("reps"),
+                    weight=exercise_data.get("weight"),
+                    status=exercise_data.get("status", "planned"),
+                    rpe=exercise_data.get("rpe"),
                     notes=exercise_data.get("notes"),
+                    order=exercise_data.get("order"),
+                    exercise_category=exercise_data.get("exercise_category"),
+                    is_predefined=exercise_data.get("is_predefined"),
                 )
 
-                # Add sets if they exist
-                if "sets" in exercise_data:
-                    for set_data in exercise_data["sets"]:
-                        exercise_set = Set(
-                            set_id=set_data.get("set_id"),
-                            completed_exercise_id=set_data.get("completed_exercise_id"),
-                            workout_id=set_data.get("workout_id"),
-                            set_number=set_data.get("set_number"),
-                            reps=set_data.get("reps"),
-                            weight=set_data.get("weight"),
-                            rpe=set_data.get("rpe"),
-                            notes=set_data.get("notes"),
-                        )
-                        completed_exercise.add_set(exercise_set)
-
                 # Add exercise to workout
-                workout.add_exercise(completed_exercise)
+                workout.add_exercise(exercise)
 
         return workout
 
-    def log_workout(
+    def create_workout(
         self,
         athlete_id: str,
         day_id: str,
         date: str,
-        completed_exercises: List[Dict[str, Any]],
+        exercises: List[Dict[str, Any]],
         notes: Optional[str] = None,
-        status: str = "completed",
+        status: str = "not_started",
     ) -> Workout:
         """
-        Logs a completed workout for an athlete
+        Creates a new workout with exercises
 
         :param athlete_id: The ID of the athlete
         :param day_id: The ID of the day
         :param date: The date of the workout in ISO format
-        :param completed_exercises: A list of completed exercises
+        :param exercises: A list of exercise data
         :param notes: Optional notes for the workout
-        :param status: The status of the workout ("completed", "partial", "skipped")
+        :param status: The status of the workout ("not_started", "in_progress", "completed", "skipped")
         :return: The created Workout object
         """
-        VALID_STATUS = {"completed", "partial", "skipped"}
+        VALID_STATUS = {"not_started", "in_progress", "completed", "skipped"}
 
         if status not in VALID_STATUS:
             raise ValueError(f"Invalid status. Must be one of {VALID_STATUS}")
@@ -144,7 +118,7 @@ class WorkoutService:
                     "date": date,
                     "notes": notes,
                     "status": status,
-                    "exercises": completed_exercises,
+                    "exercises": exercises,
                 },
             )
 
@@ -158,40 +132,26 @@ class WorkoutService:
             status=status,
         )
 
-        # Add completed exercises and sets
-        for i, exercise_data in enumerate(completed_exercises):
-            # Create the completed exercise
-            completed_id = str(uuid.uuid4())
-
-            completed = CompletedExercise(
-                completed_id=completed_id,
+        # Add exercises
+        for i, exercise_data in enumerate(exercises):
+            # Create the exercise
+            exercise = Exercise(
+                exercise_id=str(uuid.uuid4()),
                 workout_id=workout.workout_id,
-                exercise_id=exercise_data.get("exercise_id"),
+                exercise_type=exercise_data.get("exercise_type"),
+                sets=exercise_data.get("sets"),
+                reps=exercise_data.get("reps"),
+                weight=exercise_data.get("weight"),
+                status=exercise_data.get("status", "planned"),
+                rpe=exercise_data.get("rpe"),
                 notes=exercise_data.get("notes"),
+                order=i + 1,  # Set order based on position in list
+                exercise_category=exercise_data.get("exercise_category"),
+                is_predefined=exercise_data.get("is_predefined"),
             )
 
-            # Add any sets if they exist
-            if "sets" in exercise_data:
-                for j, set_data in enumerate(exercise_data["sets"]):
-                    set_number = set_data.get("set_number", j + 1)
-
-                    # Create the exercise set
-                    exercise_set = Set(
-                        set_id=str(uuid.uuid4()),
-                        completed_exercise_id=completed_id,
-                        workout_id=workout.workout_id,
-                        set_number=set_number,
-                        reps=set_data.get("reps"),
-                        weight=set_data.get("weight"),
-                        rpe=set_data.get("rpe"),
-                        notes=set_data.get("notes"),
-                    )
-
-                    # Add to the completed exercise
-                    completed.add_set(exercise_set)
-
             # Add to the workout
-            workout.add_exercise(completed)
+            workout.add_exercise(exercise)
 
         # Save everything in one operation
         workout_dict = workout.to_dict()
@@ -203,7 +163,7 @@ class WorkoutService:
         self, workout_id: str, update_data: Dict[str, Any]
     ) -> Optional[Workout]:
         """
-        Updates a workout by workout_id, including set-level changes
+        Updates a workout by workout_id, including exercise changes
 
         :param workout_id: The ID of the workout to update
         :param update_data: The data to update the workout with
@@ -215,90 +175,47 @@ class WorkoutService:
         if not existing_workout:
             return None
 
-        # Handle exercises and sets separately if they're in the update
+        # Handle exercises separately if they're in the update
         exercises_data = update_data.pop("exercises", None)
 
         if exercises_data:
             # Map of existing exercises by ID for quick lookup
             existing_exercises = {
-                ex.completed_id: ex for ex in existing_workout.exercises
+                ex.exercise_id: ex for ex in existing_workout.exercises
             }
 
+            # Prepare exercises list for update
+            exercises_to_update = []
+
             for exercise_data in exercises_data:
-                exercise_id = exercise_data.get("completed_id")
+                exercise_id = exercise_data.get("exercise_id")
 
-                # If this is an existing exercise, update it
+                # If this is an existing exercise, include it with updates
                 if exercise_id and exercise_id in existing_exercises:
-                    # Handle sets if they're included
-                    sets_data = exercise_data.pop("sets", None)
-
-                    if sets_data:
-                        # Map existing sets by ID
-                        existing_sets = {
-                            s.set_id: s for s in existing_exercises[exercise_id].sets
-                        }
-
-                        for set_data in sets_data:
-                            set_id = set_data.get("set_id")
-
-                            # If this is an existing set, update it
-                            if set_id and set_id in existing_sets:
-                                self.set_service.update_set(set_id, set_data)
-                            else:
-                                # Create a new set
-                                set_number = set_data.get(
-                                    "set_number",
-                                    len(existing_exercises[exercise_id].sets) + 1,
-                                )
-
-                                self.set_service.create_set(
-                                    completed_exercise_id=exercise_id,
-                                    workout_id=workout_id,
-                                    set_number=set_number,
-                                    reps=set_data.get("reps"),
-                                    weight=set_data.get("weight"),
-                                    rpe=set_data.get("rpe"),
-                                    notes=set_data.get("notes"),
-                                )
+                    # Start with the existing exercise data
+                    updated_exercise = existing_exercises[exercise_id].to_dict()
+                    # Update with new values
+                    updated_exercise.update(exercise_data)
+                    exercises_to_update.append(updated_exercise)
                 else:
                     # This is a new exercise to add
-                    sets_data = exercise_data.pop("sets", None)
-
-                    # Create the completed exercise
-                    completed_id = str(uuid.uuid4())
-
-                    completed = CompletedExercise(
-                        completed_id=completed_id,
-                        workout_id=workout_id,
-                        exercise_id=exercise_data.get("exercise_id"),
-                        notes=exercise_data.get("notes"),
-                    )
-
-                    # Add any sets if they exist
-                    if sets_data:
-                        for j, set_data in enumerate(sets_data):
-                            set_number = set_data.get("set_number", j + 1)
-
-                            # Create the exercise set
-                            exercise_set = Set(
-                                set_id=str(uuid.uuid4()),
-                                completed_exercise_id=completed_id,
-                                workout_id=workout_id,
-                                set_number=set_number,
-                                reps=set_data.get("reps"),
-                                weight=set_data.get("weight"),
-                                rpe=set_data.get("rpe"),
-                                notes=set_data.get("notes"),
-                            )
-
-                            # Add to the completed exercise
-                            completed.add_set(exercise_set)
-
-                    # Include this completed exercise in the update data
-                    if "exercises" not in update_data:
-                        update_data["exercises"] = []
-
-                    update_data["exercises"].append(completed.to_dict())
+                    new_exercise = {
+                        "exercise_id": str(uuid.uuid4()),
+                        "workout_id": workout_id,
+                        "exercise_type": exercise_data.get("exercise_type"),
+                        "sets": exercise_data.get("sets"),
+                        "reps": exercise_data.get("reps"),
+                        "weight": exercise_data.get("weight"),
+                        "status": exercise_data.get("status", "planned"),
+                        "rpe": exercise_data.get("rpe"),
+                        "notes": exercise_data.get("notes"),
+                        "order": len(exercises_to_update) + 1,
+                        "exercise_category": exercise_data.get("exercise_category"),
+                        "is_predefined": exercise_data.get("is_predefined"),
+                    }
+                    exercises_to_update.append(new_exercise)
+            # Add the updated exercises list to the update data
+            update_data["exercises"] = exercises_to_update
 
         # Update the workout in the repository
         self.workout_repository.update_workout(workout_id, update_data)
@@ -306,119 +223,97 @@ class WorkoutService:
         # Return the updated workout
         return self.get_workout(workout_id)
 
-    def add_set_to_exercise(
-        self, workout_id: str, exercise_id: str, set_data: Dict[str, Any]
-    ) -> Optional[Set]:
+    def complete_exercise(
+        self,
+        exercise_id: str,
+        sets: int,
+        reps: int,
+        weight: float,
+        rpe: Optional[float] = None,
+        notes: Optional[str] = None,
+    ) -> Optional[Exercise]:
         """
-        Adds a new set to an exercise in a workout
+        Records the completion of an exercise
 
-        :param workout_id: The ID of the workout
-        :param exercise_id: The ID of the exercise to add the set to
-        :param set_data: The data for the new set
-        :return: The created Set if successful, else None
+        :param exercise_id: ID of the exercise
+        :param sets: Number of sets completed
+        :param reps: Number of reps completed
+        :param weight: Weight used
+        :param rpe: Rate of Perceived Exertion (optional)
+        :param notes: Additional notes (optional)
+        :return: Updated Exercise object if found, else None
         """
-        # Get the workout and exercise
-        workout = self.get_workout(workout_id)
+        # Get the exercise from the repository
+        exercise_data = self.exercise_repository.get_exercise(exercise_id)
 
-        if not workout:
+        if not exercise_data:
             return None
 
-        # Find the exercise
-        exercise = next(
-            (ex for ex in workout.exercises if ex.completed_id == exercise_id), None
+        # Prepare completion data
+        completion_data = {
+            "status": "completed",
+            "sets": sets,
+            "reps": reps,
+            "weight": weight,
+        }
+
+        if rpe is not None:
+            completion_data["rpe"] = rpe
+
+        if notes:
+            completion_data["notes"] = notes
+
+        # Update the exercise
+        updated_exercise_data = self.exercise_repository.update_exercise(
+            exercise_id, completion_data
         )
 
-        if not exercise:
-            return None
+        # Update the workout status
+        workout_id = exercise_data.get("workout_id")
+        if workout_id:
+            self._update_workout_status(workout_id)
 
-        # Create the set
-        set_number = set_data.get("set_number", len(exercise.sets) + 1)
+        # Convert to Exercise object and return
+        if updated_exercise_data:
+            return Exercise(**updated_exercise_data)
 
-        exercise_set = self.set_service.create_set(
-            completed_exercise_id=exercise_id,
-            workout_id=workout_id,
-            set_number=set_number,
-            reps=set_data.get("reps"),
-            weight=set_data.get("weight"),
-            rpe=set_data.get("rpe"),
-            notes=set_data.get("notes"),
-        )
+        return None
 
-        # Add to workout model and update status
-        workout.add_set_to_exercise(exercise_id, exercise_set)
-
-        # Update the workout status in the repository
-        self.workout_repository.update_workout(workout_id, {"status": workout.status})
-
-        return exercise_set
-
-    def update_set(self, set_id: str, update_data: Dict[str, Any]) -> Optional[Set]:
+    def _update_workout_status(self, workout_id: str) -> None:
         """
-        Updates an existing set
+        Updates the workout status based on its exercises completion status
 
-        :param set_id: The ID of the set to update
-        :param update_data: The data to update the set with
-        :return: The updated Set if successful, else None
-        """
-        # Update the set using set service
-        return self.set_service.update_set(set_id, update_data)
-
-    def delete_set(self, set_id: str) -> bool:
-        """
-        Deletes a set from a workout
-
-        :param set_id: The ID of the set to delete
-        :return: True if successful, else False
-        """
-        # Get the set to find its workout_id and exercise_id
-        set_obj = self.set_service.get_set(set_id)
-
-        if not set_obj:
-            return False
-
-        # Delete the set
-        result = self.set_service.delete_set(set_id)
-
-        if result:
-            # Update the workout status
-            workout = self.get_workout(set_obj.workout_id)
-            if workout:
-                self.workout_repository.update_workout(
-                    workout.workout_id, {"status": workout.status}
-                )
-
-        return result
-
-    def get_workout_sets(self, workout_id: str) -> Dict[str, List[Set]]:
-        """
-        Gets all sets for a workout, organized by exercise
-
-        :param workout_id: The ID of the workout
-        :return: Dictionary mapping exercise IDs to lists of sets
+        :param workout_id: ID of the workout to update
         """
         workout = self.get_workout(workout_id)
-
         if not workout:
-            return {}
+            return
 
-        result = {}
-        for exercise in workout.exercises:
-            result[exercise.completed_id] = exercise.sets
+        # Get all exercises for the workout
+        exercises = workout.exercises
 
-        return result
+        if not exercises:
+            return
 
-    def get_exercise_sets(self, exercise_id: str) -> List[Set]:
-        """
-        Gets all sets for a specific exercise
+        # Count completed exercises
+        completed_count = sum(1 for e in exercises if e.status == "completed")
+        total_count = len(exercises)
 
-        :param exercise_id: The ID of the exercise
-        :return: List of sets for the exercise
-        """
-        return self.set_service.get_sets_for_exercise(exercise_id)
+        # Determine new status
+        if completed_count == total_count:
+            new_status = "completed"
+        elif completed_count > 0:
+            new_status = "in_progress"
+        else:
+            new_status = "not_started"
+
+        # Only update if status needs to change
+        if new_status != workout.status:
+            self.workout_repository.update_workout(workout_id, {"status": new_status})
 
     def delete_workout(self, workout_id: str) -> bool:
         """
-        Deletes a workout by workout_id, including all its sets
+        Deletes a workout by workout_id, including all its exercises
 
         :param workout_id: The ID of the workout to delete
         :return: True if the workout was deleted, else False

@@ -1,6 +1,7 @@
 import json
 import logging
 from src.services.exercise_service import ExerciseService
+from src.services.workout_service import WorkoutService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
 from src.middleware.common_middleware import log_request, handle_errors
@@ -9,6 +10,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 exercise_service = ExerciseService()
+workout_service = WorkoutService()
 
 
 @with_middleware([log_request, handle_errors])
@@ -93,6 +95,49 @@ def update_exercise(event, context):
 
     except Exception as e:
         logger.error(f"Error updating exercise: {str(e)}")
+        return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
+def complete_exercise(event, context):
+    """
+    Handle POST /exercises/{exercise_id}/complete request to complete an exercise
+    """
+    try:
+        # Extract exercise_id from path parameters
+        exercise_id = event["pathParameters"]["exercise_id"]
+        body = json.loads(event["body"])
+
+        # Extract completion data
+        sets = body.get("sets")
+        reps = body.get("reps")
+        weight = body.get("weight")
+        rpe = body.get("rpe")
+        notes = body.get("notes")
+
+        # Validate required fields
+        if sets is None or reps is None or weight is None:
+            return create_response(400, {"error": "Missing required fields"})
+
+        # Complete the exercise
+        updated_exercise = workout_service.complete_exercise(
+            exercise_id=exercise_id,
+            sets=sets,
+            reps=reps,
+            weight=weight,
+            rpe=rpe,
+            notes=notes,
+        )
+
+        if not updated_exercise:
+            return create_response(404, {"error": "Exercise not found"})
+
+        return create_response(200, updated_exercise.to_dict())
+
+    except json.JSONDecodeError:
+        return create_response(400, {"error": "Invalid JSON in request body"})
+    except Exception as e:
+        logger.error(f"Error completing exercise: {str(e)}")
         return create_response(500, {"error": str(e)})
 
 

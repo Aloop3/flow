@@ -1,7 +1,6 @@
 import unittest
 from src.models.workout import Workout
-from src.models.completed_exercise import CompletedExercise
-from src.models.set import Set
+from src.models.exercise import Exercise
 
 
 class TestWorkoutModel(unittest.TestCase):
@@ -46,12 +45,12 @@ class TestWorkoutModel(unittest.TestCase):
         self.assertEqual(workout.day_id, "day789")
         self.assertEqual(workout.date, "2025-03-12")
         self.assertIsNone(workout.notes)
-        self.assertEqual(workout.status, "partial")  # partial
+        self.assertEqual(workout.status, "not_started")
         self.assertEqual(workout.exercises, [])  # Empty list by default
 
     def test_add_exercise(self):
         """
-        Test adding a completed exercise to a workout
+        Test adding an exercise to a workout
         """
         workout = Workout(
             workout_id="workout123",
@@ -60,9 +59,15 @@ class TestWorkoutModel(unittest.TestCase):
             date="2025-03-15",
         )
 
-        # Create a completed exercise
-        exercise = CompletedExercise(
-            completed_id="comp123", workout_id="workout123", exercise_id="ex789"
+        # Create an Exercise object
+        exercise = Exercise(
+            workout_id="workout123",
+            exercise_id="ex456",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+            weight=209.44,
+            status="planned",
         )
 
         # Add the exercise to the workout
@@ -70,50 +75,8 @@ class TestWorkoutModel(unittest.TestCase):
 
         # Assert the exercise was added
         self.assertEqual(len(workout.exercises), 1)
-        self.assertEqual(workout.exercises[0].completed_id, "comp123")
-
-    def test_add_set_to_exercise(self):
-        """
-        Test adding a set to a specific exercise in the workout
-        """
-        workout = Workout(
-            workout_id="workout123",
-            athlete_id="athlete456",
-            day_id="day789",
-            date="2025-03-15",
-        )
-
-        # Create a completed exercise
-        exercise = CompletedExercise(
-            completed_id="comp123", workout_id="workout123", exercise_id="ex789"
-        )
-
-        workout.add_exercise(exercise)
-
-        # Create a set
-        exercise_set = Set(
-            set_id="set1",
-            completed_exercise_id="comp123",
-            workout_id="workout123",
-            set_number=1,
-            reps=5,
-            weight=225.0,
-            completed=True,
-        )
-
-        # Add the set to the exercise via the workout
-        result = workout.add_set_to_exercise("comp123", exercise_set)
-
-        # Assert the set was added successfully
-        self.assertTrue(result)
-        self.assertEqual(len(workout.exercises[0].sets), 1)
-        self.assertEqual(workout.exercises[0].sets[0].set_id, "set1")
-
-        # Test adding a set to a non-existent exercise
-        non_existent_result = workout.add_set_to_exercise("non-existent", exercise_set)
-        self.assertFalse(
-            non_existent_result
-        )  # Should return False when exercise not found
+        self.assertEqual(workout.exercises[0].exercise_id, "ex456")
+        self.assertEqual(workout.exercises[0].exercise_type, "Bench Press")
 
     def test_get_exercise(self):
         """
@@ -127,12 +90,24 @@ class TestWorkoutModel(unittest.TestCase):
         )
 
         # Create exercises with different IDs
-        exercise1 = CompletedExercise(
-            completed_id="comp1", workout_id="workout123", exercise_id="ex1"
+        exercise1 = Exercise(
+            exercise_id="ex1",
+            workout_id="workout123",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="planned",
         )
 
-        exercise2 = CompletedExercise(
-            completed_id="comp2", workout_id="workout123", exercise_id="ex2"
+        exercise2 = Exercise(
+            exercise_id="ex2",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=315.0,
+            status="planned",
         )
 
         workout.add_exercise(exercise1)
@@ -144,6 +119,7 @@ class TestWorkoutModel(unittest.TestCase):
         # Assert we got the right exercise
         self.assertIsNotNone(result)
         self.assertEqual(result.exercise_id, "ex1")
+        self.assertEqual(result.exercise_type, "Bench Press")
 
         # Test getting a non-existent exercise
         self.assertIsNone(workout.get_exercise("nonexistent"))
@@ -160,12 +136,24 @@ class TestWorkoutModel(unittest.TestCase):
         )
 
         # Create exercises with different IDs
-        exercise1 = CompletedExercise(
-            completed_id="comp1", workout_id="workout123", exercise_id="ex1"
+        exercise1 = Exercise(
+            exercise_id="ex1",
+            workout_id="workout123",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="planned",
         )
 
-        exercise2 = CompletedExercise(
-            completed_id="comp2", workout_id="workout123", exercise_id="ex2"
+        exercise2 = Exercise(
+            exercise_id="ex2",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=315.0,
+            status="planned",
         )
 
         workout.add_exercise(exercise1)
@@ -184,7 +172,7 @@ class TestWorkoutModel(unittest.TestCase):
 
     def test_status_calculation(self):
         """
-        Test workout status calculation based on exercise completion
+        Test workout status calculation based on exercise status
         """
 
         workout = Workout(
@@ -194,54 +182,61 @@ class TestWorkoutModel(unittest.TestCase):
             date="2025-03-15",
         )
 
-        # With no explicit status, default should be 'partial'
-        self.assertEqual(workout.status, "partial")
+        # With no exercises, status should be not_started
+        self.assertEqual(workout.status, "not_started")
 
-        # Create and add exercises doesn't change status
-        exercise1 = CompletedExercise(
-            completed_id="comp1", workout_id="workout123", exercise_id="ex1"
-        )
-
-        # Add a completed exercise
-        set1 = Set(
-            set_id="set1",
-            completed_exercise_id="comp1",
+        # Add a planned exercise
+        exercise1 = Exercise(
+            exercise_id="ex1",
             workout_id="workout123",
-            set_number=1,
+            exercise_type="Bench Press",
+            sets=3,
             reps=5,
             weight=225.0,
-            completed=True,
+            status="planned",
         )
-        exercise1.add_set(set1)
         workout.add_exercise(exercise1)
 
-        # Still 'partial' since status not explicitly set
-        self.assertEqual(workout.status, "partial")
+        # With only planned exercises, status should be not_started
+        self.assertEqual(workout.status, "not_started")
 
-        # Explicitly set to completed
-        workout.status = "completed"
-        self.assertEqual(workout.status, "completed")
-
-        # Add another exercise doesn't change explicit status
-        exercise2 = CompletedExercise(
-            completed_id="comp2", workout_id="workout123", exercise_id="ex2"
-        )
-
-        set2 = Set(
-            set_id="set2",
-            completed_exercise_id="comp2",
+        # Add a completed exercise
+        exercise2 = Exercise(
+            exercise_id="ex2",
             workout_id="workout123",
-            set_number=1,
+            exercise_type="Squat",
+            sets=3,
             reps=5,
-            weight=135.0,
-            completed=False,
+            weight=315.0,
+            status="planned",
         )
-
-        exercise2.add_set(set2)
         workout.add_exercise(exercise2)
 
-        # Status remains what it was explicitly set to
+        # Call the complete_exercise method to mark the exercise as completed
+        workout.complete_exercise(
+            exercise_id="ex2",
+            sets=3,
+            reps=5,
+            weight=315.0,
+        )
+
+        # With some completed exercises, status should be 'in_progress'
+        self.assertEqual(workout.status, "in_progress")
+
+        # Update first exercise to completed
+        workout.complete_exercise(
+            exercise_id="ex1",
+            sets=3,
+            reps=5,
+            weight=225.0,
+        )
+
+        # With all exercises completed, status should be 'completed'
         self.assertEqual(workout.status, "completed")
+
+        # Explicitly set to skipped overrides calculated status
+        workout.status = "skipped"
+        self.assertEqual(workout.status, "skipped")
 
     def test_status_override(self):
         """
@@ -255,25 +250,20 @@ class TestWorkoutModel(unittest.TestCase):
             date="2025-03-15",
         )
 
-        # Create fully completed exercise
-        exercise = CompletedExercise(
-            completed_id="comp1", workout_id="workout123", exercise_id="ex1"
-        )
-
-        set1 = Set(
-            set_id="set1",
-            completed_exercise_id="comp1",
+        # Create an exercise
+        exercise = Exercise(
+            exercise_id="ex1",
             workout_id="workout123",
-            set_number=1,
+            exercise_type="Bench Press",
+            sets=3,
             reps=5,
             weight=225.0,
-            completed=True,
+            status="planned",
         )
-        exercise.add_set(set1)
         workout.add_exercise(exercise)
 
-        # Status should be partial by default (changed from completed)
-        self.assertEqual(workout.status, "partial")
+        # Status should be not_started by default
+        self.assertEqual(workout.status, "not_started")
 
         # Explicitly set to completed
         workout.status = "completed"
@@ -298,68 +288,45 @@ class TestWorkoutModel(unittest.TestCase):
             date="2025-03-15",
         )
 
-        # Create exercises with sets
-        bench_exercise = CompletedExercise(
-            completed_id="comp1", workout_id="workout123", exercise_id="bench"
-        )
-
-        # 3 sets of bench, 5 reps at 225 = 3375 total volume
-        for i in range(1, 4):
-            bench_set = Set(
-                set_id=f"set{i}",
-                completed_exercise_id="comp1",
-                workout_id="workout123",
-                set_number=i,
-                reps=5,
-                weight=225.0,
-                completed=True,
-            )
-            bench_exercise.add_set(bench_set)
-
-        # Squat exercise with some incomplete sets
-        squat_exercise = CompletedExercise(
-            completed_id="comp2", workout_id="workout123", exercise_id="squat"
-        )
-
-        # 2 completed sets + 1 incomplete set of squats
-        squat_set1 = Set(
-            set_id="squat1",
-            completed_exercise_id="comp2",
+        # Create completed exercises
+        bench_exercise = Exercise(
+            exercise_id="ex1",
             workout_id="workout123",
-            set_number=1,
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="completed",
+        )
+
+        # Squat exercise
+        squat_exercise = Exercise(
+            exercise_id="ex2",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=2,  # Only 2 sets done
             reps=5,
             weight=315.0,
-            completed=True,
+            status="completed",
         )
 
-        squat_set2 = Set(
-            set_id="squat2",
-            completed_exercise_id="comp2",
+        # Deadlift exercise that's still planned (shouldn't count in volume)
+        deadlift_exercise = Exercise(
+            exercise_id="ex3",
             workout_id="workout123",
-            set_number=2,
+            exercise_type="Deadlift",
+            sets=1,
             reps=5,
-            weight=315.0,
-            completed=True,
+            weight=405.0,
+            status="planned",
         )
-
-        squat_set3 = Set(
-            set_id="squat3",
-            completed_exercise_id="comp2",
-            workout_id="workout123",
-            set_number=3,
-            reps=5,
-            weight=315.0,
-            completed=False,  # Not completed, should not count in volume
-        )
-
-        squat_exercise.add_set(squat_set1)
-        squat_exercise.add_set(squat_set2)
-        squat_exercise.add_set(squat_set3)
 
         workout.add_exercise(bench_exercise)
         workout.add_exercise(squat_exercise)
+        workout.add_exercise(deadlift_exercise)
 
         # Expected volume: bench (5*225*3) + squat (5*315*2) = 3375 + 3150 = 6525
+        # Deadlift doesn't count because it's not completed
         self.assertEqual(workout.calculate_volume(), 6525.0)
 
     def test_to_dict(self):
@@ -374,27 +341,19 @@ class TestWorkoutModel(unittest.TestCase):
             notes="Solid session",
         )
 
-        # Add a completed exercise with sets
-        exercise = CompletedExercise(
-            completed_id="comp1",
-            workout_id="workout123",
+        # Add an exercise
+        exercise = Exercise(
             exercise_id="ex1",
-            notes="Felt strong",
-        )
-
-        # Add a set to the exercise
-        exercise_set = Set(
-            set_id="set1",
-            completed_exercise_id="comp1",
             workout_id="workout123",
-            set_number=1,
+            exercise_type="Bench Press",
+            sets=3,
             reps=5,
             weight=225.0,
-            completed=True,
+            status="completed",
+            notes="Felt strong",
             rpe=8.0,
         )
 
-        exercise.add_set(exercise_set)
         workout.add_exercise(exercise)
 
         workout_dict = workout.to_dict()
@@ -404,20 +363,17 @@ class TestWorkoutModel(unittest.TestCase):
         self.assertEqual(workout_dict["day_id"], "day789")
         self.assertEqual(workout_dict["date"], "2025-03-12")
         self.assertEqual(workout_dict["notes"], "Solid session")
-        self.assertEqual(workout_dict["status"], "partial")
-        self.assertEqual(workout_dict["total_volume"], 1125.0)  # 5 * 225 = 1125
+
+        # Volume should be 3 sets * 5 reps * 225 weight = 3375
+        self.assertEqual(workout_dict["total_volume"], 3375.0)
 
         # Check exercises
         self.assertEqual(len(workout_dict["exercises"]), 1)
-        self.assertEqual(workout_dict["exercises"][0]["completed_id"], "comp1")
+        self.assertEqual(workout_dict["exercises"][0]["exercise_id"], "ex1")
+        self.assertEqual(workout_dict["exercises"][0]["exercise_type"], "Bench Press")
         self.assertEqual(workout_dict["exercises"][0]["notes"], "Felt strong")
-
-        # Check sets in the exercise
-        self.assertEqual(len(workout_dict["exercises"][0]["sets"]), 1)
-        self.assertEqual(workout_dict["exercises"][0]["sets"][0]["set_id"], "set1")
-        self.assertEqual(workout_dict["exercises"][0]["sets"][0]["reps"], 5)
-        self.assertEqual(workout_dict["exercises"][0]["sets"][0]["weight"], 225.0)
-        self.assertEqual(workout_dict["exercises"][0]["sets"][0]["rpe"], 8.0)
+        self.assertEqual(workout_dict["exercises"][0]["status"], "completed")
+        self.assertEqual(workout_dict["exercises"][0]["rpe"], 8.0)
 
 
 if __name__ == "__main__":  # pragma: no cover

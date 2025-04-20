@@ -36,7 +36,6 @@ class ExerciseType:
             "Bent Over Row",
             "Incline Bench Press",
             "Front Squat",
-            "Hex Bar Deadlift",
             "Military Press",
             "EZ Bar Curl",
             "Seated Shoulder Press",
@@ -45,7 +44,7 @@ class ExerciseType:
         ExerciseCategory.DUMBBELL: [
             "Dumbbell Bench Press",
             "Dumbbell Lateral Raise",
-            "Dumbbell Curl",
+            "Dumbbell Bicep Curl",
             "Seated Dumbbell Shoulder Press",
             "Dumbbell Shoulder Press",
             "Incline Dumbbell Bench Press",
@@ -180,10 +179,13 @@ class ExerciseType:
 
     def __eq__(self, other) -> bool:
         """
-        Two ExerciseType objects are equal if they are the same name, regardless of whether one is predefined and one is custom
+        Two ExerciseType objects are equal if their names match (case-insensitive).
+        Compares the ExerciseType's name with a string or another ExerciseType object.
 
-        :param other: Other ExerciseType object to compare with
+        :param other: Other ExerciseType object or string to compare with
         """
         if isinstance(other, ExerciseType):
-            return self.name == other.name
+            return self.name.lower() == other.name.lower()
+        elif isinstance(other, str):
+            return self.name.lower() == other.lower()
         return False

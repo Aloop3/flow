@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, Literal
 from .exercise_type import ExerciseType, ExerciseCategory
 
 
@@ -12,6 +12,7 @@ class Exercise:
         reps: int,
         weight: float,
         rpe: Optional[Union[int, float]] = None,
+        status: Optional[Literal["planned", "completed", "skipped"]] = "planned",
         notes: Optional[str] = None,
         order: Optional[int] = None,
         exercise_category: Optional[ExerciseCategory] = None,
@@ -71,6 +72,7 @@ class Exercise:
         self.reps: int = reps  # Planned reps
         self.weight: float = weight  # Planned weight
         self.rpe: Optional[Union[int, float]] = rpe  # Planned RPE
+        self.status: Literal["planned", "completed", "skipped"] = status
         self.notes: Optional[str] = notes
         self.order: Optional[int] = order  # Sequence in workout
 
@@ -87,6 +89,7 @@ class Exercise:
             "reps": self.reps,
             "weight": self.weight,
             "rpe": self.rpe,
+            "status": self.status,
             "notes": self.notes,
             "order": self.order,
             "is_predefined": self.is_predefined,
@@ -119,6 +122,7 @@ class Exercise:
             reps=data["reps"],
             weight=data["weight"],
             rpe=data.get("rpe"),
+            status=data.get("status"),
             notes=data.get("notes"),
             order=data.get("order"),
             exercise_category=exercise_category,
