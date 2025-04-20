@@ -13,8 +13,8 @@ class TestWorkoutAPI(BaseTest):
     Test suite for the Workout API module
     """
 
-    @patch("src.services.workout_service.WorkoutService.log_workout")
-    def test_create_workout_success(self, mock_log_workout):
+    @patch("src.services.workout_service.WorkoutService.create_workout")
+    def test_create_workout_success(self, mock_create_workout):
         """
         Test successful workout creation
         """
@@ -27,19 +27,18 @@ class TestWorkoutAPI(BaseTest):
             "day_id": "day789",
             "date": "2025-03-15",
             "notes": "Good session",
-            "status": "completed",
+            "status": "not_started",
             "exercises": [
                 {
-                    "completed_id": "comp1",
                     "exercise_id": "ex1",
-                    "actual_sets": 5,
-                    "actual_reps": 5,
-                    "actual_weight": 315.0,
-                    "actual_rpe": 8.5,
+                    "sets": 5,
+                    "reps": 5,
+                    "weight": 315.0,
+                    "rpe": 8.5,
                 }
             ],
         }
-        mock_log_workout.return_value = mock_workout
+        mock_create_workout.return_value = mock_workout
 
         event = {
             "body": json.dumps(
@@ -48,14 +47,14 @@ class TestWorkoutAPI(BaseTest):
                     "day_id": "day789",
                     "date": "2025-03-15",
                     "notes": "Good session",
-                    "status": "completed",
+                    "status": "not_started",
                     "exercises": [
                         {
                             "exercise_id": "ex1",
-                            "actual_sets": 5,
-                            "actual_reps": 5,
-                            "actual_weight": 315.0,
-                            "actual_rpe": 8.5,
+                            "sets": 5,
+                            "reps": 5,
+                            "weight": 315.0,
+                            "rpe": 8.5,
                         }
                     ],
                 }
@@ -73,27 +72,27 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["athlete_id"], "athlete456")
         self.assertEqual(response_body["day_id"], "day789")
         self.assertEqual(len(response_body["exercises"]), 1)
-        self.assertEqual(response_body["exercises"][0]["actual_sets"], 5)
-        self.assertEqual(response_body["status"], "completed")
-        mock_log_workout.assert_called_once_with(
+        self.assertEqual(response_body["exercises"][0]["sets"], 5)
+        self.assertEqual(response_body["status"], "not_started")
+        mock_create_workout.assert_called_once_with(
             athlete_id="athlete456",
             day_id="day789",
             date="2025-03-15",
-            completed_exercises=[
+            exercises=[
                 {
                     "exercise_id": "ex1",
-                    "actual_sets": 5,
-                    "actual_reps": 5,
-                    "actual_weight": 315.0,
-                    "actual_rpe": 8.5,
+                    "sets": 5,
+                    "reps": 5,
+                    "weight": 315.0,
+                    "rpe": 8.5,
                 }
             ],
             notes="Good session",
-            status="completed",
+            status="not_started",
         )
 
-    @patch("src.services.workout_service.WorkoutService.log_workout")
-    def test_create_workout_missing_fields(self, mock_log_workout):
+    @patch("src.services.workout_service.WorkoutService.create_workout")
+    def test_create_workout_missing_fields(self, mock_create_workout):
         """
         Test workout creation with missing required fields
         """
@@ -118,16 +117,16 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertIn("Missing required fields", response_body["error"])
-        mock_log_workout.assert_not_called()
+        mock_create_workout.assert_not_called()
 
-    @patch("src.services.workout_service.WorkoutService.log_workout")
-    def test_create_workout_with_validation_error(self, mock_log_workout):
+    @patch("src.services.workout_service.WorkoutService.create_workout")
+    def test_create_workout_with_validation_error(self, mock_create_workout):
         """
         Test workout creation with service-level validation error
         """
 
         # Setup - service throws a ValueError for validation failure
-        mock_log_workout.side_effect = ValueError("Invalid status value")
+        mock_create_workout.side_effect = ValueError("Invalid status value")
 
         event = {
             "body": json.dumps(
@@ -139,9 +138,9 @@ class TestWorkoutAPI(BaseTest):
                     "exercises": [
                         {
                             "exercise_id": "ex1",
-                            "actual_sets": 5,
-                            "actual_reps": 5,
-                            "actual_weight": 315.0,
+                            "sets": 5,
+                            "reps": 5,
+                            "weight": 315.0,
                         }
                     ],
                 }
@@ -157,8 +156,8 @@ class TestWorkoutAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Invalid status value", response_body["error"])
 
-    @patch("src.services.workout_service.WorkoutService.log_workout")
-    def test_create_workout_invalid_json(self, mock_log_workout):
+    @patch("src.services.workout_service.WorkoutService.create_workout")
+    def test_create_workout_invalid_json(self, mock_create_workout):
         """
         Test workout creation with invalid JSON
         """
@@ -172,15 +171,15 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertIn("Expecting value", response_body["error"])
-        mock_log_workout.assert_not_called()
+        mock_create_workout.assert_not_called()
 
-    @patch("src.services.workout_service.WorkoutService.log_workout")
-    def test_create_workout_general_exception(self, mock_log_workout):
+    @patch("src.services.workout_service.WorkoutService.create_workout")
+    def test_create_workout_general_exception(self, mock_create_workout):
         """
         Test workout creation when a general exception occurs
         """
         # Setup - simulate a DynamoDB error
-        mock_log_workout.side_effect = Exception("DynamoDB error occurred")
+        mock_create_workout.side_effect = Exception("DynamoDB error occurred")
 
         event = {
             "body": json.dumps(
@@ -201,7 +200,7 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "DynamoDB error occurred")
-        mock_log_workout.assert_called_once()
+        mock_create_workout.assert_called_once()
 
     @patch("src.services.workout_service.WorkoutService.get_workout")
     def test_get_workout_success(self, mock_get_workout):
@@ -219,11 +218,10 @@ class TestWorkoutAPI(BaseTest):
             "status": "completed",
             "exercises": [
                 {
-                    "completed_id": "comp1",
                     "exercise_id": "ex1",
-                    "actual_sets": 5,
-                    "actual_reps": 5,
-                    "actual_weight": 315.0,
+                    "sets": 5,
+                    "reps": 5,
+                    "weight": 315.0,
                 }
             ],
         }
@@ -426,14 +424,13 @@ class TestWorkoutAPI(BaseTest):
             "day_id": "day789",
             "date": "2025-03-15",
             "notes": "Updated notes",
-            "status": "partial",  # Updated status
+            "status": "in_progress",  # Updated status
             "exercises": [
                 {
-                    "completed_id": "comp1",
                     "exercise_id": "ex1",
-                    "actual_sets": 4,  # Updated sets
-                    "actual_reps": 5,
-                    "actual_weight": 315.0,
+                    "sets": 4,  # Updated sets
+                    "reps": 5,
+                    "weight": 315.0,
                 }
             ],
         }
@@ -444,14 +441,13 @@ class TestWorkoutAPI(BaseTest):
             "body": json.dumps(
                 {
                     "notes": "Updated notes",
-                    "status": "partial",
+                    "status": "in_progress",
                     "exercises": [
                         {
-                            "completed_id": "comp1",
                             "exercise_id": "ex1",
-                            "actual_sets": 4,
-                            "actual_reps": 5,
-                            "actual_weight": 315.0,
+                            "sets": 4,
+                            "reps": 5,
+                            "weight": 315.0,
                         }
                     ],
                 }
@@ -467,8 +463,8 @@ class TestWorkoutAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["workout_id"], "workout123")
         self.assertEqual(response_body["notes"], "Updated notes")
-        self.assertEqual(response_body["status"], "partial")
-        self.assertEqual(response_body["exercises"][0]["actual_sets"], 4)
+        self.assertEqual(response_body["status"], "in_progress")
+        self.assertEqual(response_body["exercises"][0]["sets"], 4)
         mock_update_workout.assert_called_once()
 
     @patch("src.services.workout_service.WorkoutService.update_workout")
@@ -573,8 +569,8 @@ class TestWorkoutAPI(BaseTest):
         mock_delete_workout.assert_called_once_with("workout123")
 
     @patch("src.services.day_service.DayService.get_day")
-    @patch("src.services.workout_service.WorkoutService.log_workout")
-    def test_create_day_workout_success(self, mock_log_workout, mock_get_day):
+    @patch("src.services.workout_service.WorkoutService.create_workout")
+    def test_create_day_workout_success(self, mock_create_workout, mock_get_day):
         """
         Test successful creation of a workout for a specific day
         """
@@ -592,7 +588,6 @@ class TestWorkoutAPI(BaseTest):
             "status": "draft",
             "exercises": [
                 {
-                    "completed_id": "comp1",
                     "exercise_id": "ex1",
                     "exercise_type": "Bench Press",
                     "sets": 3,
@@ -601,7 +596,7 @@ class TestWorkoutAPI(BaseTest):
                 }
             ],
         }
-        mock_log_workout.return_value = mock_workout
+        mock_create_workout.return_value = mock_workout
 
         # Prepare test event
         event = {
@@ -636,15 +631,15 @@ class TestWorkoutAPI(BaseTest):
 
         # Verify service calls
         mock_get_day.assert_called_once_with("day789")
-        mock_log_workout.assert_called_once()
+        mock_create_workout.assert_called_once()
 
-        # Check transformed exercises in log_workout call
-        call_args = mock_log_workout.call_args[1]
+        # Check transformed exercises in create_workout call
+        call_args = mock_create_workout.call_args[1]
         self.assertEqual(call_args["athlete_id"], "athlete456")
         self.assertEqual(call_args["day_id"], "day789")
         self.assertEqual(call_args["date"], "2025-03-15")
 
-        exercises = call_args["completed_exercises"]
+        exercises = call_args["exercises"]
         self.assertEqual(len(exercises), 1)
         self.assertEqual(exercises[0]["exercise_type"], "Bench Press")
         self.assertEqual(exercises[0]["sets"], 3)
@@ -712,9 +707,9 @@ class TestWorkoutAPI(BaseTest):
 
     @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
     @patch("src.services.day_service.DayService.get_day")
-    @patch("src.services.workout_service.WorkoutService.log_workout")
+    @patch("src.services.workout_service.WorkoutService.create_workout")
     def test_copy_workout_success(
-        self, mock_log_workout, mock_get_day, mock_get_workout
+        self, mock_create_workout, mock_get_day, mock_get_workout
     ):
         """
         Test successful workout copying from one day to another
@@ -759,7 +754,7 @@ class TestWorkoutAPI(BaseTest):
             "date": "2025-03-20",
             "status": "not_started",
         }
-        mock_log_workout.return_value = mock_new_workout
+        mock_create_workout.return_value = mock_new_workout
 
         # Prepare test event
         event = {
@@ -784,16 +779,16 @@ class TestWorkoutAPI(BaseTest):
         mock_get_workout.assert_any_call("athlete456", "target-day-789")
         mock_get_day.assert_called_once_with("target-day-789")
 
-        # Verify that log_workout was called with transformed exercises
-        mock_log_workout.assert_called_once()
-        call_args = mock_log_workout.call_args[1]
+        # Verify that create_workout was called with transformed exercises
+        mock_create_workout.assert_called_once()
+        call_args = mock_create_workout.call_args[1]
         self.assertEqual(call_args["athlete_id"], "athlete456")
         self.assertEqual(call_args["day_id"], "target-day-789")
         self.assertEqual(call_args["date"], "2025-03-20")
         self.assertEqual(call_args["status"], "not_started")
 
         # Check that we properly transformed the exercises
-        exercises = call_args["completed_exercises"]
+        exercises = call_args["exercises"]
         self.assertEqual(len(exercises), 2)
         self.assertEqual(exercises[0]["exercise_id"], "ex1")
         self.assertEqual(exercises[0]["exercise_type"], "Bench Press")
