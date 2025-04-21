@@ -35,9 +35,10 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
         const dayData = await getDay(dayId);
         setDay(dayData);
         
-        // Try to load existing workout
+        // Try to load existing workout with consistent ID property
         try {
-          const workoutData = await getWorkoutByDay(user.userId, dayId);
+          // Ensure we're using the correct user ID property consistently
+          const workoutData = await getWorkoutByDay(user.user_id, dayId);
           setWorkout(workoutData);
         } catch (err) {
           console.log('No workout yet or error loading it');
@@ -45,14 +46,15 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
         }
       } catch (err) {
         console.error('Error loading day data:', err);
+        toast.error('Error loading day data');
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchDayData();
-  }, [dayId, user.userId]);
-
+  }, [dayId, user.user_id]);
+  
   const handleWorkoutSaved = async (workoutId: string) => {
     // Refresh the workout data after saving
     if (!workoutId || !dayId) {
@@ -64,8 +66,10 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
       const workoutData = await getWorkoutByDay(user.user_id, dayId);
       setWorkout(workoutData);
       setShowWorkoutForm(false);
+      toast.success('Workout saved successfully!');
     } catch (err) {
       console.error('Error refreshing workout:', err);
+      toast.error('Error loading workout after save');
     }
   };
   
