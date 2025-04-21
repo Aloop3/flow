@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from src.models.workout import Workout
 from src.models.exercise import Exercise
 from src.services.workout_service import WorkoutService
+from src.services.exercise_service import ExerciseService
 
 
 class TestWorkoutService(unittest.TestCase):
@@ -17,6 +18,7 @@ class TestWorkoutService(unittest.TestCase):
         self.workout_repository_mock = MagicMock()
         self.day_repository_mock = MagicMock()
         self.exercise_repository_mock = MagicMock()
+        self.exercise_service_mock = MagicMock()
 
         # Create patcher for uuid4 to return predictable IDs
         self.uuid_patcher = patch("uuid.uuid4")
@@ -42,6 +44,9 @@ class TestWorkoutService(unittest.TestCase):
         ), patch(
             "src.services.workout_service.ExerciseRepository",
             return_value=self.exercise_repository_mock,
+        ), patch(
+            "src.services.workout_service.ExerciseService",
+            return_value=self.exercise_service_mock,
         ):
             self.workout_service = WorkoutService()
 

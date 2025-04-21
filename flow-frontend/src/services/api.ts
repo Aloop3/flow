@@ -625,6 +625,7 @@ export const getWorkoutByDay = async (athlete_id: string, day_id: string): Promi
     if (actualResponse && actualResponse.body) {
       try {
         const responseData = await actualResponse.body.json();
+        console.log('Successfully fetched workout data:', responseData);
         return responseData as unknown as Workout;
       } catch (e) {
         console.error('Failed to parse workout data:', e);

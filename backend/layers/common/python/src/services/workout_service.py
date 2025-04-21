@@ -27,7 +27,17 @@ class WorkoutService:
         if not workout_data:
             return None
 
-        return Workout.from_dict(workout_data)
+        # Create the workout object
+        workout = Workout.from_dict(workout_data)
+
+        # Use ExerciseService to fetch exercises for this workout
+        exercises = self.exercise_service.get_exercises_for_workout(workout.workout_id)
+
+        # Add exercises to the workout
+        for exercise in exercises:
+            workout.add_exercise(exercise)
+
+        return workout
 
     def get_workout_by_day(self, athlete_id: str, day_id: str) -> Optional[Workout]:
         """
@@ -43,7 +53,17 @@ class WorkoutService:
         if not workout_data:
             return None
 
-        return Workout.from_dict(workout_data)
+        # Create the workout object
+        workout = Workout.from_dict(workout_data)
+
+        # Use ExerciseService to fetch exercises for this workout
+        exercises = self.exercise_service.get_exercises_for_workout(workout.workout_id)
+
+        # Add exercises to the Workout object
+        for exercise in exercises:
+            workout.add_exercise(exercise)
+
+        return workout
 
     def create_workout(
         self,
