@@ -252,6 +252,8 @@ Resources:
           AttributeType: S
         - AttributeName: day_id
           AttributeType: S
+        - AttributeName: workout_id
+          AttributeType: S
       KeySchema:
         - AttributeName: exercise_id
           KeyType: HASH
@@ -259,6 +261,12 @@ Resources:
         - IndexName: day-index
           KeySchema:
             - AttributeName: day_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: workout-index
+          KeySchema:
+            - AttributeName: workout_id
               KeyType: HASH
           Projection:
             ProjectionType: ALL
