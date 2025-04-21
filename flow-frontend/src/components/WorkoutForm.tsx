@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import ExerciseSelector from './ExerciseSelector';
 import FormButton from './FormButton';
-import { getAuthHeaders } from '../services/api';
-import { post } from 'aws-amplify/api';
+import { createWorkout } from '../services/api';
+
 
 interface WorkoutFormProps {
   dayId: string;
@@ -16,6 +16,7 @@ const WorkoutForm = ({ dayId, onSave }: WorkoutFormProps) => {
     sets: number;
     reps: number;
     weight: number;
+    status?: 'planned' | 'completed' | 'skipped';
   }>>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,8 @@ const WorkoutForm = ({ dayId, onSave }: WorkoutFormProps) => {
         exerciseType: selectedExercise,
         sets: 3,
         reps: 10,
-        weight: 0
+        weight: 0,
+        status: 'planned'
       }
     ]);
     
@@ -53,84 +55,21 @@ const WorkoutForm = ({ dayId, onSave }: WorkoutFormProps) => {
       console.log('Saving workout for day:', dayId);
       console.log('Exercises to save:', exercises);
       
-      // Get auth headers
-      const headers = await getAuthHeaders();
+      // Use the API method directly
+      const workout = await createWorkout(dayId, exercises);
       
-      // Send request to create workout
-      const apiResponse = await post({
-        apiName: 'flow-api',
-        path: `/days/${dayId}/workout`,
-        options: {
-          headers,
-          body: {
-            exercises: exercises
-          }
-        }
-      });
+      console.log('Created workout:', workout);
       
-      console.log('Initial API response:', apiResponse);
-      
-      // For Amplify v6, await the response
-      const actualResponse = await apiResponse.response;
-      console.log('Actual response after awaiting:', actualResponse);
-      
-      // Check if request was successful
-      if (actualResponse.statusCode >= 200 && actualResponse.statusCode < 300) {
-        // Parse response body
-        if (actualResponse.body) {
-          try {
-            const responseText = await actualResponse.body.text();
-            console.log('Response text:', responseText);
-            
-            if (responseText) {
-              const data = JSON.parse(responseText);
-              console.log('Parsed workout data:', data);
-              
-              if (data && data.workout_id) {
-                // Successfully created workout
-                onSave(data.workout_id);
-                return;
-              } else {
-                console.error('No workout_id in response:', data);
-                setError('Server returned invalid response (missing workout ID)');
-              }
-            }
-          } catch (parseError) {
-            console.error('Error parsing response:', parseError);
-            setError('Failed to parse server response');
-          }
-        } else {
-          console.error('No response body');
-          setError('Server returned empty response');
-        }
+      // Call the onSave callback with the workout ID
+      if (workout && workout.workout_id) {
+        onSave(workout.workout_id);
       } else {
-        // Handle HTTP error
-        let errorMessage = `Server returned status ${actualResponse.statusCode}`;
-        
-        try {
-          if (actualResponse.body) {
-            const errorText = await actualResponse.body.text();
-            if (errorText) {
-              const errorData = JSON.parse(errorText);
-              if (errorData && errorData.error) {
-                errorMessage = errorData.error;
-              }
-            }
-          }
-        } catch (e) {
-          // Ignore error parsing errors
-        }
-        
-        console.error('HTTP error:', errorMessage);
-        setError(errorMessage);
+        console.error('No workout ID returned');
+        setError('Failed to create workout - no ID returned');
       }
-      
-      // If we get here, there was an issue
-      onSave('');
     } catch (error: any) {
       console.error('Error saving workout:', error);
-      setError(error.message || 'Unknown error occurred');
-      onSave('');
+      setError(error.message || 'Failed to save workout');
     } finally {
       setIsSaving(false);
     }
