@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 
 with patch("boto3.resource"):
-    from src.lambdas import exercise_lambda
+    from src.lambdas.exercise_lambda import exercise_lambda
 
 
 class TestExerciseLambda(BaseTest):

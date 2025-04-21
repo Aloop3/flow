@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 
 with patch("boto3.resource"):
-    from src.lambdas import week_lambda
+    from src.lambdas.week_lambda import week_lambda
 
 
 class TestWeekLambda(BaseTest):

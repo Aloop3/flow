@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 
 with patch("boto3.resource"):
-    from src.lambdas import user_lambda
+    from src.lambdas.user_lambda import user_lambda
 
 
 class TestUserLambda(BaseTest):
