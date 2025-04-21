@@ -27,9 +27,9 @@ Globals:
         DAYS_TABLE: !Ref DaysTable
         EXERCISES_TABLE: !Ref ExercisesTable
         WORKOUTS_TABLE: !Ref WorkoutsTable
-        COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
+        # COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
         RELATIONSHIPS_TABLE: !Ref RelationshipsTable
-        SETS_TABLE: !Ref SetsTable
+        # SETS_TABLE: !Ref SetsTable
         LOG_LEVEL: INFO
         REGION: !Ref AWS::Region
         CORS_ALLOWED_ORIGIN: !Ref CorsOrigin
@@ -291,61 +291,61 @@ Resources:
           Projection:
             ProjectionType: ALL
 
-  CompletedExercisesTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: completed_id
-          AttributeType: S
-        - AttributeName: workout_id
-          AttributeType: S
-        - AttributeName: exercise_id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: completed_id
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: workout-index
-          KeySchema:
-            - AttributeName: workout_id
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-        - IndexName: exercise-index
-          KeySchema:
-            - AttributeName: exercise_id
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
+  # CompletedExercisesTable:
+  #   Type: AWS::DynamoDB::Table
+  #   Properties:
+  #     BillingMode: PAY_PER_REQUEST
+  #     AttributeDefinitions:
+  #       - AttributeName: completed_id
+  #         AttributeType: S
+  #       - AttributeName: workout_id
+  #         AttributeType: S
+  #       - AttributeName: exercise_id
+  #         AttributeType: S
+  #     KeySchema:
+  #       - AttributeName: completed_id
+  #         KeyType: HASH
+  #     GlobalSecondaryIndexes:
+  #       - IndexName: workout-index
+  #         KeySchema:
+  #           - AttributeName: workout_id
+  #             KeyType: HASH
+  #         Projection:
+  #           ProjectionType: ALL
+  #       - IndexName: exercise-index
+  #         KeySchema:
+  #           - AttributeName: exercise_id
+  #             KeyType: HASH
+  #         Projection:
+  #           ProjectionType: ALL
 
-  SetsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: set_id
-          AttributeType: S
-        - AttributeName: completed_exercise_id
-          AttributeType: S
-        - AttributeName: workout_id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: set_id
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: exercise-index
-          KeySchema:
-            - AttributeName: completed_exercise_id
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-        - IndexName: workout-index
-          KeySchema:
-            - AttributeName: workout_id
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
+  # SetsTable:
+  #   Type: AWS::DynamoDB::Table
+  #   Properties:
+  #     BillingMode: PAY_PER_REQUEST
+  #     AttributeDefinitions:
+  #       - AttributeName: set_id
+  #         AttributeType: S
+  #       - AttributeName: completed_exercise_id
+  #         AttributeType: S
+  #       - AttributeName: workout_id
+  #         AttributeType: S
+  #     KeySchema:
+  #       - AttributeName: set_id
+  #         KeyType: HASH
+  #     GlobalSecondaryIndexes:
+  #       - IndexName: exercise-index
+  #         KeySchema:
+  #           - AttributeName: completed_exercise_id
+  #             KeyType: HASH
+  #         Projection:
+  #           ProjectionType: ALL
+  #       - IndexName: workout-index
+  #         KeySchema:
+  #           - AttributeName: workout_id
+  #             KeyType: HASH
+  #         Projection:
+  #           ProjectionType: ALL
 
   # User Lambda function
   UserFunction:
@@ -595,7 +595,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref DaysTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref CompletedExercisesTable
+            TableName: !Ref ExercisesTable
 
 
       Events:
@@ -696,50 +696,50 @@ Resources:
             Method: get
           
   # Set Lambda function
-  SetFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: src/lambdas/
-      Handler: set_lambda.handler
-      Description: Lambda handler for set-related endpoints
-      Policies:
-       - DynamoDBCrudPolicy:
-            TableName: !Ref SetsTable
-       - DynamoDBCrudPolicy:
-            TableName: !Ref CompletedExercisesTable
+  # SetFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     CodeUri: src/lambdas/
+  #     Handler: set_lambda.handler
+  #     Description: Lambda handler for set-related endpoints
+  #     Policies:
+  #      - DynamoDBCrudPolicy:
+  #           TableName: !Ref SetsTable
+  #      - DynamoDBCrudPolicy:
+  #           TableName: !Ref CompletedExercisesTable
       
       
-      Events:
-        GetSet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FlowAPI
-            Path: /sets/{set_id}
-            Method: get
-        GetSetsForExercise:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FlowAPI
-            Path: /exercises/{exercise_id}/sets
-            Method: get
-        CreateSet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FlowAPI
-            Path: /exercises/{exercise_id}/sets
-            Method: post
-        UpdateSet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FlowAPI
-            Path: /sets/{set_id}
-            Method: put
-        DeleteSet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FlowAPI
-            Path: /sets/{set_id}
-            Method: delete
+  #     Events:
+  #       GetSet:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref FlowAPI
+  #           Path: /sets/{set_id}
+  #           Method: get
+  #       GetSetsForExercise:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref FlowAPI
+  #           Path: /exercises/{exercise_id}/sets
+  #           Method: get
+  #       CreateSet:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref FlowAPI
+  #           Path: /exercises/{exercise_id}/sets
+  #           Method: post
+  #       UpdateSet:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref FlowAPI
+  #           Path: /sets/{set_id}
+  #           Method: put
+  #       DeleteSet:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref FlowAPI
+  #           Path: /sets/{set_id}
+  #           Method: delete
   
   CognitoPostConfirmationFunction:
     Type: AWS::Serverless::Function
