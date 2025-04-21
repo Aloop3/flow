@@ -171,6 +171,23 @@ class Workout:
         return target_exercise
 
     def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert a Workout instance to a dictionary representation.
+
+        This method serializes the Workout instance and its associated data
+        (including exercises) into a dictionary format, which can be useful
+        for saving to a database, API communication, or debugging.
+
+        :return: Dictionary representation of the Workout instance, including:
+                - workout_id: The unique identifier of the workout
+                - athlete_id: The unique identifier of the athlete
+                - day_id: The unique identifier of the day associated with the workout
+                - date: The date of the workout
+                - notes: Any notes associated with the workout
+                - status: The current status of the workout (e.g., 'not_started', 'completed')
+                - exercises: List of dictionaries representing each exercise in the workout
+                - total_volume: The total volume of the workout calculated using the `calculate_volume` method
+        """
         return {
             "workout_id": self.workout_id,
             "athlete_id": self.athlete_id,
@@ -181,3 +198,29 @@ class Workout:
             "exercises": [ex.to_dict() for ex in self.exercises],
             "total_volume": self.calculate_volume(),
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Workout":
+        """
+        Create a Workout instance from a dictionary of data
+
+        :param data: Dictionary containing workout data
+        :return: Workout instance
+        """
+        # Create the workout object without exercises first
+        workout = cls(
+            workout_id=data.get("workout_id"),
+            athlete_id=data.get("athlete_id"),
+            day_id=data.get("day_id"),
+            date=data.get("date"),
+            notes=data.get("notes"),
+            status=data.get("status", "not_started"),
+        )
+
+        # Add exercises if present
+        if "exercises" in data and data["exercises"]:
+            for exercise_data in data["exercises"]:
+                exercise = Exercise.from_dict(exercise_data)
+                workout.add_exercise(exercise)
+
+        return workout
