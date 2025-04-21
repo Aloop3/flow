@@ -29,8 +29,8 @@ class Exercise:
             raise ValueError("sets must be positive")
         if reps <= 0:
             raise ValueError("reps must be positive")
-        if weight <= 0:
-            raise ValueError("weight must be positive")
+        if weight < 0:
+            raise ValueError("weight must be non-negative")
         if rpe is not None and (rpe < 0 or rpe > 10):
             raise ValueError("rpe must be between 0 and 10")
         if order is not None and order < 0:

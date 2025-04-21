@@ -2,14 +2,29 @@ import { fetchAuthSession, signOut } from 'aws-amplify/auth';
 import { get, post, put, del } from 'aws-amplify/api';
 
 export class ApiError extends Error {
-    constructor(
-        message: string,
-        public statusCode?: number,
-        public originalError?: unknown
-    ) {
-        super(message);
-        this.name = 'ApiError';
+  constructor(
+    message: string,
+    public statusCode?: number,
+    public originalError?: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    
+    // Capture stack trace for better debugging
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ApiError);
     }
+  }
+  
+  // Helper method to check if error is conflict
+  static isConflict(error: unknown): boolean {
+    return error instanceof ApiError && error.statusCode === 409;
+  }
+  
+  // Helper method to check if error is not found
+  static isNotFound(error: unknown): boolean {
+    return error instanceof ApiError && error.statusCode === 404;
+  }
 }
 
 // Types
@@ -48,6 +63,7 @@ export interface Exercise {
   sets: number;
   reps: number;
   weight: number;
+  status: 'planned' | 'completed' | 'skipped';
   rpe?: number;
   notes?: string;
   order?: number;
@@ -72,24 +88,16 @@ export interface User {
   role: 'athlete' | 'coach';
 }
 
-export interface CompletedExercise {
-    completed_id: string;
-    workout_id: string;
-    exercise_id: string;
-    notes?: string;
-    sets: Set[];
-  }
-  
-  export interface Workout {
-    workout_id: string;
-    athlete_id: string;
-    day_id: string;
-    date: string;
-    notes?: string;
-    status: 'completed' | 'partial' | 'skipped';
-    exercises: CompletedExercise[]; // Now properly typed
-  }
-
+export interface Workout {
+  workout_id: string;
+  athlete_id: string;
+  day_id: string;
+  date: string;
+  notes?: string;
+  status: 'not_started' | 'in_progress' | 'completed' | 'skipped';
+  exercises: Exercise[];
+  total_volume?: number;
+}
 export interface Set {
   set_id: string;
   completed_exercise_id: string;
@@ -133,21 +141,21 @@ export const createUser = async (userData: Omit<User, 'user_id'>): Promise<User>
         body: userData
       }
     });
-    return response.body as User;
+    return response as unknown as User;
   } catch (error) {
     console.error('Error creating user:', error);
     throw error;
   }
 };
 
-export const getUser = async (userId: string): Promise<User | null> => {
+export const getUser = async (user_id: string): Promise<User | null> => {
   try {
     const headers = await getAuthHeaders();
     
     // Make the API request
     const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/users/${userId}`,
+      path: `/users/${user_id}`,
       options: { headers }
     });
     
@@ -180,12 +188,12 @@ export const getUser = async (userId: string): Promise<User | null> => {
   }
 };
 
-export const updateUser = async (userId: string, newUserData: Partial<User>): Promise<User | null> => {
+export const updateUser = async (user_id: string, newUserData: Partial<User>): Promise<User | null> => {
   try {
     const headers = await getAuthHeaders();
     const apiResponse = await put({
       apiName: 'flow-api',
-      path: `/users/${userId}`,
+      path: `/users/${user_id}`,
       options: {
         headers,
         body: newUserData
@@ -264,13 +272,13 @@ export const getBlocks = async (user_id: string): Promise<Block[]> => {
 };
 
 
-export const getBlock = async (blockId: string): Promise<Block | null> => {
+export const getBlock = async (block_id: string): Promise<Block | null> => {
   try {
     const headers = await getAuthHeaders();
-    console.log('Fetching block with ID:', blockId);
+    console.log('Fetching block with ID:', block_id);
     const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/blocks/${blockId}`,
+      path: `/blocks/${block_id}`,
       options: { headers }
     });
 
@@ -328,37 +336,37 @@ export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<B
         body: formattedData
       }
     });
-    return response.body as Block;
+    return response as unknown as Block;
   } catch (error) {
     console.error('Error creating block (details):', error);
     throw error;
   }
 };
 
-export const updateBlock = async (blockId: string, blockData: Partial<Block>): Promise<Block> => {
+export const updateBlock = async (block_id: string, blockData: Partial<Block>): Promise<Block> => {
   try {
     const headers = await getAuthHeaders();
     const response = await put({
       apiName: 'flow-api',
-      path: `/blocks/${blockId}`,
+      path: `/blocks/${block_id}`,
       options: {
         headers,
         body: blockData
       }
     });
-    return response.body as Block;
+    return response as unknown as Block;
   } catch (error) {
     console.error('Error updating block:', error);
     throw error;
   }
 };
 
-export const deleteBlock = async (blockId: string): Promise<void> => {
+export const deleteBlock = async (block_id: string): Promise<void> => {
   try {
     const headers = await getAuthHeaders();
     await del({
       apiName: 'flow-api',
-      path: `/blocks/${blockId}`,
+      path: `/blocks/${block_id}`,
       options: { headers }
     });
   } catch (error) {
@@ -368,13 +376,13 @@ export const deleteBlock = async (blockId: string): Promise<void> => {
 };
 
 // Week endpoints
-export const getWeeks = async (blockId: string): Promise<Week[]> => {
+export const getWeeks = async (block_id: string): Promise<Week[]> => {
   try {
     const headers = await getAuthHeaders();
-    console.log('Fetching weeks for block ID:', blockId);
+    console.log('Fetching weeks for block ID:', block_id);
     const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/blocks/${blockId}/weeks`,
+      path: `/blocks/${block_id}/weeks`,
       options: { headers }
     });
 
@@ -404,7 +412,7 @@ export const getWeeks = async (blockId: string): Promise<Week[]> => {
     return [];
   } catch (error) {
     console.error('Error fetching weeks:', error);
-    return []; // Return empty array instead of throwing
+    return [];
   }
 };
 
@@ -419,7 +427,7 @@ export const createWeek = async (weekData: Omit<Week, 'week_id'>): Promise<Week>
         body: weekData
       }
     });
-    return response.body as Week;
+    return response as unknown as Week;
   } catch (error) {
     console.error('Error creating week:', error);
     throw error;
@@ -427,13 +435,13 @@ export const createWeek = async (weekData: Omit<Week, 'week_id'>): Promise<Week>
 };
 
 // Day endpoints
-export const getDays = async (weekId: string): Promise<Day[]> => {
+export const getDays = async (week_id: string): Promise<Day[]> => {
   try {
     const headers = await getAuthHeaders();
-    console.log('Fetching days for week ID:', weekId);
+    console.log('Fetching days for week ID:', week_id);
     const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/weeks/${weekId}/days`,
+      path: `/weeks/${week_id}/days`,
       options: { headers }
     });
 
@@ -467,13 +475,13 @@ export const getDays = async (weekId: string): Promise<Day[]> => {
   }
 };
 
-export const getDay = async (dayId: string): Promise<Day | null> => {
+export const getDay = async (day_id: string): Promise<Day | null> => {
   try {
     const headers = await getAuthHeaders();
-    console.log('Fetching day with ID:', dayId);
+    console.log('Fetching day with ID:', day_id);
     const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/days/${dayId}`,
+      path: `/days/${day_id}`,
       options: { headers }
     });
 
@@ -509,13 +517,13 @@ export const getDay = async (dayId: string): Promise<Day | null> => {
 };
 
 // Get exercises for a specific day
-export const getExercisesForDay = async (dayId: string): Promise<Exercise[]> => {
+export const getExercisesForDay = async (day_id: string): Promise<Exercise[]> => {
   try {
     const headers = await getAuthHeaders();
-    console.log('Fetching exercises for day with ID:', dayId);
+    console.log('Fetching exercises for day with ID:', day_id);
     const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/days/${dayId}/exercises`,
+      path: `/days/${day_id}/exercises`,
       options: { headers }
     });
 
@@ -561,25 +569,25 @@ export const createDay = async (dayData: Omit<Day, 'day_id'>): Promise<Day> => {
         body: dayData
       }
     });
-    return response.body as Day;
+    return response as unknown as Day;
   } catch (error) {
     console.error('Error creating day:', error);
     throw error;
   }
 };
 
-export const updateDay = async (dayId: string, dayData: Partial<Day>): Promise<Day> => {
+export const updateDay = async (day_id: string, dayData: Partial<Day>): Promise<Day> => {
   try {
     const headers = await getAuthHeaders();
     const response = await put({
       apiName: 'flow-api',
-      path: `/days/${dayId}`,
+      path: `/days/${day_id}`,
       options: {
         headers,
         body: dayData
       }
     });
-    return response.body as Day;
+    return response as unknown as Day;
   } catch (error) {
     console.error('Error updating day:', error);
     throw error;
@@ -587,66 +595,119 @@ export const updateDay = async (dayId: string, dayData: Partial<Day>): Promise<D
 };
 
 // Workout endpoints
-export const getWorkout = async (workoutId: string): Promise<Workout> => {
+export const getWorkout = async (workout_id: string): Promise<Workout> => {
   try {
     const headers = await getAuthHeaders();
     const response = await get({
       apiName: 'flow-api',
-      path: `/workouts/${workoutId}`,
+      path: `/workouts/${workout_id}`,
       options: { headers }
     });
-    return response.body as Workout;
+    return response as unknown as Workout;
   } catch (error) {
     console.error('Error fetching workout:', error);
     throw error;
   }
 };
 
-export const getWorkoutByDay = async (athleteId: string, dayId: string): Promise<Workout> => {
+export const getWorkoutByDay = async (athlete_id: string, day_id: string): Promise<Workout | null> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await get({
+    const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/athletes/${athleteId}/days/${dayId}/workout`,
+      path: `/athletes/${athlete_id}/days/${day_id}/workout`,
       options: { headers }
     });
-    return response.body as Workout;
+    
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        return responseData as unknown as Workout;
+      } catch (e) {
+        console.error('Failed to parse workout data:', e);
+        return null;
+      }
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error fetching workout by day:', error);
-    throw error;
+    return null;
   }
 };
 
-export const createWorkout = async (workoutData: Omit<Workout, 'workout_id'>): Promise<Workout> => {
+export const createWorkout = async (
+  day_id: string, 
+  exercises: Array<{
+    exerciseType: string;
+    sets: number;
+    reps: number;
+    weight: number;
+    rpe?: number;
+    notes?: string;
+  }>
+): Promise<Workout> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await post({
+    const apiResponse = await post({
       apiName: 'flow-api',
-      path: '/workouts',
+      path: `/days/${day_id}/workout`,
       options: {
         headers,
-        body: JSON.parse(JSON.stringify(workoutData))
+        body: { exercises }
       }
     });
-    return response.body as Workout;
+    
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseText = await actualResponse.body.text();
+        const data = JSON.parse(responseText);
+        return data;
+      } catch (e) {
+        console.error('Failed to parse workout response:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+    
+    throw new Error('No response data');
   } catch (error) {
     console.error('Error creating workout:', error);
     throw error;
   }
 };
 
-export const updateWorkout = async (workoutId: string, workoutData: Partial<Workout>): Promise<Workout> => {
+export const updateWorkout = async (workout_id: string, workoutData: Partial<Workout>): Promise<Workout> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await put({
+    const apiResponse = await put({
       apiName: 'flow-api',
-      path: `/workouts/${workoutId}`,
+      path: `/workouts/${workout_id}`,
       options: {
         headers,
-        body: workoutData
+        body: JSON.stringify(workoutData)
       }
     });
-    return response.body as Workout;
+    
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        return responseData as unknown as Workout;
+      } catch (e) {
+        console.error('Failed to parse workout update response:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+    
+    throw new Error('No response data');
   } catch (error) {
     console.error('Error updating workout:', error);
     throw error;
@@ -686,47 +747,61 @@ export const copyWorkout = async (
       }
     }
     
+    // Return true if successful but no detailed response
     return true;
   } catch (error) {
+    // Check for specific status codes
+    if (error instanceof ApiError && error.statusCode === 409) {
+      throw new ApiError('Target day already has a workout. Please delete it first.', 409, error);
+    }
     console.error('Error copying workout:', error);
     throw error;
   }
 };
 
+export const getWorkoutStatus = (exercises: Exercise[]): 'not_started' | 'in_progress' | 'completed' | 'skipped' => {
+  if (!exercises || exercises.length === 0) {
+    return 'not_started';
+  }
+  
+  const completedCount = exercises.filter(ex => ex.status === 'completed').length;
+  const totalCount = exercises.length;
+  
+  if (completedCount === 0) {
+    return 'not_started';
+  } else if (completedCount === totalCount) {
+    return 'completed';
+  } else {
+    return 'in_progress';
+  }
+};
+
 // Exercise endpoints
-export const getExercisesForWorkout = async (workoutId: string): Promise<Exercise[]> => {
+export const getExercisesForWorkout = async (workout_id: string): Promise<Exercise[]> => {
   try {
-    if (!workoutId) {
-      console.error('Missing workoutId parameter in getExercisesForWorkout');
+    if (!workout_id) {
+      console.error('Missing workout_id parameter in getExercisesForWorkout');
       return [];
     }
     
-    console.log(`Fetching exercises for workout: ${workoutId}`);
+    console.log(`Fetching exercises for workout: ${workout_id}`);
     const headers = await getAuthHeaders();
     const apiResponse = await get({
       apiName: 'flow-api',
-      path: `/workouts/${workoutId}/exercises`,
+      path: `/workouts/${workout_id}/exercises`,
       options: { headers }
     });
     
-    console.log('Exercise API response:', apiResponse);
-    
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    console.log('Actual exercise response:', actualResponse);
     
     if (actualResponse && actualResponse.body) {
       try {
-        const responseText = await actualResponse.body.text();
-        console.log('Exercise response text:', responseText);
-        
-        if (responseText) {
-          const data = JSON.parse(responseText);
-          console.log('Parsed exercise data:', data);
-          return Array.isArray(data) ? data : [];
-        }
+        const responseData = await actualResponse.body.json();
+        return Array.isArray(responseData) ? responseData : [];
       } catch (e) {
         console.error('Error parsing exercise response:', e);
+        return [];
       }
     }
     
@@ -736,6 +811,7 @@ export const getExercisesForWorkout = async (workoutId: string): Promise<Exercis
     return [];
   }
 };
+
 
 
 export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
@@ -753,7 +829,10 @@ export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
     if (actualResponse && actualResponse.body) {
       try {
         const parsedData = await actualResponse.body.json();
-        return parsedData;
+        if (!parsedData) {
+          throw new Error('No exercise data received');
+        }
+        return parsedData as ExerciseTypeLibrary;
       } catch (e) {
         console.error('Failed to parse exercise types data:', e);
         throw new Error('Failed to parse exercise data');
@@ -767,54 +846,46 @@ export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
   }
 };
 
-// Set endpoints
-export const getSetsForExercise = async (exerciseId: string): Promise<Set[]> => {
-  try {
-    const headers = await getAuthHeaders();
-    const response = await get({
-      apiName: 'flow-api',
-      path: `/exercises/${exerciseId}/sets`,
-      options: { headers }
-    });
-    return response.body as Set[];
-  } catch (error) {
-    console.error('Error fetching sets:', error);
-    throw error;
+export const completeExercise = async (
+  exercise_id: string,
+  completionData: {
+    sets: number;
+    reps: number;
+    weight: number;
+    rpe?: number;
+    notes?: string;
   }
-};
-
-export const createSet = async (exerciseId: string, setData: Omit<Set, 'set_id'>): Promise<Set> => {
+): Promise<Exercise> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await post({
+    const apiResponse = await post({
       apiName: 'flow-api',
-      path: `/exercises/${exerciseId}/sets`,
+      path: `/exercises/${exercise_id}/complete`,
       options: {
         headers,
-        body: setData
+        body: completionData
       }
     });
-    return response.body as Set;
-  } catch (error) {
-    console.error('Error creating set:', error);
-    throw error;
-  }
-};
-
-export const updateSet = async (setId: string, setData: Partial<Set>): Promise<Set> => {
-  try {
-    const headers = await getAuthHeaders();
-    const response = await put({
-      apiName: 'flow-api',
-      path: `/sets/${setId}`,
-      options: {
-        headers,
-        body: setData
+    
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        if (!responseData) {
+          throw new Error('No exercise data returned');
+        }
+        return responseData as unknown as Exercise;
+      } catch (e) {
+        console.error('Failed to parse response in completeExercise:', e);
+        throw new Error('Invalid response format');
       }
-    });
-    return response.body as Set;
+    }
+    
+    throw new Error('No response data');
   } catch (error) {
-    console.error('Error updating set:', error);
+    console.error('Error completing exercise:', error);
     throw error;
   }
 };
