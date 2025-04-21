@@ -45,8 +45,8 @@ class TestWorkoutService(unittest.TestCase):
             "src.services.workout_service.ExerciseRepository",
             return_value=self.exercise_repository_mock,
         ), patch(
-        "src.services.workout_service.ExerciseService",
-        return_value=self.exercise_service_mock,
+            "src.services.workout_service.ExerciseService",
+            return_value=self.exercise_service_mock,
         ):
             self.workout_service = WorkoutService()
 
