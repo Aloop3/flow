@@ -5,6 +5,7 @@ from src.repositories.day_repository import DayRepository
 from src.repositories.exercise_repository import ExerciseRepository
 from src.models.workout import Workout
 from src.models.exercise import Exercise
+from src.services.exercise_service import ExerciseService
 
 
 class WorkoutService:
@@ -12,6 +13,7 @@ class WorkoutService:
         self.workout_repository: WorkoutRepository = WorkoutRepository()
         self.day_repository: DayRepository = DayRepository()
         self.exercise_repository: ExerciseRepository = ExerciseRepository()
+        self.exercise_service: ExerciseService = ExerciseService()
 
     def get_workout(self, workout_id: str) -> Optional[Workout]:
         """
@@ -25,23 +27,7 @@ class WorkoutService:
         if not workout_data:
             return None
 
-        # Create workout with required fields
-        workout = Workout(
-            workout_id=workout_data.get("workout_id"),
-            athlete_id=workout_data.get("athlete_id"),
-            day_id=workout_data.get("day_id"),
-            date=workout_data.get("date"),
-            notes=workout_data.get("notes"),
-            status=workout_data.get("status", "not_started"),
-        )
-
-        # Add exercises if they exist
-        if "exercises" in workout_data and workout_data["exercises"]:
-            for exercise_data in workout_data["exercises"]:
-                exercise = Exercise(**exercise_data)
-                workout.add_exercise(exercise)
-
-        return workout
+        return Workout.from_dict(workout_data)
 
     def get_workout_by_day(self, athlete_id: str, day_id: str) -> Optional[Workout]:
         """
@@ -51,37 +37,13 @@ class WorkoutService:
         :param day_id: The ID of the day
         :return: The Workout object if found, else None
         """
+        # Retrieve workout data
         workout_data = self.workout_repository.get_workout_by_day(athlete_id, day_id)
 
         if not workout_data:
             return None
 
-        # Create Workout object with base data
-        workout = Workout(**{k: v for k, v in workout_data.items() if k != "exercises"})
-
-        # Load exercises
-        if "exercises" in workout_data:
-            for exercise_data in workout_data["exercises"]:
-                # Create exercise object
-                exercise = Exercise(
-                    exercise_id=exercise_data.get("exercise_id"),
-                    workout_id=exercise_data.get("workout_id"),
-                    exercise_type=exercise_data.get("exercise_type"),
-                    sets=exercise_data.get("sets"),
-                    reps=exercise_data.get("reps"),
-                    weight=exercise_data.get("weight"),
-                    status=exercise_data.get("status", "planned"),
-                    rpe=exercise_data.get("rpe"),
-                    notes=exercise_data.get("notes"),
-                    order=exercise_data.get("order"),
-                    exercise_category=exercise_data.get("exercise_category"),
-                    is_predefined=exercise_data.get("is_predefined"),
-                )
-
-                # Add exercise to workout
-                workout.add_exercise(exercise)
-
-        return workout
+        return Workout.from_dict(workout_data)
 
     def create_workout(
         self,
@@ -100,7 +62,7 @@ class WorkoutService:
         :param date: The date of the workout in ISO format
         :param exercises: A list of exercise data
         :param notes: Optional notes for the workout
-        :param status: The status of the workout ("not_started", "in_progress", "completed", "skipped")
+        :param status: The status of the workout
         :return: The created Workout object
         """
         VALID_STATUS = {"not_started", "in_progress", "completed", "skipped"}
@@ -132,9 +94,14 @@ class WorkoutService:
             status=status,
         )
 
-        # Add exercises
+        # First, create the workout without exercises
+        workout_dict = workout.to_dict()
+        # Remove exercises from the dict before saving
+        workout_dict.pop("exercises", None)
+        self.workout_repository.create_workout(workout_dict)
+
+        # Then create exercises separately in the ExerciseTable
         for i, exercise_data in enumerate(exercises):
-            # Create the exercise
             exercise = Exercise(
                 exercise_id=str(uuid.uuid4()),
                 workout_id=workout.workout_id,
@@ -145,17 +112,15 @@ class WorkoutService:
                 status=exercise_data.get("status", "planned"),
                 rpe=exercise_data.get("rpe"),
                 notes=exercise_data.get("notes"),
-                order=i + 1,  # Set order based on position in list
+                order=i + 1,
                 exercise_category=exercise_data.get("exercise_category"),
                 is_predefined=exercise_data.get("is_predefined"),
             )
 
-            # Add to the workout
+            # Save the exercise in the ExerciseTable
+            self.exercise_repository.create_exercise(exercise.to_dict())
+            # Also add to the workout object for the return
             workout.add_exercise(exercise)
-
-        # Save everything in one operation
-        workout_dict = workout.to_dict()
-        self.workout_repository.create_workout(workout_dict)
 
         return workout
 
