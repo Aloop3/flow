@@ -220,7 +220,7 @@ class TestWorkoutService(unittest.TestCase):
         )
         self.workout_repository_mock.create_workout.assert_called_once()
 
-        # Check the workout data passed to create_workout
+        # Check the workout data passed to create_workout (no exercises in dict)
         workout_dict = self.workout_repository_mock.create_workout.call_args[0][0]
         self.assertEqual(workout_dict["workout_id"], "workout-uuid")
         self.assertEqual(workout_dict["athlete_id"], "athlete123")
@@ -228,16 +228,22 @@ class TestWorkoutService(unittest.TestCase):
         self.assertEqual(workout_dict["date"], "2025-03-15")
         self.assertEqual(workout_dict["notes"], "Good workout")
         self.assertEqual(workout_dict["status"], "not_started")
+        self.assertNotIn("exercises", workout_dict)  # Exercises not in the workout dict
 
-        # Check the exercises in the workout
-        self.assertEqual(len(workout_dict["exercises"]), 2)
-        self.assertEqual(workout_dict["exercises"][0]["exercise_id"], "exercise1-uuid")
-        self.assertEqual(workout_dict["exercises"][0]["workout_id"], "workout-uuid")
-        self.assertEqual(workout_dict["exercises"][0]["exercise_type"], "Bench Press")
-        self.assertEqual(workout_dict["exercises"][0]["sets"], 3)
-        self.assertEqual(workout_dict["exercises"][0]["reps"], 5)
-        self.assertEqual(workout_dict["exercises"][0]["weight"], 225.0)
-        self.assertEqual(workout_dict["exercises"][0]["status"], "planned")
+        # Check that exercises were created separately in the exercise repository
+        self.assertEqual(self.exercise_repository_mock.create_exercise.call_count, 2)
+
+        # Check the first exercise creation call
+        first_exercise_call = (
+            self.exercise_repository_mock.create_exercise.call_args_list[0][0][0]
+        )
+        self.assertEqual(first_exercise_call["exercise_id"], "exercise1-uuid")
+        self.assertEqual(first_exercise_call["workout_id"], "workout-uuid")
+        self.assertEqual(first_exercise_call["exercise_type"], "Bench Press")
+        self.assertEqual(first_exercise_call["sets"], 3)
+        self.assertEqual(first_exercise_call["reps"], 5)
+        self.assertEqual(first_exercise_call["weight"], 225.0)
+        self.assertEqual(first_exercise_call["status"], "planned")
 
     def test_create_workout_update_existing(self):
         """
@@ -559,12 +565,16 @@ class TestWorkoutService(unittest.TestCase):
         workout_dict = self.workout_repository_mock.create_workout.call_args[0][0]
         self.assertEqual(workout_dict["status"], "not_started")  # Default status
         self.assertIsNone(workout_dict["notes"])  # Default None for notes
+        self.assertNotIn("exercises", workout_dict)  # Exercises not in the workout dict
 
-        # Check the exercise has default values for optional fields
-        exercise_dict = workout_dict["exercises"][0]
-        self.assertEqual(exercise_dict["status"], "planned")  # Default status
-        self.assertIsNone(exercise_dict.get("notes"))
-        self.assertIsNone(exercise_dict.get("rpe"))
+        # Check that exercise was created separately in the exercise repository
+        self.assertEqual(self.exercise_repository_mock.create_exercise.call_count, 1)
+
+        # Check the exercise creation call
+        exercise_call = self.exercise_repository_mock.create_exercise.call_args[0][0]
+        self.assertEqual(exercise_call["status"], "planned")  # Default status
+        self.assertIsNone(exercise_call.get("notes"))
+        self.assertIsNone(exercise_call.get("rpe"))
 
     def test_create_workout_with_invalid_status(self):
         """

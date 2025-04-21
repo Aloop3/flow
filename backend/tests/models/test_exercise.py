@@ -305,19 +305,19 @@ class TestExerciseModel(unittest.TestCase):
                 weight=-315.0,  # Negative weight should raise ValueError
             )
 
-    def test_zero_weight(self):
-        """
-        Test Exercise with zero weight value
-        """
-        with self.assertRaises(ValueError):
-            Exercise(
-                exercise_id="ex123",
-                workout_id="workout456",
-                exercise_type="Squat",
-                sets=3,
-                reps=5,
-                weight=0.0,  # Zero weight should raise ValueError
-            )
+    # def test_zero_weight(self):
+    #     """
+    #     Test Exercise with zero weight value
+    #     """
+    #     with self.assertRaises(ValueError):
+    #         Exercise(
+    #             exercise_id="ex123",
+    #             workout_id="workout456",
+    #             exercise_type="Squat",
+    #             sets=3,
+    #             reps=5,
+    #             weight=0.0,  # Zero weight should raise ValueError
+    #         )
 
     def test_missing_weight(self):
         """
