@@ -3,12 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import WorkoutForm from '../components/WorkoutForm';
 import DaySelector from '../components/DaySelector';
-import { getDay, getExercisesForDay, copyWorkout, getExercisesForWorkout, ApiError } from '../services/api';
-import type { Day, Exercise } from '../services/api';
+import { getDay, getWorkoutByDay, copyWorkout, ApiError } from '../services/api';
+import type { Day, Workout } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
 import FocusTag from '../components/FocusTag';
 import { toast } from 'react-toastify';
-
+import ExerciseList from '../components/ExerciseList';
 
 interface DayDetailProps {
   user: any;
@@ -18,7 +18,7 @@ interface DayDetailProps {
 const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const { dayId, blockId } = useParams<{ dayId: string; blockId: string }>();
   const [day, setDay] = useState<Day | null>(null);
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [workout, setWorkout] = useState<Workout | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showWorkoutForm, setShowWorkoutForm] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
@@ -35,13 +35,13 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
         const dayData = await getDay(dayId);
         setDay(dayData);
         
-        // Try to load existing exercises
+        // Try to load existing workout
         try {
-          const exercisesData = await getExercisesForDay(dayId);
-          setExercises(exercisesData);
+          const workoutData = await getWorkoutByDay(user.userId, dayId);
+          setWorkout(workoutData);
         } catch (err) {
-          console.log('No exercises yet or error loading them');
-          setExercises([]);
+          console.log('No workout yet or error loading it');
+          setWorkout(null);
         }
       } catch (err) {
         console.error('Error loading day data:', err);
@@ -51,22 +51,21 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     };
     
     fetchDayData();
-  }, [dayId]);
+  }, [dayId, user.userId]);
 
   const handleWorkoutSaved = async (workoutId: string) => {
-    // Use the workoutId returned from saving the workout
-    if (!workoutId) {
-        console.error('No workout ID received');
-        return;
-      }
+    // Refresh the workout data after saving
+    if (!workoutId || !dayId) {
+      console.error('No workout ID or day ID');
+      return;
+    }
     
     try {
-      // Call existing API endpoint
-      const exercisesData = await getExercisesForWorkout(workoutId);
-      setExercises(exercisesData);
+      const workoutData = await getWorkoutByDay(user.user_id, dayId);
+      setWorkout(workoutData);
       setShowWorkoutForm(false);
     } catch (err) {
-      console.error('Error refreshing exercises:', err);
+      console.error('Error refreshing workout:', err);
     }
   };
   
@@ -87,7 +86,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
       console.error('Error copying workout:', error);
       
       // Display specific error message if available from API
-      if (error instanceof ApiError && error.statusCode === 409) {
+      if (ApiError.isConflict(error)) {
         setCopyError('Target day already has a workout. Please delete it first.');
       } else {
         setCopyError('Failed to copy workout. Please try again.');
@@ -161,10 +160,15 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
               </div>
             )}
             
-            {exercises.length > 0 ? (
+            {workout ? (
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-medium">Workout Plan</h2>
+                  <h2 className="text-lg font-medium">
+                    Workout Plan 
+                    <span className="ml-2 text-sm text-gray-500">
+                      ({workout.status})
+                    </span>
+                  </h2>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => setShowCopyModal(true)}
@@ -182,20 +186,17 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                   </div>
                 </div>
                 
-                <ul className="divide-y">
-                  {exercises.map((exercise) => (
-                    <li key={exercise.exercise_id} className="py-3">
-                      <h3 className="font-medium">{exercise.exercise_type}</h3>
-                      <p className="text-sm text-gray-600">
-                        {exercise.sets} sets × {exercise.reps} reps @ {exercise.weight} lbs
-                        {exercise.rpe && ` @ RPE ${exercise.rpe}`}
-                      </p>
-                      {exercise.notes && (
-                        <p className="mt-1 text-xs text-gray-500">{exercise.notes}</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                <ExerciseList 
+                  exercises={workout.exercises} 
+                  onExerciseComplete={async () => {
+                    // Refresh workout data
+                    if (dayId && user.userId) {
+                      const workoutData = await getWorkoutByDay(user.userId, dayId);
+                      setWorkout(workoutData);
+                    }
+                  }}
+                  readOnly={workout.status === 'completed'}
+                />
               </div>
             ) : showWorkoutForm ? (
               <WorkoutForm 

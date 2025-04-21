@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { getBlocks } from '../services/api';
 import type { Block } from '../services/api';
+import { formatDate } from '../utils/dateUtils';
 
 interface DashboardProps {
   user: any;
@@ -18,22 +19,22 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const blocksData = await getBlocks(user.userId);
+        const blocksData = await getBlocks(user.user_id);
         setBlocks(blocksData || []); // fallback here
   
         const active = (blocksData || []).find(block => block.status === 'active');
         setActiveBlock(active || null);
       } catch (error) {
         console.error('Error fetching blocks:', error);
-        setBlocks([]);         // <- ensure empty array fallback on error
-        setActiveBlock(null);  // <- optional: clear activeBlock too
+        setBlocks([]);
+        setActiveBlock(null);
       } finally {
         setIsLoading(false);
       }
     };
   
     fetchData();
-  }, [user]);
+  }, [user.user_id]);
   
 
   return (
@@ -59,7 +60,7 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                   <div className="sm:flex sm:items-center sm:justify-between">
                     <div className="mb-4 sm:mb-0">
                       <p className="text-sm text-gray-500">
-                        {new Date(activeBlock.start_date).toLocaleDateString()} - {new Date(activeBlock.end_date).toLocaleDateString()}
+                        {formatDate(activeBlock.start_date)} - {formatDate(activeBlock.end_date)}
                       </p>
                     </div>
                     <Link
@@ -108,7 +109,7 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                       <h3 className="text-lg font-medium text-gray-900">{block.title}</h3>
                       <p className="mt-1 text-sm text-gray-500">{block.description}</p>
                       <p className="mt-2 text-xs text-gray-500">
-                        {new Date(block.start_date).toLocaleDateString()} - {new Date(block.end_date).toLocaleDateString()}
+                        {formatDate(block.start_date)} - {formatDate(block.end_date)}
                       </p>
                       <span className={`mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         block.status === 'active' 
