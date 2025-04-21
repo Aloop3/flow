@@ -351,7 +351,7 @@ Resources:
   UserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/lambdas/
+      CodeUri: src/lambdas/user_lambda/
       Handler: user_lambda.handler
       Description: Lambda handler for user-related endpoints
       Timeout: 30
@@ -385,7 +385,7 @@ Resources:
   BlockFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/lambdas/
+      CodeUri: src/lambdas/block_lambda/
       Handler: block_lambda.handler
       Description: Lambda handler for block-related endpoints
       Timeout: 30
@@ -437,7 +437,7 @@ Resources:
   WeekFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/lambdas/
+      CodeUri: src/lambdas/week_lambda/
       Handler: week_lambda.handler
       Description: Lambda handler for week-related endpoints
       Timeout: 30
@@ -479,7 +479,7 @@ Resources:
   DayFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/lambdas/
+      CodeUri: src/lambdas/day_lambda/
       Handler: day_lambda.handler
       Description: Lambda handler for day-related endpoints
       Timeout: 30
@@ -527,7 +527,7 @@ Resources:
   ExerciseFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/lambdas/
+      CodeUri: src/lambdas/exercise_lambda/
       Handler: exercise_lambda.handler
       Description: Lambda handler for exercise-related endpoints
       Timeout: 30
@@ -585,7 +585,7 @@ Resources:
   WorkoutFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/lambdas/
+      CodeUri: src/lambdas/workout_lambda
       Handler: workout_lambda.handler
       Description: Lambda handler for workout-related endpoints
       Timeout: 30
@@ -653,7 +653,7 @@ Resources:
   RelationshipFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/lambdas/
+      CodeUri: src/lambdas/relationship_lambda/
       Handler: relationship_lambda.handler
       Description: Lambda handler for relationship-related endpoints
       Timeout: 30
