@@ -543,7 +543,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref ExercisesTable
         - DynamoDBCrudPolicy:
-          TableName: !Ref WorkoutsTable
+            TableName: !Ref WorkoutsTable
 
 
       Events:
