@@ -365,6 +365,95 @@ class TestExerciseModel(unittest.TestCase):
                 order=-1,  # Invalid negative order
             )
 
+    def test_add_set_data(self):
+        # Create exercise with empty sets_data
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+        )
+
+        # Add set data
+        set_data = {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
+        exercise.add_set_data(set_data)
+
+        # Verify set was added
+        self.assertEqual(len(exercise.sets_data), 1)
+        self.assertEqual(exercise.sets_data[0]["set_number"], 1)
+
+        # Update existing set
+        updated_set = {
+            "set_number": 1,
+            "reps": 5,
+            "weight": 230.0,  # Weight increased
+            "completed": True,
+        }
+        exercise.add_set_data(updated_set)
+
+        # Verify set was updated (not added as new)
+        self.assertEqual(len(exercise.sets_data), 1)
+        self.assertEqual(exercise.sets_data[0]["weight"], 230.0)
+
+        # Add another set with different number
+        second_set = {"set_number": 2, "reps": 5, "weight": 225.0, "completed": True}
+        exercise.add_set_data(second_set)
+
+        # Verify sets are properly sorted by set_number
+        self.assertEqual(len(exercise.sets_data), 2)
+        self.assertEqual(exercise.sets_data[0]["set_number"], 1)
+        self.assertEqual(exercise.sets_data[1]["set_number"], 2)
+
+    def test_get_set_data(self):
+        # Create exercise with sets
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            sets_data=[
+                {"set_number": 1, "reps": 5, "weight": 225.0},
+                {"set_number": 2, "reps": 5, "weight": 230.0},
+            ],
+        )
+
+        # Get existing set
+        set_data = exercise.get_set_data(2)
+        self.assertIsNotNone(set_data)
+        self.assertEqual(set_data["weight"], 230.0)
+
+        # Get non-existent set
+        set_data = exercise.get_set_data(3)
+        self.assertIsNone(set_data)
+
+    def test_to_dict_includes_sets_data(self):
+        # Create exercise with sets
+        sets_data = [
+            {"set_number": 1, "reps": 5, "weight": 225.0},
+            {"set_number": 2, "reps": 5, "weight": 230.0},
+        ]
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            sets_data=sets_data,
+        )
+
+        # Convert to dict
+        exercise_dict = exercise.to_dict()
+
+        # Verify sets_data is included
+        self.assertIn("sets_data", exercise_dict)
+        self.assertEqual(len(exercise_dict["sets_data"]), 2)
+        self.assertEqual(exercise_dict["sets_data"], sets_data)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

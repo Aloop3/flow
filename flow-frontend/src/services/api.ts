@@ -98,16 +98,21 @@ export interface Workout {
   exercises: Exercise[];
   total_volume?: number;
 }
-export interface Set {
-  set_id: string;
-  completed_exercise_id: string;
-  workout_id: string;
+
+export interface ExerciseSetData {
   set_number: number;
   reps: number;
   weight: number;
   rpe?: number;
+  completed: boolean;
+  timestamp?: string;
   notes?: string;
-  completed?: boolean;
+}
+
+// Update Exercise interface
+export interface Exercise {
+  // Existing fields...
+  sets_data?: ExerciseSetData[];
 }
 
 console.log('API Config:', {
@@ -890,3 +895,46 @@ export const completeExercise = async (
     throw error;
   }
 };
+
+// Add function to track sets
+export const trackExerciseSet = async (
+  exerciseId: string,
+  setNumber: number,
+  setData: {
+    reps: number;
+    weight: number;
+    rpe?: number;
+    completed?: boolean;
+    notes?: string;
+  }
+): Promise<Exercise> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await post({
+      apiName: 'flow-api',
+      path: `/exercises/${exerciseId}/sets/${setNumber}`,
+      options: {
+        headers,
+        body: setData
+      }
+    });
+    
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        return responseData as unknown as Exercise;
+      } catch (e) {
+        console.error('Failed to parse response in trackExerciseSet:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+    
+    throw new Error('No response data');
+  } catch (error) {
+    console.error('Error tracking exercise set:', error);
+    throw error;
+  }
+}
