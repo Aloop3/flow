@@ -147,3 +147,64 @@ class ExerciseService:
                 batch.delete_item(Key={"exercise_id": exercise["exercise_id"]})
 
         return len(exercises)
+
+    def track_set(
+        self,
+        exercise_id: str,
+        set_number: int,
+        reps: int,
+        weight: float,
+        rpe: Optional[Union[int, float]] = None,
+        completed: bool = True,
+        notes: Optional[str] = None,
+    ) -> Optional[Exercise]:
+        """
+        Track a specific set within an exercise
+
+        :param exercise_id: ID of the exercise
+        :param set_number: Number of the set
+        :param reps: Number of repetitions performed
+        :param weight: Weight used
+        :param rpe: Rate of Perceived Exertion (optional)
+        :param completed: Whether the set was completed
+        :param notes: Additional notes
+        :return: Updated Exercise object if found, else None
+        """
+        # Get the exercise
+        exercise = self.get_exercise(exercise_id)
+
+        if not exercise:
+            return None
+
+        # Create/update set data
+        set_data = {
+            "set_number": set_number,
+            "reps": reps,
+            "weight": weight,
+            "completed": completed,
+        }
+
+        if rpe is not None:
+            set_data["rpe"] = rpe
+
+        if notes:
+            set_data["notes"] = notes
+
+        # Add set data to exercise
+        exercise.add_set_data(set_data)
+
+        # If this is the first set and it's completed, update exercise status
+        if completed and exercise.status == "planned":
+            update_data = {"sets_data": exercise.sets_data, "status": "in_progress"}
+        else:
+            update_data = {"sets_data": exercise.sets_data}
+
+        # Update in repository
+        updated_exercise_data = self.exercise_repository.update_exercise(
+            exercise_id, update_data
+        )
+
+        if not updated_exercise_data:
+            return None
+
+        return self.get_exercise(exercise_id)
