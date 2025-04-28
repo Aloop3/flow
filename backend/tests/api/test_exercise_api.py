@@ -452,6 +452,94 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body["error"], "Reorder operation failed")
         mock_reorder_exercises.assert_called_once_with("workout456", ["ex2", "ex1"])
 
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.exercise_service.ExerciseService.track_set")
+    def test_track_set_success(self, mock_track_set, mock_get_exercise):
+        # Create a properly mocked Exercise object
+        mock_exercise = MagicMock()
+        mock_exercise.to_dict.return_value = {
+            "exercise_id": "test123",
+            "workout_id": "workout123",
+            "exercise_type": "Squat",
+            "exercise_category": "barbell",
+            "sets": 3,
+            "reps": 5,
+            "weight": 225.0,
+            "status": "in_progress",
+            "is_predefined": True,
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
+            ],
+        }
+
+        # Setup mocks
+        mock_get_exercise.return_value = mock_exercise
+        mock_track_set.return_value = mock_exercise
+
+        # Create mock event
+        event = {
+            "pathParameters": {"exercise_id": "test123", "set_number": "1"},
+            "body": json.dumps({"reps": 5, "weight": 225.0, "completed": True}),
+        }
+
+        # Call API function
+        response = exercise_api.track_set(event, {})
+
+        # Verify response
+        self.assertEqual(response["statusCode"], 200)
+
+        # Verify response body
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["exercise_id"], "test123")
+
+    @patch("src.services.exercise_service.ExerciseService")
+    def test_track_set_missing_fields(self, mock_service):
+        # Setup mock service
+        mock_service_instance = MagicMock()
+        mock_service.return_value = mock_service_instance
+
+        # Create mock event missing required fields
+        event = {
+            "pathParameters": {"exercise_id": "test123", "set_number": "1"},
+            "body": json.dumps(
+                {
+                    # Missing reps
+                    "weight": 225.0,
+                    "completed": True,
+                }
+            ),
+        }
+
+        # Call API function
+        response = exercise_api.track_set(event, {})
+
+        # Verify error response
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertIn("error", body)
+
+        # Verify service not called
+        mock_service_instance.track_set.assert_not_called()
+
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    def test_track_set_exercise_not_found(self, mock_get_exercise):
+        # Mock get_exercise to return None (exercise not found)
+        mock_get_exercise.return_value = None
+
+        # Create mock event
+        event = {
+            "pathParameters": {"exercise_id": "nonexistent", "set_number": "1"},
+            "body": json.dumps({"reps": 5, "weight": 225.0, "completed": True}),
+        }
+
+        # Call API function
+        response = exercise_api.track_set(event, {})
+
+        # Verify response
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Exercise not found")
+
 
 if __name__ == "__main__":
     unittest.main()

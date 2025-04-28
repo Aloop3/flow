@@ -500,6 +500,241 @@ class TestExerciseService(unittest.TestCase):
         # Assert the result is 0 (no exercises deleted)
         self.assertEqual(result, 0)
 
+    @patch("src.repositories.exercise_repository.ExerciseRepository")
+    def test_track_set(self, mock_repo):
+        # Setup
+        service = ExerciseService()
+        service.exercise_repository = mock_repo
+
+        # Mock existing exercise
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            sets_data=[],
+        )
+
+        # Setup repository behavior
+        mock_repo.get_exercise.return_value = exercise.to_dict()
+        mock_repo.update_exercise.return_value = {
+            **exercise.to_dict(),
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
+            ],
+        }
+
+        # Call service method
+        result = service.track_set(
+            exercise_id="test123", set_number=1, reps=5, weight=225.0, completed=True
+        )
+
+        # Verify repository was called correctly
+        mock_repo.update_exercise.assert_called_once()
+        call_args = mock_repo.update_exercise.call_args[0]
+        self.assertEqual(call_args[0], "test123")  # exercise_id
+
+        # Check that sets_data was included in update
+        update_data = call_args[1]
+        self.assertIn("sets_data", update_data)
+        self.assertEqual(len(update_data["sets_data"]), 1)
+
+        # Verify result
+        self.assertIsNotNone(result)
+
+    @patch("src.repositories.exercise_repository.ExerciseRepository")
+    def test_track_set_updates_status(self, mock_repo):
+        # Setup
+        service = ExerciseService()
+        service.exercise_repository = mock_repo
+
+        # Mock existing exercise with "planned" status
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="planned",
+            sets_data=[],
+        )
+
+        # Setup repository behavior
+        mock_repo.get_exercise.return_value = exercise.to_dict()
+        updated_exercise_dict = {
+            **exercise.to_dict(),
+            "status": "in_progress",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
+            ],
+        }
+        mock_repo.update_exercise.return_value = updated_exercise_dict
+
+        # Call service method
+        result = service.track_set(
+            exercise_id="test123", set_number=1, reps=5, weight=225.0, completed=True
+        )
+
+        # Verify status was updated
+        update_data = mock_repo.update_exercise.call_args[0][1]
+        self.assertIn("status", update_data)
+        self.assertEqual(update_data["status"], "in_progress")
+
+        # Verify result
+        self.assertIsNotNone(result)
+
+    @patch("src.repositories.exercise_repository.ExerciseRepository")
+    def test_track_set_nonexistent_exercise(self, mock_repo):
+        # Setup
+        service = ExerciseService()
+        service.exercise_repository = mock_repo
+
+        # Setup repository behavior for nonexistent exercise
+        mock_repo.get_exercise.return_value = None
+
+        # Call service method
+        result = service.track_set(
+            exercise_id="nonexistent", set_number=1, reps=5, weight=225.0
+        )
+
+        # Verify result is None
+        self.assertIsNone(result)
+
+        # Verify update was not called
+        mock_repo.update_exercise.assert_not_called()
+
+    @patch("src.repositories.exercise_repository.ExerciseRepository")
+    def test_track_set_with_rpe_and_notes(self, mock_repo):
+        """Test for lines 188 and 191: Adding RPE and notes to the set data"""
+        # Setup
+        service = ExerciseService()
+        service.exercise_repository = mock_repo
+
+        # Mock existing exercise
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            sets_data=[],
+        )
+
+        # Setup repository behavior
+        mock_repo.get_exercise.return_value = exercise.to_dict()
+        mock_repo.update_exercise.return_value = {
+            **exercise.to_dict(),
+            "sets_data": [
+                {
+                    "set_number": 1,
+                    "reps": 5,
+                    "weight": 225.0,
+                    "completed": True,
+                    "rpe": 8,
+                    "notes": "Felt good",
+                }
+            ],
+        }
+
+        # Call service method with RPE and notes
+        result = service.track_set(
+            exercise_id="test123",
+            set_number=1,
+            reps=5,
+            weight=225.0,
+            rpe=8,  # Adding RPE to test line 188
+            notes="Felt good",  # Adding notes to test line 191
+            completed=True,
+        )
+
+        # Verify repository was called with correct data
+        mock_repo.update_exercise.assert_called_once()
+        call_args = mock_repo.update_exercise.call_args[0]
+        update_data = call_args[1]
+
+        # Verify sets_data includes RPE and notes
+        self.assertIn("sets_data", update_data)
+        set_data = update_data["sets_data"][0]
+        self.assertEqual(set_data["rpe"], 8)
+        self.assertEqual(set_data["notes"], "Felt good")
+
+    @patch("src.repositories.exercise_repository.ExerciseRepository")
+    def test_track_set_already_in_progress(self, mock_repo):
+        """Test for line 200: Exercise already in progress"""
+        # Setup
+        service = ExerciseService()
+        service.exercise_repository = mock_repo
+
+        # Mock existing exercise with "in_progress" status
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="in_progress",  # Already in progress
+            sets_data=[
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
+            ],
+        )
+
+        # Setup repository behavior
+        mock_repo.get_exercise.return_value = exercise.to_dict()
+        mock_repo.update_exercise.return_value = {
+            **exercise.to_dict(),
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True},
+                {"set_number": 2, "reps": 5, "weight": 230.0, "completed": True},
+            ],
+        }
+
+        # Call service method
+        result = service.track_set(
+            exercise_id="test123", set_number=2, reps=5, weight=230.0, completed=True
+        )
+
+        # Verify update doesn't include status change
+        update_data = mock_repo.update_exercise.call_args[0][1]
+        self.assertIn("sets_data", update_data)
+        self.assertNotIn(
+            "status", update_data
+        )  # Status not updated when already in progress
+
+    @patch("src.repositories.exercise_repository.ExerciseRepository")
+    def test_track_set_update_fails(self, mock_repo):
+        """Test for line 208: Repository update returns None"""
+        # Setup
+        service = ExerciseService()
+        service.exercise_repository = mock_repo
+
+        # Mock existing exercise
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            sets_data=[],
+        )
+
+        # Setup repository behavior
+        mock_repo.get_exercise.return_value = exercise.to_dict()
+        mock_repo.update_exercise.return_value = None  # Repository update fails
+
+        # Call service method
+        result = service.track_set(
+            exercise_id="test123", set_number=1, reps=5, weight=225.0, completed=True
+        )
+
+        # Verify result is None when repository update fails
+        self.assertIsNone(result)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
