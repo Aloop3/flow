@@ -16,6 +16,7 @@ ROUTE_MAP = {
     "DELETE /exercises/{exercise_id}": exercise_api.delete_exercise,
     "POST /exercises/reorder": exercise_api.reorder_exercises,
     "POST /exercises/{exercise_id}/complete": exercise_api.complete_exercise,
+    "POST /exercises/{exercise_id}/sets/{set_number}": exercise_api.track_set,
 }
 
 
