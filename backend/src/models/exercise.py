@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Union, Literal
+from typing import Dict, Any, Optional, Union, Literal, List
 from .exercise_type import ExerciseType, ExerciseCategory
 
 
@@ -17,6 +17,7 @@ class Exercise:
         order: Optional[int] = None,
         exercise_category: Optional[ExerciseCategory] = None,
         is_predefined: Optional[bool] = None,
+        sets_data: Optional[List[Dict[str, Any]]] = None,
     ):
         # Validate IDs
         if not exercise_id:
@@ -75,6 +76,7 @@ class Exercise:
         self.status: Literal["planned", "completed", "skipped"] = status
         self.notes: Optional[str] = notes
         self.order: Optional[int] = order  # Sequence in workout
+        self.sets_data: Optional[List[Dict[str, Any]]] = sets_data
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -93,6 +95,7 @@ class Exercise:
             "notes": self.notes,
             "order": self.order,
             "is_predefined": self.is_predefined,
+            "sets_data": self.sets_data,
         }
 
         return result
@@ -127,4 +130,48 @@ class Exercise:
             order=data.get("order"),
             exercise_category=exercise_category,
             is_predefined=data.get("is_predefined"),
+            sets_data=data.get("sets_data"),
         )
+
+    def add_set_data(self, set_data: Dict[str, Any]) -> None:
+        """
+        Add set data to the exercise
+
+        :param set_data: Dictionary containing set information
+        """
+        # Initialize sets_data if None
+        if self.sets_data is None:
+            self.sets_data = []
+
+        # Check if set with this number already exists
+        set_number = set_data.get("set_number")
+        existing_set_index = next(
+            (
+                i
+                for i, s in enumerate(self.sets_data)
+                if s.get("set_number") == set_number
+            ),
+            None,
+        )
+
+        if existing_set_index is not None:
+            # Update existing set
+            self.sets_data[existing_set_index] = set_data
+        else:
+            # Add new set
+            self.sets_data.append(set_data)
+
+        # Sort sets by set number
+        self.sets_data.sort(key=lambda x: x.get("set_number", 0))
+
+    def get_set_data(self, set_number: int) -> Optional[Dict[str, Any]]:
+        """
+        Get set data by set number
+
+        :param set_number: Number of the set to retrieve
+        :return: Set data if found, else None
+        """
+        for set_data in self.sets_data:
+            if set_data.get("set_number") == set_number:
+                return set_data
+        return None
