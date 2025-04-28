@@ -191,3 +191,60 @@ def reorder_exercises(event, context):
     except Exception as e:
         logger.error(f"Error reordering exercises: {str(e)}")
         return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
+def track_set(event, context):
+    """
+    Handle POST /exercises/{exercise_id}/sets/{set_number} request to track a set
+    """
+    try:
+        # Extract parameters
+        exercise_id = event["pathParameters"]["exercise_id"]
+        set_number = int(event["pathParameters"]["set_number"])
+        body = json.loads(event["body"])
+
+        # Extract set data
+        reps = body.get("reps")
+        weight = body.get("weight")
+        rpe = body.get("rpe")
+        completed = body.get("completed", True)
+        notes = body.get("notes")
+
+        # Validate required fields
+        if reps is None or weight is None:
+            return create_response(
+                400, {"error": "Missing required fields: reps and weight"}
+            )
+
+        # Create service and call method
+        service = ExerciseService()
+
+        # First check if exercise exists to avoid TypeError
+        exercise = service.get_exercise(exercise_id)
+        if not exercise:
+            return create_response(404, {"error": "Exercise not found"})
+
+        # If exercise exists, track the set
+        updated_exercise = service.track_set(
+            exercise_id=exercise_id,
+            set_number=set_number,
+            reps=reps,
+            weight=weight,
+            rpe=rpe,
+            completed=completed,
+            notes=notes,
+        )
+
+        # Convert to dict and return
+        response_data = updated_exercise.to_dict()
+        return create_response(200, response_data)
+
+    except ValueError as e:
+        return create_response(400, {"error": f"Invalid parameters: {str(e)}"})
+    except Exception as e:
+        logger.error(f"Error tracking set: {str(e)}")
+        import traceback
+
+        logger.error(traceback.format_exc())
+        return create_response(500, {"error": f"Server error: {str(e)}"})
