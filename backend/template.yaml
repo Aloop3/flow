@@ -590,6 +590,13 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /exercises/reorder
             Method: post
+        TrackSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/sets/{set_number}
+            Method: post
+
   
   # Workout Lambda function
   WorkoutFunction:
