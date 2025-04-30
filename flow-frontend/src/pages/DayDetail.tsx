@@ -72,6 +72,24 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
       toast.error('Error loading workout after save');
     }
   };
+
+  const refreshWorkoutData = async () => {
+    if (!dayId || !user.user_id) {
+      return;
+    }
+    
+    try {
+      console.log('Refreshing workout data');
+      const workoutData = await getWorkoutByDay(user.user_id, dayId);
+      
+      if (workoutData) {
+        console.log('Updated workout data:', workoutData);
+        setWorkout(workoutData);
+      }
+    } catch (err) {
+      console.error('Error refreshing workout data:', err);
+    }
+  };
   
   const handleCopyWorkout = async (targetDayId: string) => {
     if (!dayId) return;
@@ -192,13 +210,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                 
                 <ExerciseList 
                   exercises={workout.exercises} 
-                  onExerciseComplete={async () => {
-                    // Refresh workout data
-                    if (dayId && user.userId) {
-                      const workoutData = await getWorkoutByDay(user.userId, dayId);
-                      setWorkout(workoutData);
-                    }
-                  }}
+                  onExerciseComplete={refreshWorkoutData}
                   readOnly={workout.status === 'completed'}
                 />
               </div>

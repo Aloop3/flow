@@ -179,10 +179,18 @@ class TestExerciseRepository(unittest.TestCase):
         call_args = self.table_mock.update_item.call_args[1]
         self.assertEqual(call_args["Key"], {"exercise_id": "ex123"})
         self.assertIn(
-            "set sets = :sets, weight = :weight", call_args["UpdateExpression"]
+            "set #sets = :sets, #weight = :weight", call_args["UpdateExpression"]
         )
+
+        # Check attribute values are correct
         self.assertEqual(
             call_args["ExpressionAttributeValues"], {":sets": 3, ":weight": 335.0}
+        )
+
+        # Check expression attribute names are correct
+        self.assertEqual(
+            call_args["ExpressionAttributeNames"],
+            {"#sets": "sets", "#weight": "weight"},
         )
 
         # The actual BaseRepository.update method returns the Attributes field from the response

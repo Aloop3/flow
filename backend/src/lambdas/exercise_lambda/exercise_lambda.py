@@ -25,6 +25,12 @@ def handler(event, context):
     Lambda handler for exercise-related API endpoints.
     Maps API Gateway requests to the appropriate exercise API function.
     """
+    # Handle OPTIONS requests for CORS
+    if event.get("httpMethod") == "OPTIONS":
+        return add_cors_headers(
+            {"statusCode": 200, "body": json.dumps({"message": "OK"})}
+        )
+
     try:
         # Extract route information
         method = event.get("httpMethod")
