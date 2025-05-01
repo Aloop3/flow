@@ -123,16 +123,22 @@ class WorkoutRepository(BaseRepository):
         """
         update_expression = "set "
         expression_values = {}
+        expression_attribute_names = {}
 
         for key, value in update_dict.items():
-            update_expression += f"{key} = :{key}, "
+            attr_name = f"#{key}"
+            expression_attribute_names[attr_name] = key
+            update_expression += f"{attr_name} = :{key}, "
             expression_values[f":{key}"] = value
 
         # Remove trailing comma and space
         update_expression = update_expression[:-2]
 
         return self.update(
-            {"workout_id": workout_id}, update_expression, expression_values
+            {"workout_id": workout_id},
+            update_expression,
+            expression_values,
+            expression_attribute_names,
         )
 
     def delete_workout(self, workout_id: str) -> Dict[str, Any]:
