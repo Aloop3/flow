@@ -119,9 +119,14 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   };
   
   const navigateBack = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const blockId = urlParams.get('blockId'); // Retrieve blockId from query params
+
     if (blockId) {
+      // Navigate to the path including the blockId
       navigate(`/blocks/${blockId}`);
     } else {
+      // If no blockId, navigate to the general blocks path
       navigate('/blocks');
     }
   };
@@ -188,11 +193,11 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                   <h2 className="text-lg font-medium">
                     Workout Plan 
                     <span className="ml-2 text-sm text-gray-500">
-                      ({workout.status})
+                      {/* ({workout.status}) */}
                     </span>
                   </h2>
                   <div className="flex space-x-2">
-                    <button
+                    {/* <button
                       onClick={() => setShowCopyModal(true)}
                       disabled={isCopying}
                       className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
@@ -204,7 +209,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                       className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                     >
                       Edit Workout
-                    </button>
+                    </button> */}
                   </div>
                 </div>
                 

@@ -406,7 +406,7 @@ export const getWeeks = async (block_id: string): Promise<Week[]> => {
       try {
         parsedData = await objectData.json();
         console.log('Parsed weeks data:', parsedData);
-        return Array.isArray(parsedData) ? parsedData : [];
+        return Array.isArray(parsedData) ? parsedData as unknown as Week[] : [];
       } catch (e) {
         console.error('Failed to parse weeks data:', e);
         return [];
@@ -465,7 +465,7 @@ export const getDays = async (week_id: string): Promise<Day[]> => {
       try {
         parsedData = await objectData.json();
         console.log('Parsed days data:', parsedData);
-        return Array.isArray(parsedData) ? parsedData : [];
+        return Array.isArray(parsedData) ? parsedData as unknown as Day[] : [];
       } catch (e) {
         console.error('Failed to parse days data:', e);
         return [];
@@ -804,7 +804,7 @@ export const getExercisesForWorkout = async (workout_id: string): Promise<Exerci
     if (actualResponse && actualResponse.body) {
       try {
         const responseData = await actualResponse.body.json();
-        return Array.isArray(responseData) ? responseData : [];
+        return Array.isArray(responseData) ? responseData as unknown as Exercise[] : [];
       } catch (e) {
         console.error('Error parsing exercise response:', e);
         return [];
@@ -938,3 +938,20 @@ export const trackExerciseSet = async (
     throw error;
   }
 }
+
+export const deleteSet = async (
+  exerciseId: string,
+  setNumber: number
+): Promise<void> => {
+  try {
+    const headers = await getAuthHeaders();
+    await del({
+      apiName: 'flow-api',
+      path: `/exercises/${exerciseId}/sets/${setNumber}`,
+      options: { headers }
+    });
+  } catch (error) {
+    console.error('Error deleting set:', error);
+    throw error;
+  }
+};
