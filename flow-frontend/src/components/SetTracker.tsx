@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { trackExerciseSet } from '../services/api';
+import { useState, useEffect } from 'react';
+import { trackExerciseSet, deleteSet } from '../services/api';
 import FormButton from './FormButton';
 import type { ExerciseSetData } from '../services/api';
 
@@ -29,6 +29,8 @@ const SetTracker = ({
   const validPlannedReps = Math.max(0, plannedReps);
   const validPlannedWeight = Math.max(0, plannedWeight);
 
+  // Track the actual number of sets (can be different from planned)
+  const [actualSets, setActualSets] = useState<number>(validPlannedSets);
   const [activeSetNumber, setActiveSetNumber] = useState<number | null>(null);
   const [setData, setSetData] = useState({
     reps: validPlannedReps,
@@ -39,8 +41,21 @@ const SetTracker = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Generate array of set numbers based on planned sets
-  const sets = Array.from({ length: validPlannedSets }, (_, i) => i + 1);
+  // Initialize actual sets based on existing data
+  useEffect(() => {
+    if (existingSetsData && existingSetsData.length > 0) {
+      const maxSetNumber = Math.max(
+        ...existingSetsData.map(set => set.set_number || 0),
+        validPlannedSets
+      );
+      setActualSets(maxSetNumber);
+    } else {
+      setActualSets(validPlannedSets);
+    }
+  }, [existingSetsData, validPlannedSets]);
+
+  // Generate array of set numbers based on actual sets
+  const sets = Array.from({ length: actualSets }, (_, i) => i + 1);
 
   // Map existing set data by set number for quick lookup
   const setsDataMap = (existingSetsData || []).reduce((map, setData) => {
@@ -134,9 +149,78 @@ const SetTracker = ({
     }
   };
 
+  // Function to add a new set
+  const addSet = () => {
+    setActualSets(prev => prev + 1);
+  };
+
+  // Function to remove a set
+  const removeSet = async (setNumber: number) => {
+    // Don't allow removing the only set
+    if (sets.length <= 1) {
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      // Check if this set exists in the backend (has been tracked)
+      const existingSetData = setsDataMap[setNumber];
+      
+      if (existingSetData) {
+        // If the set exists in the backend, call the delete API
+        await deleteSet(validExerciseId, setNumber);
+      }
+      
+      // For sets after the deleted one, we'll let backend handle them
+      
+      // If removing the highest set number, just decrement the counter
+      if (setNumber === actualSets) {
+        setActualSets(prev => prev - 1);
+      } else {
+        // For sets in the middle, we still need to update local UI
+        setActualSets(prev => prev - 1);
+      }
+      
+      // If active set was removed, clear it
+      if (activeSetNumber === setNumber) {
+        setActiveSetNumber(null);
+      }
+      
+      // Notify parent component to refresh data
+      if (typeof onSetTracked === 'function') {
+        onSetTracked();
+      }
+    } catch (err) {
+      console.error('Error removing set:', err);
+      setError('Failed to remove set. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Calculate completion percentage for progress bar
+  const completedSets = Object.values(setsDataMap).filter(set => set.completed).length;
+  const completionPercentage = sets.length > 0 ? (completedSets / sets.length) * 100 : 0;
+
   return (
     <div className="mt-4">
-      <h3 className="text-lg font-medium mb-3">{validExerciseType} Sets</h3>
+      <h3 className="text-lg font-medium mb-3">Sets</h3>
+      
+      {/* Progress bar */}
+      <div className="mb-4">
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div 
+            className="bg-green-600 h-2.5 rounded-full" 
+            style={{ width: `${completionPercentage}%` }}
+          ></div>
+        </div>
+        <div className="mt-1 flex justify-between text-xs text-gray-500">
+          <span>{completedSets} of {sets.length} sets completed</span>
+          <span>{Math.round(completionPercentage)}%</span>
+        </div>
+      </div>
       
       {/* Set buttons */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -145,27 +229,59 @@ const SetTracker = ({
           const isActive = activeSetNumber === setNumber;
           
           return (
-            <button 
-              key={setNumber}
-              onClick={() => selectSet(setNumber)}
-              className={`w-12 h-12 rounded-full flex items-center justify-center font-medium ${
-                isCompleted
-                  ? 'bg-green-100 text-green-800 border-2 border-green-300'
-                  : isActive
-                  ? 'bg-blue-100 text-blue-800 border-2 border-blue-500'
-                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-              }`}
-            >
-              {setNumber}
-            </button>
+            <div key={setNumber} className="relative group">
+              <button 
+                onClick={() => selectSet(setNumber)}
+                className={`w-12 h-12 rounded-full flex items-center justify-center font-medium ${
+                  isCompleted
+                    ? 'bg-green-100 text-green-800 border-2 border-green-300'
+                    : isActive
+                    ? 'bg-blue-100 text-blue-800 border-2 border-blue-500'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }`}
+              >
+                {setNumber}
+              </button>
+              {/* Remove button - appears on hover */}
+              {sets.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeSet(setNumber);
+                  }}
+                  className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 hidden group-hover:block hover:bg-red-200"
+                  title="Remove set"
+                >
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           );
         })}
+        
+        {/* Add set button */}
+        <button
+          onClick={addSet}
+          className="w-12 h-12 rounded-full flex items-center justify-center font-medium bg-blue-50 text-blue-600 border-2 border-dashed border-blue-300 hover:bg-blue-100"
+          title="Add set"
+        >
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        </button>
       </div>
       
       {/* Set form */}
       {activeSetNumber !== null && (
         <form onSubmit={handleSubmit} className="border rounded-lg p-4 bg-gray-50 space-y-4">
-          <h4 className="font-medium text-gray-700">Set {activeSetNumber}</h4>
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="font-medium text-gray-700">Set {activeSetNumber}</h4>
+            {setsDataMap[activeSetNumber]?.completed && (
+              <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Completed</span>
+            )}
+          </div>
           
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -238,7 +354,7 @@ const SetTracker = ({
               variant="primary"
               isLoading={isSubmitting}
             >
-              Save Set
+              {setsDataMap[activeSetNumber]?.completed ? 'Update Set' : 'Complete Set'}
             </FormButton>
           </div>
         </form>
@@ -260,7 +376,8 @@ const SetTracker = ({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {(existingSetsData || [])
+                {Object.values(setsDataMap)
+                  .filter(setData => setData && typeof setData.set_number === 'number')
                   .sort((a, b) => (a.set_number || 0) - (b.set_number || 0))
                   .map(setData => (
                   <tr key={setData.set_number} 
@@ -284,6 +401,21 @@ const SetTracker = ({
         <div className="text-center py-4 text-gray-500">
           <p className="mb-2">No sets tracked yet</p>
           <p className="text-sm">Click on a set number above to log your set data</p>
+        </div>
+      )}
+      
+      {/* Add set button at bottom */}
+      {activeSetNumber === null && (
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={addSet}
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200"
+          >
+            <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Set
+          </button>
         </div>
       )}
     </div>

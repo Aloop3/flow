@@ -540,6 +540,116 @@ class TestExerciseAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Exercise not found")
 
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_delete_exercise_set_success(self, MockExerciseService):
+        """
+        Test successful exercise set deletion
+        """
+        # Setup
+        mock_exercise = MagicMock()
+        mock_exercise.to_dict.return_value = {
+            "exercise_id": "test-exercise-1",
+            "workout_id": "test-workout-1",
+            "sets_data": [
+                {"set_number": 1, "reps": 10, "weight": 100.0, "completed": True}
+            ],
+        }
+        mock_service_instance = MockExerciseService.return_value
+        mock_service_instance.get_exercise.return_value = mock_exercise
+        mock_service_instance.delete_set.return_value = mock_exercise
+
+        event = {
+            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "1"}
+        }
+        context = {}
+
+        # Call API
+        response = exercise_api.delete_exercise_set(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        mock_service_instance.delete_set.assert_called_once_with("test-exercise-1", 1)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["exercise_id"], "test-exercise-1")
+
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_delete_exercise_set_exercise_not_found(self, MockExerciseService):
+        """
+        Test exercise set deletion when the exercise is not found
+        """
+
+        # Setup
+        mock_service_instance = MockExerciseService.return_value
+        mock_service_instance.get_exercise.return_value = None
+
+        event = {
+            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "1"}
+        }
+        context = {}
+
+        # Call API
+        response = exercise_api.delete_exercise_set(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertIn("Exercise not found", response_body["error"])
+        mock_service_instance.delete_set.assert_not_called()
+
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_delete_exercise_set_not_found(self, MockExerciseService):
+        """
+        Test exercise set deletion when the set is not found
+        """
+
+        # Setup
+        mock_exercise = MagicMock()
+        mock_exercise.to_dict.return_value = {
+            "exercise_id": "test-exercise-1",
+            "workout_id": "test-workout-1",
+            "sets_data": [
+                {"set_number": 1, "reps": 10, "weight": 100.0, "completed": True}
+            ],
+        }
+        mock_service_instance = MockExerciseService.return_value
+        mock_service_instance.get_exercise.return_value = mock_exercise
+        mock_service_instance.delete_set.return_value = None
+
+        event = {
+            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "999"}
+        }
+        context = {}
+
+        # Call API
+        response = exercise_api.delete_exercise_set(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertIn("Set not found or already deleted", response_body["error"])
+
+    def test_delete_exercise_set_invalid_set_number(self):
+        """
+        Test exercise set deletion when an invalid set number is provided
+        """
+
+        # Setup
+        event = {
+            "pathParameters": {
+                "exercise_id": "test-exercise-1",
+                "set_number": "not-a-number",
+            }
+        }
+        context = {}
+
+        # Call API
+        response = exercise_api.delete_exercise_set(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid parameters", response_body["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

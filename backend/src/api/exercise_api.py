@@ -248,3 +248,40 @@ def track_set(event, context):
 
         logger.error(traceback.format_exc())
         return create_response(500, {"error": f"Server error: {str(e)}"})
+
+
+@with_middleware([log_request, handle_errors])
+def delete_exercise_set(event, context):
+    """
+    Handle DELETE /exercises/{exercise_id}/sets/{set_number} request to delete a set
+    """
+    try:
+        # Extract parameters
+        exercise_id = event["pathParameters"]["exercise_id"]
+        set_number = int(event["pathParameters"]["set_number"])
+
+        # Create service and call method
+        service = ExerciseService()
+
+        # First check if exercise exists
+        exercise = service.get_exercise(exercise_id)
+        if not exercise:
+            return create_response(404, {"error": "Exercise not found"})
+
+        # Delete the set
+        updated_exercise = service.delete_set(exercise_id, set_number)
+
+        if not updated_exercise:
+            return create_response(404, {"error": "Set not found or already deleted"})
+
+        # Return the updated exercise
+        return create_response(200, updated_exercise.to_dict())
+
+    except ValueError as e:
+        return create_response(400, {"error": f"Invalid parameters: {str(e)}"})
+    except Exception as e:
+        logger.error(f"Error deleting set: {str(e)}")
+        import traceback
+
+        logger.error(traceback.format_exc())
+        return create_response(500, {"error": f"Server error: {str(e)}"})

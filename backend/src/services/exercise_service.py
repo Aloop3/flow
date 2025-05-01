@@ -208,3 +208,42 @@ class ExerciseService:
             return None
 
         return self.get_exercise(exercise_id)
+
+    def delete_set(self, exercise_id: str, set_number: int) -> Optional[Exercise]:
+        """
+        Delete a specific set from an exercise
+
+        :param exercise_id: ID of the exercise
+        :param set_number: Number of the set to delete
+        :return: Updated Exercise object if found, else None
+        """
+        # Get the exercise
+        exercise = self.get_exercise(exercise_id)
+
+        if not exercise or not exercise.sets_data:
+            return None
+
+        # Create a filtered list of sets without the set to delete
+        updated_sets_data = [
+            set_data
+            for set_data in exercise.sets_data
+            if set_data.get("set_number") != set_number
+        ]
+
+        # If we didn't remove any sets, return early
+        if len(updated_sets_data) == len(exercise.sets_data):
+            return exercise
+
+        # Update the exercise with the new sets_data
+        update_data = {"sets_data": updated_sets_data}
+
+        # Automatically recalculate exercise status based on remaining sets
+        if not updated_sets_data:
+            update_data["status"] = "planned"
+        elif all(set_data.get("completed", False) for set_data in updated_sets_data):
+            update_data["status"] = "completed"
+        else:
+            update_data["status"] = "in_progress"
+
+        # Update the exercise in the database
+        return self.update_exercise(exercise_id, update_data)
