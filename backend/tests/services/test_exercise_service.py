@@ -735,6 +735,123 @@ class TestExerciseService(unittest.TestCase):
         # Verify result is None when repository update fails
         self.assertIsNone(result)
 
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.exercise_service.ExerciseService.update_exercise")
+    def test_delete_set_success(self, mock_update_exercise, mock_get_exercise):
+        """
+        Test successful set deletion
+        """
+        # Setup mock exercise with proper structure
+        mock_exercise = MagicMock()
+        mock_exercise.sets_data = [
+            {"set_number": 1, "reps": 10, "weight": 100.0, "completed": True}
+        ]
+        mock_get_exercise.return_value = mock_exercise
+
+        # Setup updated exercise with no sets
+        updated_exercise = {
+            "exercise_id": "test-exercise-1",
+            "workout_id": "test-workout-1",
+            "sets_data": [],
+        }
+        mock_update_exercise.return_value = updated_exercise
+
+        # Call service method
+        result = self.exercise_service.delete_set("test-exercise-1", 1)
+
+        # Assert update_exercise was called with correct parameters
+        mock_update_exercise.assert_called_once()
+        call_args = mock_update_exercise.call_args[0]
+        self.assertEqual(call_args[0], "test-exercise-1")
+        self.assertIn("sets_data", call_args[1])
+        self.assertEqual(len(call_args[1]["sets_data"]), 0)
+
+        # Assert result is the updated exercise
+        self.assertEqual(result, updated_exercise)
+
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.exercise_service.ExerciseService.update_exercise")
+    def test_delete_set_all_completed(self, mock_update_exercise, mock_get_exercise):
+        """
+        Test deleting a set when all sets are marked as completed
+        """
+        # Setup mock exercise with all sets completed
+        mock_exercise = MagicMock()
+        mock_exercise.sets_data = [
+            {"set_number": 1, "reps": 10, "weight": 100.0, "completed": True},
+            {"set_number": 2, "reps": 8, "weight": 90.0, "completed": True},
+        ]
+        mock_get_exercise.return_value = mock_exercise
+
+        # Setup updated exercise with one set remaining
+        updated_exercise = {
+            "exercise_id": "test-exercise-1",
+            "workout_id": "test-workout-1",
+            "sets_data": [
+                {"set_number": 1, "reps": 10, "weight": 100.0, "completed": True}
+            ],
+        }
+        mock_update_exercise.return_value = updated_exercise
+
+        # Call service method
+        result = self.exercise_service.delete_set("test-exercise-1", 2)
+
+        # Assert update_exercise was called with correct parameters
+        mock_update_exercise.assert_called_once()
+        call_args = mock_update_exercise.call_args[0]
+        self.assertEqual(call_args[0], "test-exercise-1")
+
+        # Fix: Verify remaining sets
+        self.assertIn("sets_data", call_args[1])
+        self.assertEqual(len(call_args[1]["sets_data"]), 1)
+        self.assertEqual(call_args[1]["sets_data"][0]["set_number"], 1)
+
+        # Assert result is the updated exercise
+        self.assertEqual(result, updated_exercise)
+
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    def test_delete_set_exercise_not_found(self, mock_get_exercise):
+        """
+        Test exercise set deletion when the exercise is not found
+        """
+        # Setup mock to return None for exercise
+        mock_get_exercise.return_value = None
+
+        # Define event and context
+        event = {
+            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "1"}
+        }
+        context = {}
+
+        # Call service method
+        result = self.exercise_service.delete_set("test-exercise-1", 1)
+
+        # Assert the result is None, as exercise was not found
+        self.assertEqual(result, None)
+
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.exercise_service.ExerciseService.update_exercise")
+    def test_delete_set_not_found(self, mock_update_exercise, mock_get_exercise):
+        """
+        Test deleting a set when the set is not found
+        """
+        # Setup mock exercise with empty sets data
+        mock_exercise = MagicMock()
+        mock_exercise.sets_data = []
+        mock_get_exercise.return_value = mock_exercise
+
+        # Define event and context
+        event = {
+            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "999"}
+        }
+        context = {}
+
+        # Call service method
+        result = self.exercise_service.delete_set("test-exercise-1", 999)
+
+        # Assert the result is None, as the set was not found
+        self.assertEqual(result, None)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
