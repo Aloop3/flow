@@ -596,6 +596,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /exercises/{exercise_id}/sets/{set_number}
             Method: post
+        DeleteSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/sets/{set_number}
+            Method: delete
 
   
   # Workout Lambda function
