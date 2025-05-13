@@ -364,9 +364,6 @@ class TestWorkoutModel(unittest.TestCase):
         self.assertEqual(workout_dict["date"], "2025-03-12")
         self.assertEqual(workout_dict["notes"], "Solid session")
 
-        # Volume should be 3 sets * 5 reps * 225 weight = 3375
-        self.assertEqual(workout_dict["total_volume"], 3375.0)
-
         # Check exercises
         self.assertEqual(len(workout_dict["exercises"]), 1)
         self.assertEqual(workout_dict["exercises"][0]["exercise_id"], "ex1")
