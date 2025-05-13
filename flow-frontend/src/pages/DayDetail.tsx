@@ -28,13 +28,13 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
 
   useEffect(() => {
     if (!dayId) return;
-    
+
     const fetchDayData = async () => {
       setIsLoading(true);
       try {
         const dayData = await getDay(dayId);
         setDay(dayData);
-        
+
         // Try to load existing workout with consistent ID property
         try {
           // Ensure we're using the correct user ID property consistently
@@ -51,17 +51,17 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
         setIsLoading(false);
       }
     };
-    
+
     fetchDayData();
   }, [dayId, user.user_id]);
-  
+
   const handleWorkoutSaved = async (workoutId: string) => {
     // Refresh the workout data after saving
     if (!workoutId || !dayId) {
       console.error('No workout ID or day ID');
       return;
     }
-    
+
     try {
       const workoutData = await getWorkoutByDay(user.user_id, dayId);
       setWorkout(workoutData);
@@ -77,11 +77,11 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     if (!dayId || !user.user_id) {
       return;
     }
-    
+
     try {
       console.log('Refreshing workout data');
       const workoutData = await getWorkoutByDay(user.user_id, dayId);
-      
+
       if (workoutData) {
         console.log('Updated workout data:', workoutData);
         setWorkout(workoutData);
@@ -90,23 +90,23 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
       console.error('Error refreshing workout data:', err);
     }
   };
-  
+
   const handleCopyWorkout = async (targetDayId: string) => {
     if (!dayId) return;
-    
+
     setIsCopying(true);
     setCopyError(null);
-    
+
     try {
       console.log('Starting workout copy from day', dayId, 'to day', targetDayId);
       await copyWorkout(dayId, targetDayId);
-      
+
       // Show success message and close modal
       toast.success('Workout copied successfully!');
       setShowCopyModal(false);
     } catch (error) {
       console.error('Error copying workout:', error);
-      
+
       // Display specific error message if available from API
       if (ApiError.isConflict(error)) {
         setCopyError('Target day already has a workout. Please delete it first.');
@@ -117,7 +117,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
       setIsCopying(false);
     }
   };
-  
+
   const navigateBack = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const blockId = urlParams.get('blockId'); // Retrieve blockId from query params
@@ -144,14 +144,11 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
             <h1 className="text-2xl font-bold text-gray-900">
               Day {day.day_number} - {formatDate(day.date)}
             </h1>
-            <button
-              onClick={navigateBack}
-              className="text-sm text-gray-600 hover:text-gray-800"
-            >
+            <button onClick={navigateBack} className="text-sm text-gray-600 hover:text-gray-800">
               Back to Block
             </button>
           </div>
-          
+
           <div className="bg-white shadow rounded-lg p-6">
             {day.focus ? (
               <div className="mb-4">
@@ -166,7 +163,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                 <p className="mt-1 text-gray-400 italic">No focus set</p>
               </div>
             )}
-            
+
             {day.notes ? (
               <div>
                 <h2 className="text-sm font-medium text-gray-500">Notes</h2>
@@ -179,22 +176,20 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
               </div>
             )}
           </div>
-          
+
           <div className="bg-white shadow rounded-lg p-6">
             {copyError && (
               <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded p-3">
                 {copyError}
               </div>
             )}
-            
+
             {workout ? (
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-medium">
-                    Workout Plan 
-                    <span className="ml-2 text-sm text-gray-500">
-                      {/* ({workout.status}) */}
-                    </span>
+                    Workout Plan
+                    <span className="ml-2 text-sm text-gray-500">{/* ({workout.status}) */}</span>
                   </h2>
                   <div className="flex space-x-2">
                     {/* <button
@@ -212,18 +207,15 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                     </button> */}
                   </div>
                 </div>
-                
-                <ExerciseList 
-                  exercises={workout.exercises} 
+
+                <ExerciseList
+                  exercises={workout.exercises}
                   onExerciseComplete={refreshWorkoutData}
-                  readOnly={workout.status === 'completed'}
+                  readOnly={false}
                 />
               </div>
             ) : showWorkoutForm ? (
-              <WorkoutForm 
-                dayId={dayId || ''} 
-                onSave={handleWorkoutSaved} 
-              />
+              <WorkoutForm dayId={dayId || ''} onSave={handleWorkoutSaved} />
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-500 mb-4">No workout planned yet</p>
@@ -248,7 +240,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
           </button>
         </div>
       )}
-      
+
       {/* Day Selector Modal for copying workout */}
       <DaySelector
         isOpen={showCopyModal}
