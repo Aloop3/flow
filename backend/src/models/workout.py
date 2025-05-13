@@ -186,7 +186,6 @@ class Workout:
                 - notes: Any notes associated with the workout
                 - status: The current status of the workout (e.g., 'not_started', 'completed')
                 - exercises: List of dictionaries representing each exercise in the workout
-                - total_volume: The total volume of the workout calculated using the `calculate_volume` method
         """
         return {
             "workout_id": self.workout_id,
@@ -196,7 +195,6 @@ class Workout:
             "notes": self.notes,
             "status": self.status,
             "exercises": [ex.to_dict() for ex in self.exercises],
-            "total_volume": self.calculate_volume(),
         }
 
     @classmethod
