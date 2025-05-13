@@ -111,7 +111,6 @@ export interface ExerciseSetData {
 
 // Update Exercise interface
 export interface Exercise {
-  // Existing fields...
   sets_data?: ExerciseSetData[];
 }
 
@@ -654,6 +653,14 @@ export const createWorkout = async (
     weight: number;
     rpe?: number;
     notes?: string;
+    sets_data?: Array<{
+      set_number: number;
+      reps: number;
+      weight: number;
+      rpe?: number;
+      completed: boolean;
+      notes?: string;
+    }>;
   }>
 ): Promise<Workout> => {
   try {
@@ -818,8 +825,6 @@ export const getExercisesForWorkout = async (workout_id: string): Promise<Exerci
   }
 };
 
-
-
 export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
   try {
     const headers = await getAuthHeaders();
@@ -848,6 +853,41 @@ export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
     throw new Error('No exercise data received');
   } catch (error) {
     console.error('Error fetching exercise types:', error);
+    throw error;
+  }
+};
+
+export const updateExercise = async (
+  exerciseId: string, 
+  updateData: Partial<Exercise>
+): Promise<Exercise> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await put({
+      apiName: 'flow-api',
+      path: `/exercises/${exerciseId}`,
+      options: {
+        headers,
+        body: JSON.stringify(updateData)
+      }
+    });
+    
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const result = await actualResponse.body.json();
+        return result as unknown as Exercise;
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+    
+    throw new Error('No response data');
+  } catch (error) {
+    console.error('Error updating exercise:', error);
     throw error;
   }
 };

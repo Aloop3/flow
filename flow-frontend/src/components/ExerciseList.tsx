@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Exercise } from '../services/api';
 import ExerciseCompletion from './ExerciseCompletion';
+import ExerciseTracker from './ExerciseTracker';
 import Modal from './Modal';
 
 interface ExerciseListProps {
@@ -27,7 +28,7 @@ const ExerciseList = ({ exercises, onExerciseComplete, readOnly = false }: Exerc
   };
 
   const handleExerciseClick = (exercise: Exercise) => {
-    if (!readOnly && exercise.status !== 'completed') {
+    if (!readOnly) {
       setSelectedExercise(exercise);
     }
   };
@@ -76,7 +77,7 @@ const ExerciseList = ({ exercises, onExerciseComplete, readOnly = false }: Exerc
                 </div>
                 
                 <p className="text-sm text-gray-600">
-                  {exercise.sets} sets × {exercise.reps} reps @ {exercise.weight} lbs
+                  {exercise.sets} sets × {exercise.reps} reps
                   {exercise.rpe && ` @ RPE ${exercise.rpe}`}
                 </p>
                 
@@ -134,7 +135,7 @@ const ExerciseList = ({ exercises, onExerciseComplete, readOnly = false }: Exerc
         title={selectedExercise ? `${selectedExercise.exercise_type}` : 'Exercise Details'}
       >
         {selectedExercise && (
-          <ExerciseCompletion
+          <ExerciseTracker
             exercise={selectedExercise}
             onComplete={handleComplete}
             onCancel={() => setSelectedExercise(null)}
