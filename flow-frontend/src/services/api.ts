@@ -5,22 +5,22 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public statusCode?: number,
-    public originalError?: unknown
+    public originalError?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
-    
+
     // Capture stack trace for better debugging
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, ApiError);
     }
   }
-  
+
   // Helper method to check if error is conflict
   static isConflict(error: unknown): boolean {
     return error instanceof ApiError && error.statusCode === 409;
   }
-  
+
   // Helper method to check if error is not found
   static isNotFound(error: unknown): boolean {
     return error instanceof ApiError && error.statusCode === 404;
@@ -116,7 +116,7 @@ export interface Exercise {
 
 console.log('API Config:', {
   apiName: 'flow-api',
-  endpoint: import.meta.env.VITE_API_URL || 'API_URL_NOT_SET'
+  endpoint: import.meta.env.VITE_API_URL || 'API_URL_NOT_SET',
 });
 
 // Helper to get auth headers
@@ -124,7 +124,7 @@ export const getAuthHeaders = async () => {
   try {
     const { tokens } = await fetchAuthSession();
     return {
-      Authorization: `Bearer ${tokens?.idToken?.toString()}`
+      Authorization: `Bearer ${tokens?.idToken?.toString()}`,
     };
   } catch (error) {
     console.error('Error getting auth session:', error);
@@ -142,8 +142,8 @@ export const createUser = async (userData: Omit<User, 'user_id'>): Promise<User>
       path: '/users',
       options: {
         headers,
-        body: userData
-      }
+        body: userData,
+      },
     });
     return response as unknown as User;
   } catch (error) {
@@ -155,21 +155,21 @@ export const createUser = async (userData: Omit<User, 'user_id'>): Promise<User>
 export const getUser = async (user_id: string): Promise<User | null> => {
   try {
     const headers = await getAuthHeaders();
-    
+
     // Make the API request
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/users/${user_id}`,
-      options: { headers }
+      options: { headers },
     });
-    
+
     // Log the full response for debugging
     console.log('Complete API response:', apiResponse);
-    
+
     // In Amplify v6, we need to await the response promise
     const actualResponse = await apiResponse.response;
     console.log('Actual response after awaiting:', actualResponse);
-    
+
     // Extract the body from the actual response
     if (actualResponse && actualResponse.body) {
       // Handle ReadableStream responses
@@ -180,10 +180,10 @@ export const getUser = async (user_id: string): Promise<User | null> => {
       } catch (e) {
         console.error('Failed to parse response body:', e);
       }
-      
+
       return userData;
     }
-    
+
     console.log('No user data found in response');
     return null;
   } catch (error) {
@@ -192,7 +192,10 @@ export const getUser = async (user_id: string): Promise<User | null> => {
   }
 };
 
-export const updateUser = async (user_id: string, newUserData: Partial<User>): Promise<User | null> => {
+export const updateUser = async (
+  user_id: string,
+  newUserData: Partial<User>,
+): Promise<User | null> => {
   try {
     const headers = await getAuthHeaders();
     const apiResponse = await put({
@@ -200,13 +203,13 @@ export const updateUser = async (user_id: string, newUserData: Partial<User>): P
       path: `/users/${user_id}`,
       options: {
         headers,
-        body: newUserData
-      }
+        body: newUserData,
+      },
     });
-    
+
     // Await the response promise
     const actualResponse = await apiResponse.response;
-    
+
     // Extract the body
     if (actualResponse && actualResponse.body) {
       let userData: any;
@@ -233,29 +236,29 @@ export const updateUser = async (user_id: string, newUserData: Partial<User>): P
 export const getBlocks = async (user_id: string): Promise<Block[]> => {
   try {
     const headers = await getAuthHeaders();
-    
-    console.log("Fetching blocks for user ID:", user_id);
-    
+
+    console.log('Fetching blocks for user ID:', user_id);
+
     // Make the API request using the same pattern as getUser
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/athletes/${user_id}/blocks`,
-      options: { headers }
+      options: { headers },
     });
-    
+
     // Log the full response for debugging
     console.log('Complete API response:', apiResponse);
-    
+
     // Await the response promise as in getUser
     const actualResponse = await apiResponse.response;
     console.log('Actual response after awaiting:', actualResponse);
-    
+
     // Extract the body from the actual response
     if (actualResponse && actualResponse.body) {
       // Handle ReadableStream responses
       let objectData = actualResponse.body;
       let blocksData: any;
-      
+
       try {
         const parsedData = await objectData.json();
         console.log('Parsed blocks data:', parsedData);
@@ -263,10 +266,10 @@ export const getBlocks = async (user_id: string): Promise<Block[]> => {
       } catch (e) {
         console.error('Failed to parse response body:', e);
       }
-      
+
       return blocksData;
     }
-    
+
     console.log('No blocks data found in response');
     return [];
   } catch (error) {
@@ -275,7 +278,6 @@ export const getBlocks = async (user_id: string): Promise<Block[]> => {
   }
 };
 
-
 export const getBlock = async (block_id: string): Promise<Block | null> => {
   try {
     const headers = await getAuthHeaders();
@@ -283,7 +285,7 @@ export const getBlock = async (block_id: string): Promise<Block | null> => {
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/blocks/${block_id}`,
-      options: { headers }
+      options: { headers },
     });
 
     console.log('Complete API response:', apiResponse);
@@ -297,7 +299,7 @@ export const getBlock = async (block_id: string): Promise<Block | null> => {
       // Handle ReadableStream responses
       let objectData = actualResponse.body;
       let blockData: any;
-      
+
       try {
         const parsedData = await objectData.json();
         console.log('Parsed block data:', parsedData);
@@ -306,10 +308,10 @@ export const getBlock = async (block_id: string): Promise<Block | null> => {
         console.error('Failed to parse response body:', e);
         return null;
       }
-      
+
       return blockData;
     }
-    
+
     console.log('No block data found in response');
     return null;
   } catch (error) {
@@ -321,24 +323,24 @@ export const getBlock = async (block_id: string): Promise<Block | null> => {
 export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<Block> => {
   try {
     console.log('Sending block data:', JSON.stringify(blockData, null, 2));
-    
+
     // Make sure the date format is correct (YYYY-MM-DD)
     const formattedData = {
       ...blockData,
       // Ensure dates are in correct format
       start_date: blockData.start_date.split('T')[0], // Remove any time component
       end_date: blockData.end_date.split('T')[0], // Remove any time component
-      number_of_week: Number(blockData.number_of_weeks) || 4 // Default to 4 weeks if not provided
+      number_of_week: Number(blockData.number_of_weeks) || 4, // Default to 4 weeks if not provided
     };
-    
+
     const headers = await getAuthHeaders();
     const response = await post({
       apiName: 'flow-api',
       path: '/blocks',
       options: {
         headers,
-        body: formattedData
-      }
+        body: formattedData,
+      },
     });
     return response as unknown as Block;
   } catch (error) {
@@ -355,8 +357,8 @@ export const updateBlock = async (block_id: string, blockData: Partial<Block>): 
       path: `/blocks/${block_id}`,
       options: {
         headers,
-        body: blockData
-      }
+        body: blockData,
+      },
     });
     return response as unknown as Block;
   } catch (error) {
@@ -371,7 +373,7 @@ export const deleteBlock = async (block_id: string): Promise<void> => {
     await del({
       apiName: 'flow-api',
       path: `/blocks/${block_id}`,
-      options: { headers }
+      options: { headers },
     });
   } catch (error) {
     console.error('Error deleting block:', error);
@@ -387,31 +389,31 @@ export const getWeeks = async (block_id: string): Promise<Week[]> => {
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/blocks/${block_id}/weeks`,
-      options: { headers }
+      options: { headers },
     });
 
     // Debug the response structure
     console.log('Weeks API response:', apiResponse);
-    
+
     // For Amplify v6, we need to await the response and parse it
     const actualResponse = await apiResponse.response;
     console.log('Weeks actual response after awaiting:', actualResponse);
-    
+
     if (actualResponse && actualResponse.body) {
       // Handle ReadableStream responses
       let objectData = actualResponse.body;
       let parsedData;
-      
+
       try {
         parsedData = await objectData.json();
         console.log('Parsed weeks data:', parsedData);
-        return Array.isArray(parsedData) ? parsedData as unknown as Week[] : [];
+        return Array.isArray(parsedData) ? (parsedData as unknown as Week[]) : [];
       } catch (e) {
         console.error('Failed to parse weeks data:', e);
         return [];
       }
     }
-    
+
     console.log('No weeks data found in response');
     return [];
   } catch (error) {
@@ -428,8 +430,8 @@ export const createWeek = async (weekData: Omit<Week, 'week_id'>): Promise<Week>
       path: '/weeks',
       options: {
         headers,
-        body: weekData
-      }
+        body: weekData,
+      },
     });
     return response as unknown as Week;
   } catch (error) {
@@ -446,31 +448,31 @@ export const getDays = async (week_id: string): Promise<Day[]> => {
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/weeks/${week_id}/days`,
-      options: { headers }
+      options: { headers },
     });
 
     // Debug the response structure
     console.log('Days API response:', apiResponse);
-    
+
     // For Amplify v6, we need to await the response and parse it
     const actualResponse = await apiResponse.response;
     console.log('Days actual response after awaiting:', actualResponse);
-    
+
     if (actualResponse && actualResponse.body) {
       // Handle ReadableStream responses
       let objectData = actualResponse.body;
       let parsedData;
-      
+
       try {
         parsedData = await objectData.json();
         console.log('Parsed days data:', parsedData);
-        return Array.isArray(parsedData) ? parsedData as unknown as Day[] : [];
+        return Array.isArray(parsedData) ? (parsedData as unknown as Day[]) : [];
       } catch (e) {
         console.error('Failed to parse days data:', e);
         return [];
       }
     }
-    
+
     console.log('No days data found in response');
     return [];
   } catch (error) {
@@ -486,7 +488,7 @@ export const getDay = async (day_id: string): Promise<Day | null> => {
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/days/${day_id}`,
-      options: { headers }
+      options: { headers },
     });
 
     console.log('Complete API response:', apiResponse);
@@ -528,7 +530,7 @@ export const getExercisesForDay = async (day_id: string): Promise<Exercise[]> =>
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/days/${day_id}/exercises`,
-      options: { headers }
+      options: { headers },
     });
 
     console.log('Complete API response:', apiResponse);
@@ -570,8 +572,8 @@ export const createDay = async (dayData: Omit<Day, 'day_id'>): Promise<Day> => {
       path: '/days',
       options: {
         headers,
-        body: dayData
-      }
+        body: dayData,
+      },
     });
     return response as unknown as Day;
   } catch (error) {
@@ -588,8 +590,8 @@ export const updateDay = async (day_id: string, dayData: Partial<Day>): Promise<
       path: `/days/${day_id}`,
       options: {
         headers,
-        body: dayData
-      }
+        body: dayData,
+      },
     });
     return response as unknown as Day;
   } catch (error) {
@@ -605,7 +607,7 @@ export const getWorkout = async (workout_id: string): Promise<Workout> => {
     const response = await get({
       apiName: 'flow-api',
       path: `/workouts/${workout_id}`,
-      options: { headers }
+      options: { headers },
     });
     return response as unknown as Workout;
   } catch (error) {
@@ -614,18 +616,21 @@ export const getWorkout = async (workout_id: string): Promise<Workout> => {
   }
 };
 
-export const getWorkoutByDay = async (athlete_id: string, day_id: string): Promise<Workout | null> => {
+export const getWorkoutByDay = async (
+  athlete_id: string,
+  day_id: string,
+): Promise<Workout | null> => {
   try {
     const headers = await getAuthHeaders();
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/athletes/${athlete_id}/days/${day_id}/workout`,
-      options: { headers }
+      options: { headers },
     });
-    
+
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const responseData = await actualResponse.body.json();
@@ -636,7 +641,7 @@ export const getWorkoutByDay = async (athlete_id: string, day_id: string): Promi
         return null;
       }
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error fetching workout by day:', error);
@@ -645,7 +650,7 @@ export const getWorkoutByDay = async (athlete_id: string, day_id: string): Promi
 };
 
 export const createWorkout = async (
-  day_id: string, 
+  day_id: string,
   exercises: Array<{
     exerciseType: string;
     sets: number;
@@ -661,7 +666,7 @@ export const createWorkout = async (
       completed: boolean;
       notes?: string;
     }>;
-  }>
+  }>,
 ): Promise<Workout> => {
   try {
     const headers = await getAuthHeaders();
@@ -670,13 +675,13 @@ export const createWorkout = async (
       path: `/days/${day_id}/workout`,
       options: {
         headers,
-        body: { exercises }
-      }
+        body: { exercises },
+      },
     });
-    
+
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const responseText = await actualResponse.body.text();
@@ -687,7 +692,7 @@ export const createWorkout = async (
         throw new Error('Invalid response format');
       }
     }
-    
+
     throw new Error('No response data');
   } catch (error) {
     console.error('Error creating workout:', error);
@@ -695,7 +700,10 @@ export const createWorkout = async (
   }
 };
 
-export const updateWorkout = async (workout_id: string, workoutData: Partial<Workout>): Promise<Workout> => {
+export const updateWorkout = async (
+  workout_id: string,
+  workoutData: Partial<Workout>,
+): Promise<Workout> => {
   try {
     const headers = await getAuthHeaders();
     const apiResponse = await put({
@@ -703,13 +711,13 @@ export const updateWorkout = async (workout_id: string, workoutData: Partial<Wor
       path: `/workouts/${workout_id}`,
       options: {
         headers,
-        body: JSON.stringify(workoutData)
-      }
+        body: JSON.stringify(workoutData),
+      },
     });
-    
+
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const responseData = await actualResponse.body.json();
@@ -719,7 +727,7 @@ export const updateWorkout = async (workout_id: string, workoutData: Partial<Wor
         throw new Error('Invalid response format');
       }
     }
-    
+
     throw new Error('No response data');
   } catch (error) {
     console.error('Error updating workout:', error);
@@ -727,10 +735,7 @@ export const updateWorkout = async (workout_id: string, workoutData: Partial<Wor
   }
 };
 
-export const copyWorkout = async (
-  sourceDayId: string, 
-  targetDayId: string
-): Promise<any> => {
+export const copyWorkout = async (sourceDayId: string, targetDayId: string): Promise<any> => {
   try {
     const headers = await getAuthHeaders();
     console.log('Copying workout from day:', sourceDayId, 'to day:', targetDayId);
@@ -741,14 +746,14 @@ export const copyWorkout = async (
         headers,
         body: {
           source_day_id: sourceDayId,
-          target_day_id: targetDayId
-        }
-      }
+          target_day_id: targetDayId,
+        },
+      },
     });
-    
+
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const result = await actualResponse.body.json();
@@ -759,7 +764,7 @@ export const copyWorkout = async (
         throw new Error('Failed to copy workout');
       }
     }
-    
+
     // Return true if successful but no detailed response
     return true;
   } catch (error) {
@@ -772,14 +777,16 @@ export const copyWorkout = async (
   }
 };
 
-export const getWorkoutStatus = (exercises: Exercise[]): 'not_started' | 'in_progress' | 'completed' | 'skipped' => {
+export const getWorkoutStatus = (
+  exercises: Exercise[],
+): 'not_started' | 'in_progress' | 'completed' | 'skipped' => {
   if (!exercises || exercises.length === 0) {
     return 'not_started';
   }
-  
-  const completedCount = exercises.filter(ex => ex.status === 'completed').length;
+
+  const completedCount = exercises.filter((ex) => ex.status === 'completed').length;
   const totalCount = exercises.length;
-  
+
   if (completedCount === 0) {
     return 'not_started';
   } else if (completedCount === totalCount) {
@@ -796,28 +803,28 @@ export const getExercisesForWorkout = async (workout_id: string): Promise<Exerci
       console.error('Missing workout_id parameter in getExercisesForWorkout');
       return [];
     }
-    
+
     console.log(`Fetching exercises for workout: ${workout_id}`);
     const headers = await getAuthHeaders();
     const apiResponse = await get({
       apiName: 'flow-api',
       path: `/workouts/${workout_id}/exercises`,
-      options: { headers }
+      options: { headers },
     });
-    
+
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const responseData = await actualResponse.body.json();
-        return Array.isArray(responseData) ? responseData as unknown as Exercise[] : [];
+        return Array.isArray(responseData) ? (responseData as unknown as Exercise[]) : [];
       } catch (e) {
         console.error('Error parsing exercise response:', e);
         return [];
       }
     }
-    
+
     return [];
   } catch (error) {
     console.error('Error fetching exercises for workout:', error);
@@ -831,12 +838,12 @@ export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
     const apiResponse = await get({
       apiName: 'flow-api',
       path: '/exercises/types',
-      options: { headers }
+      options: { headers },
     });
-    
+
     // For Amplify v6, we need to await the response and parse it
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const parsedData = await actualResponse.body.json();
@@ -849,7 +856,7 @@ export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
         throw new Error('Failed to parse exercise data');
       }
     }
-    
+
     throw new Error('No exercise data received');
   } catch (error) {
     console.error('Error fetching exercise types:', error);
@@ -858,8 +865,8 @@ export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
 };
 
 export const updateExercise = async (
-  exerciseId: string, 
-  updateData: Partial<Exercise>
+  exerciseId: string,
+  updateData: Partial<Exercise>,
 ): Promise<Exercise> => {
   try {
     const headers = await getAuthHeaders();
@@ -868,13 +875,13 @@ export const updateExercise = async (
       path: `/exercises/${exerciseId}`,
       options: {
         headers,
-        body: JSON.stringify(updateData)
-      }
+        body: updateData as any,
+      },
     });
-    
+
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const result = await actualResponse.body.json();
@@ -884,7 +891,7 @@ export const updateExercise = async (
         throw new Error('Invalid response format');
       }
     }
-    
+
     throw new Error('No response data');
   } catch (error) {
     console.error('Error updating exercise:', error);
@@ -900,7 +907,7 @@ export const completeExercise = async (
     weight: number;
     rpe?: number;
     notes?: string;
-  }
+  },
 ): Promise<Exercise> => {
   try {
     const headers = await getAuthHeaders();
@@ -909,13 +916,13 @@ export const completeExercise = async (
       path: `/exercises/${exercise_id}/complete`,
       options: {
         headers,
-        body: completionData
-      }
+        body: completionData,
+      },
     });
-    
+
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const responseData = await actualResponse.body.json();
@@ -928,7 +935,7 @@ export const completeExercise = async (
         throw new Error('Invalid response format');
       }
     }
-    
+
     throw new Error('No response data');
   } catch (error) {
     console.error('Error completing exercise:', error);
@@ -946,7 +953,7 @@ export const trackExerciseSet = async (
     rpe?: number;
     completed?: boolean;
     notes?: string;
-  }
+  },
 ): Promise<Exercise> => {
   try {
     const headers = await getAuthHeaders();
@@ -955,13 +962,13 @@ export const trackExerciseSet = async (
       path: `/exercises/${exerciseId}/sets/${setNumber}`,
       options: {
         headers,
-        body: setData
-      }
+        body: setData,
+      },
     });
-    
+
     // For Amplify v6, await the response
     const actualResponse = await apiResponse.response;
-    
+
     if (actualResponse && actualResponse.body) {
       try {
         const responseData = await actualResponse.body.json();
@@ -971,24 +978,21 @@ export const trackExerciseSet = async (
         throw new Error('Invalid response format');
       }
     }
-    
+
     throw new Error('No response data');
   } catch (error) {
     console.error('Error tracking exercise set:', error);
     throw error;
   }
-}
+};
 
-export const deleteSet = async (
-  exerciseId: string,
-  setNumber: number
-): Promise<void> => {
+export const deleteSet = async (exerciseId: string, setNumber: number): Promise<void> => {
   try {
     const headers = await getAuthHeaders();
     await del({
       apiName: 'flow-api',
       path: `/exercises/${exerciseId}/sets/${setNumber}`,
-      options: { headers }
+      options: { headers },
     });
   } catch (error) {
     console.error('Error deleting set:', error);
