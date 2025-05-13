@@ -84,15 +84,19 @@ def create_day_workout(event, context):
         # Transform exercises to format expected by workout_service
         transformed_exercises = []
         for exercise in exercises:
-            transformed_exercises.append(
-                {
-                    "exercise_type": exercise.get("exerciseType"),
-                    "sets": exercise.get("sets", 1),
-                    "reps": exercise.get("reps", 1),
-                    "weight": exercise.get("weight", 0),
-                    "notes": exercise.get("notes", ""),
-                }
-            )
+            transformed_exercise = {
+                "exercise_type": exercise.get("exerciseType"),
+                "sets": exercise.get("sets", 1),
+                "reps": exercise.get("reps", 1),
+                "weight": exercise.get("weight", 0),
+                "rpe": exercise.get("rpe"),
+                "notes": exercise.get("notes", ""),
+            }
+
+            if "sets_data" in exercise:
+                transformed_exercise["sets_data"] = exercise.get("sets_data")
+
+            transformed_exercises.append(transformed_exercise)
 
         # Create the workout
         workout = workout_service.create_workout(

@@ -3,9 +3,9 @@ import { post } from 'aws-amplify/api';
 
 interface Set {
   set_number: number;
-  reps: number;
-  weight: number;
-  rpe?: number;
+  reps: number | null;
+  weight: number | null;
+  rpe?: number | null;
   notes?: string;
 }
 
@@ -18,31 +18,47 @@ interface ExerciseFormProps {
 
 export default function ExerciseForm({ exerciseType, exerciseId, workoutId, onSetLogged }: ExerciseFormProps) {
   const [sets, setSets] = useState<Set[]>([
-    { set_number: 1, reps: 0, weight: 0 }
+    { set_number: 1, reps: null, weight: null }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const addSet = () => {
-    setSets([...sets, { set_number: sets.length + 1, reps: 0, weight: 0 }]);
+    setSets([...sets, { set_number: sets.length + 1, reps: null, weight: null }]);
   };
 
   const updateSet = (index: number, field: keyof Set, value: number | string) => {
     const updatedSets = [...sets];
-    updatedSets[index] = { ...updatedSets[index], [field]: value };
+    
+    // Handle empty string case specially
+    const finalValue = typeof value === 'string' && value === '' 
+      ? null  // Store null when input is empty
+      : typeof value === 'string' 
+        ? Number(value) 
+        : value;
+        
+    updatedSets[index] = { ...updatedSets[index], [field]: finalValue };
     setSets(updatedSets);
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // Submit exercise with sets to API using the updated Amplify v6 syntax
+      // Convert null values to 0 before submission
+      const setsToSubmit = sets.map(set => ({
+        ...set,
+        reps: set.reps ?? 0,
+        weight: set.weight ?? 0,
+        rpe: set.rpe === undefined ? null : set.rpe
+      }));
+  
+      // Submit exercise with sets to API
       await post({
         apiName: 'flow-api',
         path: `/exercises/${exerciseId}/sets`,
         options: {
           body: {
             workout_id: workoutId,
-            sets
+            sets: setsToSubmit
           }
         }
       });
@@ -75,24 +91,24 @@ export default function ExerciseForm({ exerciseType, exerciseId, workoutId, onSe
                 <td className="py-2">
                   <input
                     type="number"
-                    value={set.weight}
-                    onChange={(e) => updateSet(index, 'weight', Number(e.target.value))}
+                    value={set.weight === null ? '' : set.weight}
+                    onChange={(e) => updateSet(index, 'weight', e.target.value)}
                     className="w-20 p-1 border rounded"
                   />
                 </td>
                 <td className="py-2">
                   <input
                     type="number"
-                    value={set.reps}
-                    onChange={(e) => updateSet(index, 'reps', Number(e.target.value))}
+                    value={set.reps === null ? '' : set.reps}
+                    onChange={(e) => updateSet(index, 'reps', e.target.value)}
                     className="w-16 p-1 border rounded"
                   />
                 </td>
                 <td className="py-2">
                   <input
                     type="number"
-                    value={set.rpe || ''}
-                    onChange={(e) => updateSet(index, 'rpe', Number(e.target.value))}
+                    value={set.rpe === null ? '' : (set.rpe || '')}
+                    onChange={(e) => updateSet(index, 'rpe', e.target.value)}
                     className="w-16 p-1 border rounded"
                     placeholder="1-10"
                     min="0"

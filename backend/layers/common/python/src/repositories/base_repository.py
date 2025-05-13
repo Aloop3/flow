@@ -1,6 +1,9 @@
 import boto3
 from typing import Dict, Any, Optional
-from src.utils.decimal_converter import convert_floats_to_decimals
+from src.utils.decimal_converter import (
+    convert_floats_to_decimals,
+    convert_decimals_to_floats,
+)
 from src.config.app_config import AppConfig
 
 
@@ -27,7 +30,12 @@ class BaseRepository:
         :return: The retrieved item as a dictionary, or None if not found
         """
         response = self.table.get_item(Key={id_name: id_value})
-        return response.get("Item")
+        item = response.get("Item")
+
+        if item:
+            return convert_decimals_to_floats(item)
+
+        return None
 
     def create(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """

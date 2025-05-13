@@ -158,55 +158,49 @@ class ExerciseService:
         completed: bool = True,
         notes: Optional[str] = None,
     ) -> Optional[Exercise]:
-        """
-        Track a specific set within an exercise
-
-        :param exercise_id: ID of the exercise
-        :param set_number: Number of the set
-        :param reps: Number of repetitions performed
-        :param weight: Weight used
-        :param rpe: Rate of Perceived Exertion (optional)
-        :param completed: Whether the set was completed
-        :param notes: Additional notes
-        :return: Updated Exercise object if found, else None
-        """
+        """Track a specific set within an exercise"""
         # Get the exercise
         exercise = self.get_exercise(exercise_id)
-
         if not exercise:
             return None
 
-        # Create/update set data
+        # Add/update set data as before
         set_data = {
             "set_number": set_number,
             "reps": reps,
             "weight": weight,
             "completed": completed,
         }
-
         if rpe is not None:
             set_data["rpe"] = rpe
-
         if notes:
             set_data["notes"] = notes
 
         # Add set data to exercise
         exercise.add_set_data(set_data)
 
-        # If this is the first set and it's completed, update exercise status
-        if completed and exercise.status == "planned":
-            update_data = {"sets_data": exercise.sets_data, "status": "in_progress"}
-        else:
-            update_data = {"sets_data": exercise.sets_data}
-
-        # Update in repository
-        updated_exercise_data = self.exercise_repository.update_exercise(
-            exercise_id, update_data
+        # Calculate the actual number of completed sets
+        completed_sets = len(
+            [s for s in exercise.sets_data if s.get("completed", False)]
+        )
+        highest_set_number = max(
+            [s.get("set_number", 0) for s in exercise.sets_data] or [0]
         )
 
-        if not updated_exercise_data:
-            return None
+        # Use the maximum of highest set number and completed sets count
+        actual_sets_count = max(completed_sets, highest_set_number)
 
+        # Update exercise data
+        update_data = {
+            "sets_data": exercise.sets_data,
+            "sets": actual_sets_count,
+        }
+
+        if completed and exercise.status == "planned":
+            update_data["status"] = "in_progress"
+
+        # Update in repository and return
+        self.exercise_repository.update_exercise(exercise_id, update_data)
         return self.get_exercise(exercise_id)
 
     def delete_set(self, exercise_id: str, set_number: int) -> Optional[Exercise]:
@@ -234,8 +228,20 @@ class ExerciseService:
         if len(updated_sets_data) == len(exercise.sets_data):
             return exercise
 
+        # Reorder set numbers to ensure they're sequential
+        for i, set_data in enumerate(
+            sorted(updated_sets_data, key=lambda s: s.get("set_number", 0))
+        ):
+            set_data["set_number"] = i + 1
+
+        # Calculate the new number of sets based on the updated data
+        new_set_count = len(updated_sets_data)
+
         # Update the exercise with the new sets_data
-        update_data = {"sets_data": updated_sets_data}
+        update_data = {
+            "sets_data": updated_sets_data,
+            "sets": new_set_count,  # Update the total set count
+        }
 
         # Automatically recalculate exercise status based on remaining sets
         if not updated_sets_data:

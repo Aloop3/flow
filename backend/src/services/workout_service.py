@@ -135,6 +135,7 @@ class WorkoutService:
                 order=i + 1,
                 exercise_category=exercise_data.get("exercise_category"),
                 is_predefined=exercise_data.get("is_predefined"),
+                sets_data=exercise_data.get("sets_data"),
             )
 
             # Save the exercise in the ExerciseTable

@@ -173,15 +173,8 @@ const SetTracker = ({
         await deleteSet(validExerciseId, setNumber);
       }
       
-      // For sets after the deleted one, we'll let backend handle them
-      
-      // If removing the highest set number, just decrement the counter
-      if (setNumber === actualSets) {
-        setActualSets(prev => prev - 1);
-      } else {
-        // For sets in the middle, we still need to update local UI
-        setActualSets(prev => prev - 1);
-      }
+      // Always decrement the set count
+      setActualSets(prev => prev - 1);
       
       // If active set was removed, clear it
       if (activeSetNumber === setNumber) {

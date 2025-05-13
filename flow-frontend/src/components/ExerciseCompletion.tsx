@@ -61,6 +61,7 @@ const ExerciseCompletion = ({ exercise, onComplete, onCancel }: ExerciseCompleti
         reps: localExercise.reps, 
         weight: localExercise.weight,
         rpe: localExercise.rpe,
+        status: allSetsCompleted ? 'completed' as 'completed' : 'planned' as 'planned',
         notes: localExercise.notes
       };
   
@@ -76,7 +77,7 @@ const ExerciseCompletion = ({ exercise, onComplete, onCancel }: ExerciseCompleti
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-medium">{exercise.exercise_type}</h3>
+      {/* <h3 className="text-lg font-medium">{exercise.exercise_type}</h3> */}
       
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
