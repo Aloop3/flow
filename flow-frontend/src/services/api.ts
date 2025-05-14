@@ -797,6 +797,61 @@ export const getWorkoutStatus = (
 };
 
 // Exercise endpoints
+export const createExercise = async (
+  exerciseData: {
+    workout_id: string;
+    exercise_type: string;
+    sets: number;
+    reps: number;
+    weight: number;
+    rpe?: number;
+    status?: 'planned' | 'completed' | 'skipped';
+    notes?: string;
+  }
+): Promise<Exercise> => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await post({
+      apiName: 'flow-api',
+      path: '/exercises',
+      options: {
+        headers,
+        body: exerciseData,
+      },
+    });
+    const actualResponse = await response.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        return responseData as unknown as Exercise;
+      } catch (e) {
+        console.error('Failed to parse response in createExercise:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+    
+    throw new Error('No response data');
+  } catch (error) {
+    console.error('Error creating exercise:', error);
+    throw error;
+  }
+};
+ 
+export const deleteExercise = async (exerciseId: string): Promise<void> => {
+  try {
+    const headers = await getAuthHeaders();
+    await del({
+      apiName: 'flow-api',
+      path: `/exercises/${exerciseId}`,
+      options: { headers },
+    });
+  } catch (error) {
+    console.error('Error deleting exercise:', error);
+    throw error;
+  }
+};
+
 export const getExercisesForWorkout = async (workout_id: string): Promise<Exercise[]> => {
   try {
     if (!workout_id) {
