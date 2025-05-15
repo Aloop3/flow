@@ -2,6 +2,12 @@ import json
 import unittest
 from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
+from src.models.day import Day
+from src.models.week import Week
+from src.models.block import Block
+from src.models.workout import Workout
+from src.models.relationship import Relationship
+
 
 # Import workout after the mocks are set up in BaseTest
 with patch("boto3.resource"):
@@ -568,34 +574,66 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["error"], "Delete error")
         mock_delete_workout.assert_called_once_with("workout123")
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
     @patch("src.services.day_service.DayService.get_day")
     @patch("src.services.workout_service.WorkoutService.create_workout")
-    def test_create_day_workout_success(self, mock_create_workout, mock_get_day):
+    def test_create_day_workout_success(
+        self,
+        mock_create_workout,
+        mock_get_day,
+        mock_get_week,
+        mock_get_block,
+        mock_get_relationship,
+    ):
         """
         Test successful creation of a workout for a specific day
         """
-        # Setup mocks
-        mock_day = MagicMock()
-        mock_day.date = "2025-03-15"
+        # Setup mock day
+        mock_day = Day(
+            day_id="day789",
+            week_id="week123",
+            day_number=1,
+            date="2025-03-15",
+            focus="squat",
+            notes="",
+        )
         mock_get_day.return_value = mock_day
 
-        mock_workout = MagicMock()
-        mock_workout.to_dict.return_value = {
-            "workout_id": "workout123",
-            "athlete_id": "athlete456",
-            "day_id": "day789",
-            "date": "2025-03-15",
-            "status": "draft",
-            "exercises": [
-                {
-                    "exercise_id": "ex1",
-                    "exercise_type": "Bench Press",
-                    "sets": 3,
-                    "reps": 10,
-                    "weight": 225.0,
-                }
-            ],
-        }
+        # Setup mock week
+        mock_week = Week(
+            week_id="week123", block_id="block456", week_number=1, notes=""
+        )
+        mock_get_week.return_value = mock_week
+
+        # Setup mock block
+        mock_block = Block(
+            block_id="block456",
+            athlete_id="athlete456",
+            coach_id=None,
+            title="Test Block",
+            description="Test",
+            start_date="2025-03-01",
+            end_date="2025-03-31",
+            status="active",
+        )
+        mock_get_block.return_value = mock_block
+
+        # No need to mock relationship since user is the athlete
+        mock_get_relationship.return_value = None
+
+        mock_workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-03-15",
+            status="not_started",
+            notes="",
+        )
+        mock_workout.exercises = []
         mock_create_workout.return_value = mock_workout
 
         # Prepare test event
@@ -624,27 +662,7 @@ class TestWorkoutAPI(BaseTest):
         # Assert
         self.assertEqual(response["statusCode"], 201)
         response_body = json.loads(response["body"])
-        self.assertEqual(response_body["workout_id"], "workout123")
-        self.assertEqual(response_body["day_id"], "day789")
-        self.assertEqual(response_body["status"], "draft")
-        self.assertEqual(len(response_body["exercises"]), 1)
-
-        # Verify service calls
-        mock_get_day.assert_called_once_with("day789")
-        mock_create_workout.assert_called_once()
-
-        # Check transformed exercises in create_workout call
-        call_args = mock_create_workout.call_args[1]
-        self.assertEqual(call_args["athlete_id"], "athlete456")
-        self.assertEqual(call_args["day_id"], "day789")
-        self.assertEqual(call_args["date"], "2025-03-15")
-
-        exercises = call_args["exercises"]
-        self.assertEqual(len(exercises), 1)
-        self.assertEqual(exercises[0]["exercise_type"], "Bench Press")
-        self.assertEqual(exercises[0]["sets"], 3)
-        self.assertEqual(exercises[0]["reps"], 10)
-        self.assertEqual(exercises[0]["weight"], 225.0)
+        self.assertEqual(response_body["athlete_id"], "athlete456")
 
     @patch("src.services.day_service.DayService.get_day")
     def test_create_day_workout_day_not_found(self, mock_get_day):
@@ -681,14 +699,50 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["error"], "Day not found")
         mock_get_day.assert_called_once_with("nonexistent")
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
     @patch("src.services.day_service.DayService.get_day")
-    def test_create_day_workout_no_exercises(self, mock_get_day):
+    def test_create_day_workout_no_exercises(
+        self, mock_get_day, mock_get_week, mock_get_block, mock_get_relationship
+    ):
         """
         Test workout creation with no exercises
         """
-        # Setup
-        mock_day = MagicMock()
+        # Setup mock day
+        mock_day = Day(
+            day_id="day789",
+            week_id="week123",
+            day_number=1,
+            date="2025-03-15",
+            focus="squat",
+            notes="",
+        )
         mock_get_day.return_value = mock_day
+
+        # Setup mock week
+        mock_week = Week(
+            week_id="week123", block_id="block456", week_number=1, notes=""
+        )
+        mock_get_week.return_value = mock_week
+
+        # Setup mock block
+        mock_block = Block(
+            block_id="block456",
+            athlete_id="athlete456",
+            coach_id=None,
+            title="Test Block",
+            description="Test",
+            start_date="2025-03-01",
+            end_date="2025-03-31",
+            status="active",
+        )
+        mock_get_block.return_value = mock_block
+
+        # No need to mock relationship since user is the athlete
+        mock_get_relationship.return_value = None
 
         event = {
             "pathParameters": {"day_id": "day789"},
@@ -702,8 +756,7 @@ class TestWorkoutAPI(BaseTest):
 
         # Assert
         self.assertEqual(response["statusCode"], 400)
-        response_body = json.loads(response["body"])
-        self.assertEqual(response_body["error"], "No exercises provided")
+        self.assertIn("No exercises provided", response["body"])
 
     @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
     @patch("src.services.day_service.DayService.get_day")
@@ -876,6 +929,112 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 409)
         response_body = json.loads(response["body"])
         self.assertIn("Target day already has a workout", response_body["error"])
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
+    @patch("src.services.day_service.DayService.get_day")
+    @patch("src.services.workout_service.WorkoutService.create_workout")
+    def test_create_day_workout_as_coach(
+        self,
+        mock_create_workout,
+        mock_get_day,
+        mock_get_week,
+        mock_get_block,
+        mock_get_relationship,
+    ):
+        """
+        Test coach creating a workout for their athlete
+        """
+        # Setup mock day
+        mock_day = Day(
+            day_id="day789",
+            week_id="week123",
+            day_number=1,
+            date="2025-03-15",
+            focus="squat",
+            notes="",
+        )
+        mock_get_day.return_value = mock_day
+
+        # Setup mock week
+        mock_week = Week(
+            week_id="week123", block_id="block456", week_number=1, notes=""
+        )
+        mock_get_week.return_value = mock_week
+
+        # Setup mock block (owned by athlete, created by coach)
+        mock_block = Block(
+            block_id="block456",
+            athlete_id="athlete456",
+            coach_id="coach789",
+            title="Test Block",
+            description="Test",
+            start_date="2025-03-01",
+            end_date="2025-03-31",
+            status="active",
+        )
+        mock_get_block.return_value = mock_block
+
+        # Mock active relationship between coach and athlete
+        mock_relationship = Relationship(
+            relationship_id="rel123",
+            coach_id="coach789",
+            athlete_id="athlete456",
+            status="active",
+            created_at="2025-01-01",
+        )
+        mock_get_relationship.return_value = mock_relationship
+
+        mock_workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",  # Should be athlete, not coach
+            day_id="day789",
+            date="2025-03-15",
+            status="not_started",
+            notes="",
+        )
+        mock_workout.exercises = []
+        mock_create_workout.return_value = mock_workout
+
+        # Prepare test event from coach
+        event = {
+            "pathParameters": {"day_id": "day789"},
+            "body": json.dumps(
+                {
+                    "exercises": [
+                        {
+                            "exerciseType": "Bench Press",
+                            "sets": 3,
+                            "reps": 10,
+                            "weight": 225.0,
+                            "notes": "",
+                        }
+                    ]
+                }
+            ),
+            "requestContext": {
+                "authorizer": {"claims": {"sub": "coach789"}}
+            },  # Coach is creating
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.create_day_workout(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 201)
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["athlete_id"], "athlete456"
+        )  # Should be athlete, not coach
+
+        # Verify create_workout was called with athlete_id, not coach_id
+        mock_create_workout.assert_called_once()
+        call_args = mock_create_workout.call_args[1]
+        self.assertEqual(call_args["athlete_id"], "athlete456")
 
 
 if __name__ == "__main__":

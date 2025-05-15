@@ -3,6 +3,9 @@ import logging
 from src.services.workout_service import WorkoutService
 from src.repositories.workout_repository import WorkoutRepository
 from src.services.day_service import DayService
+from src.services.week_service import WeekService
+from src.services.block_service import BlockService
+from src.services.relationship_service import RelationshipService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
 from src.middleware.common_middleware import log_request, handle_errors
@@ -12,6 +15,9 @@ logger.setLevel(logging.INFO)
 
 workout_service = WorkoutService()
 day_service = DayService()
+week_service = WeekService()
+block_service = BlockService()
+relationship_service = RelationshipService()
 
 
 @with_middleware([log_request, handle_errors])
@@ -64,13 +70,36 @@ def create_day_workout(event, context):
         body = json.loads(event["body"])
 
         # Extract user info from cognito claims
-        athlete_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
 
-        # Get the day to ensure it exists and get its date
+        # Get the day to determine the actual athlete
         day = day_service.get_day(day_id)
-
         if not day:
             return create_response(404, {"error": "Day not found"})
+
+        # Get the week to find the block
+        week = week_service.get_week(day.week_id)
+        if not week:
+            return create_response(404, {"error": "Week not found"})
+
+        # Get the block to find the actual athlete
+        block = block_service.get_block(week.block_id)
+        if not block:
+            return create_response(404, {"error": "Block not found"})
+
+        # Use the block's athlete_id, not the current user's ID
+        athlete_id = block.athlete_id
+
+        # Verify the current user has permission (either is the athlete or their coach)
+        if current_user_id != athlete_id:
+            # Check if current user is the coach
+            relationship = relationship_service.get_active_relationship(
+                coach_id=current_user_id, athlete_id=athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized to create workout for this athlete"}
+                )
 
         # Use the day's date from the database to ensure consistency
         date = day.date
@@ -98,7 +127,7 @@ def create_day_workout(event, context):
 
             transformed_exercises.append(transformed_exercise)
 
-        # Create the workout
+        # Create the workout with the athlete_id
         workout = workout_service.create_workout(
             athlete_id=athlete_id,
             day_id=day_id,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { getBlocks } from '../services/api';
+import { getBlocks, getCoachRelationships, getUser } from '../services/api';
 import type { Block } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
 
@@ -14,6 +14,8 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [activeBlock, setActiveBlock] = useState<Block | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [athletes, setAthletes] = useState<any[]>([]);
+  const [isLoadingAthletes, setIsLoadingAthletes] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,6 +37,68 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
   
     fetchData();
   }, [user.user_id]);
+  
+  useEffect(() => {
+    const fetchAthletes = async () => {
+      if (user.role !== 'coach') return;
+      
+      setIsLoadingAthletes(true);
+      try {
+        const relationships = await getCoachRelationships(user.user_id);
+        
+        // Extract athlete IDs from relationships
+        const athletesList = await Promise.all(
+          relationships.map(async (rel) => {
+            try {
+              // Fetch full athlete details using their ID
+              const athlete = await getUser(rel.athlete_id);
+              return {
+                athlete_id: rel.athlete_id,
+                name: athlete?.name || 'Unknown Athlete',
+                relationship_id: rel.relationship_id
+              };
+            } catch (error) {
+              console.error(`Error fetching athlete ${rel.athlete_id}:`, error);
+              return {
+                athlete_id: rel.athlete_id,
+                name: 'Unknown Athlete',
+                relationship_id: rel.relationship_id
+              };
+            }
+          })
+        );
+        
+        // For each athlete, fetch their active program
+        const athletesWithPrograms = await Promise.all(
+          athletesList.map(async (athlete) => {
+            try {
+              const blocks = await getBlocks(athlete.athlete_id);
+              const activeBlock = blocks.find(block => block.status === 'active');
+              return {
+                ...athlete,
+                activeProgram: activeBlock?.title || null
+              };
+            } catch (error) {
+              console.error(`Error fetching blocks for athlete ${athlete.athlete_id}:`, error);
+              return {
+                ...athlete,
+                activeProgram: null
+              };
+            }
+          })
+        );
+        
+        setAthletes(athletesWithPrograms);
+      } catch (error) {
+        console.error('Error fetching athletes:', error);
+        setAthletes([]);
+      } finally {
+        setIsLoadingAthletes(false);
+      }
+    };
+  
+    fetchAthletes();
+  }, [user.role, user.user_id]);
   
 
   return (
@@ -127,6 +191,43 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                 <p className="text-gray-500">No programs found. Create your first program.</p>
               )}
             </div>
+            {user.role === 'coach' && (
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900">My Athletes</h2>
+                  </div>
+                  
+                  {isLoadingAthletes ? (
+                    <div className="animate-pulse space-y-4">
+                      <div className="h-20 bg-gray-200 rounded-lg"></div>
+                      <div className="h-20 bg-gray-200 rounded-lg"></div>
+                    </div>
+                  ) : athletes.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {athletes.map((athlete) => (
+                        <Link
+                          key={athlete.athlete_id}
+                          to={`/coach/athletes/${athlete.athlete_id}/blocks`}
+                          className="bg-white shadow rounded-lg p-4 hover:shadow-md transition-shadow"
+                        >
+                          <h3 className="text-lg font-medium text-gray-900">{athlete.name}</h3>
+                          <p className="mt-2 text-sm">
+                            {athlete.activeProgram ? (
+                              <span className="text-green-600">Active: {athlete.activeProgram}</span>
+                            ) : (
+                              <span className="text-gray-400">No active program</span>
+                            )}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white shadow rounded-lg p-6 text-center">
+                      <p className="text-gray-500">No athletes yet. Athletes must accept your invitation first.</p>
+                    </div>
+                  )}
+                </div>
+              )}
           </>
         )}
       </div>

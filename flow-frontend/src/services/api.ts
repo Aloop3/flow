@@ -1054,3 +1054,35 @@ export const deleteSet = async (exerciseId: string, setNumber: number): Promise<
     throw error;
   }
 };
+
+// Relationship endpoints
+export const getCoachRelationships = async (coachId: string, status: 'active' | 'pending' | 'ended' = 'active'): Promise<any[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    console.log('Fetching relationships for coach:', coachId);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path: `/coaches/${coachId}/relationships?status=${status}`,
+      options: { headers }
+    });
+
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        console.log('Coach relationships data:', responseData);
+        return Array.isArray(responseData) ? responseData : [];
+      } catch (e) {
+        console.error('Failed to parse relationships data:', e);
+        return [];
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching coach relationships:', error);
+    return [];
+  }
+};
