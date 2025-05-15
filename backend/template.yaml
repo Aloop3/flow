@@ -619,6 +619,12 @@ Resources:
             TableName: !Ref DaysTable
         - DynamoDBCrudPolicy:
             TableName: !Ref ExercisesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RelationshipsTable
 
 
       Events:
