@@ -3,8 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Authenticator } from '@aws-amplify/ui-react';
 import { getCurrentUser } from 'aws-amplify/auth';
 import '@aws-amplify/ui-react/styles.css';
-
-// Import components
 import RoleSelector from './components/RoleSelector';
 import Dashboard from './pages/Dashboard';
 import Blocks from './pages/Blocks';
@@ -15,6 +13,9 @@ import { getUser } from './services/api';
 import BlockCreate from './pages/BlockCreate';
 import BlockEdit from './pages/BlockEdit';
 import DayDetail from './pages/DayDetail';
+import CoachAthleteBlocks from './pages/coach/CoachAthleteBlocks';
+import CoachBlockCreate from './pages/coach/CoachBlockCreate';
+
 
 //  AuthenticatedApp component extracted
 const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void }) => {
@@ -110,6 +111,8 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
           <Route path="/workout/:workoutId" element={<Workout user={userData} signOut={signOut} />} />
           <Route path="/days/:dayId" element={<DayDetail user={userData} signOut={signOut} />} />
           <Route path="/profile" element={<Profile user={userData} signOut={signOut} />} />
+          <Route path="/coach/athletes/:athleteId/blocks" element={<CoachAthleteBlocks user={userData} signOut={signOut} />} />
+          <Route path="/coach/athletes/:athleteId/blocks/new" element={<CoachBlockCreate user={userData} signOut={signOut} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <DebugButton />
