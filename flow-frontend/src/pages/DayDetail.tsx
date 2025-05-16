@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import WorkoutForm from '../components/WorkoutForm';
 import DaySelector from '../components/DaySelector';
-import { getDay, getWorkoutByDay, copyWorkout, ApiError } from '../services/api';
+import { getDay, getWorkoutByDay, getBlock, copyWorkout, ApiError } from '../services/api';
 import type { Day, Workout } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
 import FocusTag from '../components/FocusTag';
@@ -16,7 +16,14 @@ interface DayDetailProps {
 }
 
 const DayDetail = ({ user, signOut }: DayDetailProps) => {
-  const { dayId, blockId } = useParams<{ dayId: string; blockId: string }>();
+  const { dayId } = useParams<{ dayId: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract blockId from query parameters
+  const queryParams = new URLSearchParams(location.search);
+  const blockId = queryParams.get('blockId');
+  
   const [day, setDay] = useState<Day | null>(null);
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +31,6 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (!dayId) return;
@@ -32,16 +38,41 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     const fetchDayData = async () => {
       setIsLoading(true);
       try {
+        // Log current operation
+        console.log('Fetching day data for dayId:', dayId);
         const dayData = await getDay(dayId);
         setDay(dayData);
 
-        // Try to load existing workout with consistent ID property
+        // Determine the correct athlete ID for workout lookup
+        let athleteId = user.user_id;
+        
+        console.log('Current user ID:', user.user_id);
+        console.log('Current user role:', user.role);
+        console.log('Block ID from query params:', blockId);
+        
+        if (blockId && user.role === 'coach') {
+          try {
+            console.log('Fetching block data for ID:', blockId);
+            const blockData = await getBlock(blockId);
+            console.log('Block data received:', blockData);
+            
+            if (blockData && blockData.athlete_id) {
+              athleteId = blockData.athlete_id;
+              console.log('Using athlete ID from block:', athleteId);
+            }
+          } catch (blockErr) {
+            console.error('Error fetching block data:', blockErr);
+          }
+        }
+
+        // Try to load existing workout with the appropriate athlete ID
+        console.log('Fetching workout with athlete ID:', athleteId, 'day ID:', dayId);
         try {
-          // Ensure we're using the correct user ID property consistently
-          const workoutData = await getWorkoutByDay(user.user_id, dayId);
+          const workoutData = await getWorkoutByDay(athleteId, dayId);
+          console.log('Workout data received:', workoutData);
           setWorkout(workoutData);
         } catch (err) {
-          console.log('No workout yet or error loading it');
+          console.log('No workout yet or error loading it:', err);
           setWorkout(null);
         }
       } catch (err) {
@@ -53,7 +84,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     };
 
     fetchDayData();
-  }, [dayId, user.user_id]);
+  }, [dayId, user.user_id, user.role, blockId]);
 
   const handleWorkoutSaved = async (workoutId: string) => {
     // Refresh the workout data after saving
@@ -63,7 +94,22 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     }
 
     try {
-      const workoutData = await getWorkoutByDay(user.user_id, dayId);
+      // Determine the correct athlete ID
+      let athleteId = user.user_id;
+      
+      if (blockId && user.role === 'coach') {
+        try {
+          const blockData = await getBlock(blockId);
+          if (blockData && blockData.athlete_id) {
+            athleteId = blockData.athlete_id;
+            console.log('Using athlete ID for workout refresh:', athleteId);
+          }
+        } catch (blockErr) {
+          console.error('Error fetching block data:', blockErr);
+        }
+      }
+      
+      const workoutData = await getWorkoutByDay(athleteId, dayId);
       setWorkout(workoutData);
       setShowWorkoutForm(false);
       toast.success('Workout saved successfully!');
@@ -74,13 +120,30 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   };
 
   const refreshWorkoutData = async () => {
-    if (!dayId || !user.user_id) {
+    if (!dayId) {
       return;
     }
 
     try {
       console.log('Refreshing workout data');
-      const workoutData = await getWorkoutByDay(user.user_id, dayId);
+      
+      // Determine the correct athlete ID
+      let athleteId = user.user_id;
+      
+      if (blockId && user.role === 'coach') {
+        try {
+          const blockData = await getBlock(blockId);
+          if (blockData && blockData.athlete_id) {
+            athleteId = blockData.athlete_id;
+            console.log('Refreshing with athlete ID:', athleteId);
+          }
+        } catch (blockErr) {
+          console.error('Error fetching block data:', blockErr);
+        }
+      }
+      
+      console.log('Refreshing workout with athlete ID:', athleteId, 'day ID:', dayId);
+      const workoutData = await getWorkoutByDay(athleteId, dayId);
 
       if (workoutData) {
         console.log('Updated workout data:', workoutData);
@@ -119,9 +182,6 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   };
 
   const navigateBack = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const blockId = urlParams.get('blockId'); // Retrieve blockId from query params
-
     if (blockId) {
       // Navigate to the path including the blockId
       navigate(`/blocks/${blockId}`);
