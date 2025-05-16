@@ -151,13 +151,13 @@ class TestWorkoutRepository(unittest.TestCase):
         }
 
         # Configure mocks
-        self.mock_table.scan.return_value = {"Items": [mock_workout]}
+        self.mock_table.query.return_value = {"Items": [mock_workout]}
 
         # Call the method
         result = self.workout_repository.get_workout_by_day("athlete456", "day789")
 
-        # Assert scan was called with correct filter
-        self.mock_table.scan.assert_called_once()
+        # Assert query was called with correct filter
+        self.mock_table.query.assert_called_once()
 
         # Assert the result contains the workout data
         self.assertEqual(result["workout_id"], "workout123")
@@ -168,15 +168,15 @@ class TestWorkoutRepository(unittest.TestCase):
         Test retrieving a workout by day when it doesn't exist
         """
         # Configure mock to return empty list
-        self.mock_table.scan.return_value = {"Items": []}
+        self.mock_table.query.return_value = {"Items": []}
 
         # Call the method
         result = self.workout_repository.get_workout_by_day(
             "athlete456", "nonexistent-day"
         )
 
-        # Assert scan was called
-        self.mock_table.scan.assert_called_once()
+        # Assert query was called
+        self.mock_table.query.assert_called_once()
 
         # Assert the result is None
         self.assertIsNone(result)
