@@ -43,12 +43,16 @@ class WorkoutRepository(BaseRepository):
         :param day_id: The ID of the day.
         :return: A dictionary containing the workout data if found, None otherwise.
         """
-        response = self.table.scan(
-            FilterExpression=Attr("athlete_id").eq(athlete_id)
-            & Attr("day_id").eq(day_id)
+
+        # Use the day-index GSI for efficient lookup
+        response = self.table.query(
+            IndexName=WorkoutConfig.DAY_INDEX,
+            KeyConditionExpression=Key("day_id").eq(day_id),
+            FilterExpression=Attr("athlete_id").eq(athlete_id),
         )
 
         items = response.get("Items", [])
+
         if not items:
             return None
 
