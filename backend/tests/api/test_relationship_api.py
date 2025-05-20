@@ -394,6 +394,197 @@ class TestRelationshipAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Test exception")
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.generate_invitation_code"
+    )
+    def test_generate_invitation_code_success(self, mock_generate_invitation_code):
+        """
+        Test successful invitation code generation
+        """
+        # Setup
+        mock_rel = MagicMock()
+        mock_rel.invitation_code = "TEST123456"
+        mock_rel.expiration_time = 1715000000  # Example timestamp
+        mock_rel.relationship_id = "rel123"
+        mock_generate_invitation_code.return_value = mock_rel
+
+        event = {"pathParameters": {"coach_id": "coach456"}}
+        context = {}
+
+        # Call API
+        response = relationship_api.generate_invitation_code(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 201)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["invitation_code"], "TEST123456")
+        self.assertEqual(response_body["expires_at"], 1715000000)
+        self.assertEqual(response_body["relationship_id"], "rel123")
+        mock_generate_invitation_code.assert_called_once_with("coach456")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.generate_invitation_code"
+    )
+    def test_generate_invitation_code_exception(self, mock_generate_invitation_code):
+        """
+        Test invitation code generation with service exception
+        """
+        # Setup
+        mock_generate_invitation_code.side_effect = Exception("Test exception")
+
+        event = {"pathParameters": {"coach_id": "coach456"}}
+        context = {}
+
+        # Call API
+        response = relationship_api.generate_invitation_code(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
+    def test_accept_invitation_code_success(self, mock_validate_invitation_code):
+        """
+        Test successful invitation code acceptance
+        """
+        # Setup
+        mock_rel = MagicMock()
+        mock_rel.to_dict.return_value = {
+            "relationship_id": "rel123",
+            "coach_id": "coach456",
+            "athlete_id": "athlete789",
+            "status": "active",
+            "created_at": "2025-03-13T12:00:00",
+        }
+        mock_validate_invitation_code.return_value = mock_rel
+
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "body": json.dumps({"invitation_code": "TEST123456"}),
+        }
+        context = {}
+
+        # Call API
+        response = relationship_api.accept_invitation_code(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["relationship_id"], "rel123")
+        self.assertEqual(response_body["status"], "active")
+        self.assertEqual(response_body["athlete_id"], "athlete789")
+        mock_validate_invitation_code.assert_called_once_with(
+            "TEST123456", "athlete789"
+        )
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
+    def test_accept_invitation_code_missing_code(self, mock_validate_invitation_code):
+        """
+        Test invitation code acceptance with missing code
+        """
+        # Setup
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "body": json.dumps({}),  # No invitation_code in body
+        }
+        context = {}
+
+        # Call API
+        response = relationship_api.accept_invitation_code(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Missing invitation code", response_body["error"])
+        mock_validate_invitation_code.assert_not_called()
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
+    def test_accept_invitation_code_invalid_code(self, mock_validate_invitation_code):
+        """
+        Test invitation code acceptance with invalid/expired code
+        """
+        # Setup - Service returns None for invalid code
+        mock_validate_invitation_code.return_value = None
+
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "body": json.dumps({"invitation_code": "INVALID123"}),
+        }
+        context = {}
+
+        # Call API
+        response = relationship_api.accept_invitation_code(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid or expired invitation code", response_body["error"])
+        mock_validate_invitation_code.assert_called_once_with(
+            "INVALID123", "athlete789"
+        )
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
+    def test_accept_invitation_code_existing_coach(self, mock_validate_invitation_code):
+        """
+        Test invitation code acceptance when athlete already has a coach
+        """
+        # Setup - ValueError for existing coach relationship
+        mock_validate_invitation_code.side_effect = ValueError(
+            "Athlete already has an active coach relationship"
+        )
+
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "body": json.dumps({"invitation_code": "TEST123456"}),
+        }
+        context = {}
+
+        # Call API
+        response = relationship_api.accept_invitation_code(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn(
+            "Athlete already has an active coach relationship", response_body["error"]
+        )
+        mock_validate_invitation_code.assert_called_once_with(
+            "TEST123456", "athlete789"
+        )
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
+    def test_accept_invitation_code_exception(self, mock_validate_invitation_code):
+        """
+        Test invitation code acceptance with service exception
+        """
+        # Setup
+        mock_validate_invitation_code.side_effect = Exception("Test exception")
+
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "body": json.dumps({"invitation_code": "TEST123456"}),
+        }
+        context = {}
+
+        # Call API
+        response = relationship_api.accept_invitation_code(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Test exception")
+
 
 if __name__ == "__main__":
     unittest.main()

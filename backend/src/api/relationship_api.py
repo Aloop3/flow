@@ -132,3 +132,60 @@ def get_relationship(event, context):
     except Exception as e:
         logger.error(f"Error getting relationship: {str(e)}")
         return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
+def generate_invitation_code(event, context):
+    """
+    Handle POST /coaches/{coach_id}/invitation request to generate an invitation code
+    """
+    try:
+        # Extract coach_id from path parameters
+        coach_id = event["pathParameters"]["coach_id"]
+
+        # Generate invitation code
+        relationship = relationship_service.generate_invitation_code(coach_id)
+
+        # Return code and expiration info
+        response_data = {
+            "invitation_code": relationship.invitation_code,
+            "expires_at": relationship.expiration_time,
+            "relationship_id": relationship.relationship_id,
+        }
+
+        return create_response(201, response_data)
+    except Exception as e:
+        logger.error(f"Error generating invitation code: {str(e)}")
+        return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
+def accept_invitation_code(event, context):
+    """
+    Handle POST /athletes/{athlete_id}/accept-invitation request to accept an invitation code
+    """
+    try:
+        # Extract athlete_id from path parameters
+        athlete_id = event["pathParameters"]["athlete_id"]
+        body = json.loads(event["body"])
+
+        # Extract invitation code from body
+        invitation_code = body.get("invitation_code")
+        if not invitation_code:
+            return create_response(400, {"error": "Missing invitation code"})
+
+        # Validate and accept the invitation
+        relationship = relationship_service.validate_invitation_code(
+            invitation_code, athlete_id
+        )
+
+        if not relationship:
+            return create_response(404, {"error": "Invalid or expired invitation code"})
+
+        return create_response(200, relationship.to_dict())
+    except ValueError as e:
+        # Handle existing relationship error
+        return create_response(400, {"error": str(e)})
+    except Exception as e:
+        logger.error(f"Error accepting invitation: {str(e)}")
+        return create_response(500, {"error": str(e)})

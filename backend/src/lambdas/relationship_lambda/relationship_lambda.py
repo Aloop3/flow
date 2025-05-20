@@ -13,6 +13,8 @@ ROUTE_MAP = {
     "POST /relationships/{relationship_id}/end": relationship_api.end_relationship,
     "GET /coaches/{coach_id}/relationships": relationship_api.get_relationships_for_coach,
     "GET /relationships/{relationship_id}": relationship_api.get_relationship,
+    "POST /coaches/{coach_id}/invitation": relationship_api.generate_invitation_code,
+    "POST /athletes/{athlete_id}/accept-invitation": relationship_api.accept_invitation_code,
 }
 
 

@@ -723,6 +723,18 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /relationships/{relationship_id}
             Method: get
+        GenerateInvitationCode:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /coaches/{coach_id}/invitation
+            Method: post
+        AcceptInvitationCode:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/accept-invitation
+            Method: post
           
   # Set Lambda function
   # SetFunction:

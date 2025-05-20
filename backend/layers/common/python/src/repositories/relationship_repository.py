@@ -81,6 +81,40 @@ class RelationshipRepository(BaseRepository):
         items = response.get("Items", [])
         return items[0] if items else None
 
+    def get_relationship_by_code(
+        self, invitation_code: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves a relationship by invitation code.
+
+        :param invitation_code: The invitation code to look up
+        :return: A dictionary containing the relationship data if found, None otherwise.
+        """
+        response = self.table.scan(
+            FilterExpression=Attr("invitation_code").eq(invitation_code)
+        )
+
+        items = response.get("Items", [])
+        return items[0] if items else None
+
+    def get_active_relationship_for_athlete(
+        self, athlete_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves active relationship for an athlete if exists
+
+        :param athlete_id: The ID of the athlete
+        :return: A dictionary containing the relationship data if found, None otherwise.
+        """
+        response = self.table.query(
+            IndexName=RelationshipConfig.ATHLETE_INDEX,
+            KeyConditionExpression=Key("athlete_id").eq(athlete_id),
+            FilterExpression=Attr("status").eq("active"),
+        )
+
+        items = response.get("Items", [])
+        return items[0] if items else None
+
     def create_relationship(self, relationship_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Creates a new relationship.
