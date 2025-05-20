@@ -394,7 +394,9 @@ class TestRelationshipAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Test exception")
 
-    @patch("src.services.relationship_service.RelationshipService.generate_invitation_code")
+    @patch(
+        "src.services.relationship_service.RelationshipService.generate_invitation_code"
+    )
     def test_generate_invitation_code_success(self, mock_generate_invitation_code):
         """
         Test successful invitation code generation
@@ -420,7 +422,9 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response_body["relationship_id"], "rel123")
         mock_generate_invitation_code.assert_called_once_with("coach456")
 
-    @patch("src.services.relationship_service.RelationshipService.generate_invitation_code")
+    @patch(
+        "src.services.relationship_service.RelationshipService.generate_invitation_code"
+    )
     def test_generate_invitation_code_exception(self, mock_generate_invitation_code):
         """
         Test invitation code generation with service exception
@@ -439,7 +443,9 @@ class TestRelationshipAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Test exception")
 
-    @patch("src.services.relationship_service.RelationshipService.validate_invitation_code")
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
     def test_accept_invitation_code_success(self, mock_validate_invitation_code):
         """
         Test successful invitation code acceptance
@@ -457,7 +463,7 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
-            "body": json.dumps({"invitation_code": "TEST123456"})
+            "body": json.dumps({"invitation_code": "TEST123456"}),
         }
         context = {}
 
@@ -470,9 +476,13 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response_body["relationship_id"], "rel123")
         self.assertEqual(response_body["status"], "active")
         self.assertEqual(response_body["athlete_id"], "athlete789")
-        mock_validate_invitation_code.assert_called_once_with("TEST123456", "athlete789")
+        mock_validate_invitation_code.assert_called_once_with(
+            "TEST123456", "athlete789"
+        )
 
-    @patch("src.services.relationship_service.RelationshipService.validate_invitation_code")
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
     def test_accept_invitation_code_missing_code(self, mock_validate_invitation_code):
         """
         Test invitation code acceptance with missing code
@@ -480,7 +490,7 @@ class TestRelationshipAPI(BaseTest):
         # Setup
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
-            "body": json.dumps({})  # No invitation_code in body
+            "body": json.dumps({}),  # No invitation_code in body
         }
         context = {}
 
@@ -493,7 +503,9 @@ class TestRelationshipAPI(BaseTest):
         self.assertIn("Missing invitation code", response_body["error"])
         mock_validate_invitation_code.assert_not_called()
 
-    @patch("src.services.relationship_service.RelationshipService.validate_invitation_code")
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
     def test_accept_invitation_code_invalid_code(self, mock_validate_invitation_code):
         """
         Test invitation code acceptance with invalid/expired code
@@ -503,7 +515,7 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
-            "body": json.dumps({"invitation_code": "INVALID123"})
+            "body": json.dumps({"invitation_code": "INVALID123"}),
         }
         context = {}
 
@@ -514,19 +526,25 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertIn("Invalid or expired invitation code", response_body["error"])
-        mock_validate_invitation_code.assert_called_once_with("INVALID123", "athlete789")
+        mock_validate_invitation_code.assert_called_once_with(
+            "INVALID123", "athlete789"
+        )
 
-    @patch("src.services.relationship_service.RelationshipService.validate_invitation_code")
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
     def test_accept_invitation_code_existing_coach(self, mock_validate_invitation_code):
         """
         Test invitation code acceptance when athlete already has a coach
         """
         # Setup - ValueError for existing coach relationship
-        mock_validate_invitation_code.side_effect = ValueError("Athlete already has an active coach relationship")
+        mock_validate_invitation_code.side_effect = ValueError(
+            "Athlete already has an active coach relationship"
+        )
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
-            "body": json.dumps({"invitation_code": "TEST123456"})
+            "body": json.dumps({"invitation_code": "TEST123456"}),
         }
         context = {}
 
@@ -536,10 +554,16 @@ class TestRelationshipAPI(BaseTest):
         # Assert
         self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
-        self.assertIn("Athlete already has an active coach relationship", response_body["error"])
-        mock_validate_invitation_code.assert_called_once_with("TEST123456", "athlete789")
+        self.assertIn(
+            "Athlete already has an active coach relationship", response_body["error"]
+        )
+        mock_validate_invitation_code.assert_called_once_with(
+            "TEST123456", "athlete789"
+        )
 
-    @patch("src.services.relationship_service.RelationshipService.validate_invitation_code")
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
     def test_accept_invitation_code_exception(self, mock_validate_invitation_code):
         """
         Test invitation code acceptance with service exception
@@ -549,7 +573,7 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
-            "body": json.dumps({"invitation_code": "TEST123456"})
+            "body": json.dumps({"invitation_code": "TEST123456"}),
         }
         context = {}
 
@@ -560,6 +584,7 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Test exception")
+
 
 if __name__ == "__main__":
     unittest.main()
