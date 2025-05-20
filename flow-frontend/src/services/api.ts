@@ -1086,3 +1086,120 @@ export const getCoachRelationships = async (coachId: string, status: 'active' | 
     return [];
   }
 };
+
+export const generateInvitationCode = async (coach_id: string): Promise<any> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await post({
+      apiName: 'flow-api',
+      path: `/coaches/${coach_id}/invitation`,
+      options: { headers }
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        return responseData;
+      } catch (e) {
+        console.error('Failed to parse invitation code data:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+    
+    throw new Error('No response data');
+  } catch (error) {
+    console.error('Error generating invitation code:', error);
+    throw error;
+  }
+};
+
+export const acceptInvitationCode = async (athlete_id: string, invitation_code: string): Promise<any> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await post({
+      apiName: 'flow-api',
+      path: `/athletes/${athlete_id}/accept-invitation`,
+      options: { 
+        headers,
+        body: { invitation_code }
+      }
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        return responseData;
+      } catch (e) {
+        console.error('Failed to parse invitation acceptance data:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+    
+    throw new Error('No response data');
+  } catch (error) {
+    console.error('Error accepting invitation code:', error);
+    throw error;
+  }
+};
+
+export const getAthleteRelationships = async (athlete_id: string, status: 'active' | 'pending' | 'ended' = 'active'): Promise<any[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    console.log('Fetching relationships for athlete:', athlete_id);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path: `/athletes/${athlete_id}/relationships?status=${status}`,
+      options: { headers }
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        console.log('Athlete relationships data:', responseData);
+        return Array.isArray(responseData) ? responseData : [];
+      } catch (e) {
+        console.error('Failed to parse relationships data:', e);
+        return [];
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching athlete relationships:', error);
+    return [];
+  }
+};
+
+export const endRelationship = async (relationship_id: string): Promise<any> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await post({
+      apiName: 'flow-api',
+      path: `/relationships/${relationship_id}/end`,
+      options: { headers }
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        return responseData;
+      } catch (e) {
+        console.error('Failed to parse relationship end data:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+    
+    throw new Error('No response data');
+  } catch (error) {
+    console.error('Error ending relationship:', error);
+    throw error;
+  }
+};
