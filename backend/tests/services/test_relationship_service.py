@@ -20,7 +20,7 @@ class TestRelationshipService(unittest.TestCase):
         self.uuid_mock = self.uuid_patcher.start()
 
         # Create patcher for datetime.now to return predictable timestamps
-        self.dt_now_patcher = patch("datetime.datetime")
+        self.dt_now_patcher = patch("src.services.relationship_service.dt.datetime")
         self.dt_mock = self.dt_now_patcher.start()
         self.dt_mock.now.return_value.isoformat.return_value = "2025-03-13T12:00:00"
 
@@ -355,6 +355,209 @@ class TestRelationshipService(unittest.TestCase):
         self.assertEqual(result[0].relationship_id, "rel1")
         self.assertEqual(result[1].relationship_id, "rel2")
         self.assertEqual(result[2].relationship_id, "rel3")
+
+    def test_generate_invitation_code(self):
+        """
+        Test generating an invitation code for a coach
+        """
+        # Setup
+        coach_id = "coach789"
+
+        # patch dt.datetime so that now() returns mock_future
+        with patch("src.services.relationship_service.dt.datetime") as dt_cls:
+            mock_now = MagicMock()
+            mock_future = MagicMock()
+            # dt.datetime.now() → mock_now
+            dt_cls.now.return_value = mock_now
+            # mock_now + ANY → mock_future
+            mock_now.__add__.return_value = mock_future
+            # timestamp() on that future → our fixed epoch
+            mock_future.timestamp.return_value = 1678701600
+
+            # Call the method
+            result = self.relationship_service.generate_invitation_code(coach_id)
+
+        # Assert that repository was called
+        self.relationship_repository_mock.create_relationship.assert_called_once()
+
+        # Verify the created relationship data
+        relationship_dict = (
+            self.relationship_repository_mock.create_relationship.call_args[0][0]
+        )
+        print(relationship_dict)
+
+        self.assertEqual(relationship_dict["relationship_id"], "test-uuid")
+        self.assertEqual(relationship_dict["coach_id"], coach_id)
+        self.assertEqual(relationship_dict["invitation_code"], result.invitation_code)
+        self.assertEqual(relationship_dict["expiration_time"], 1678701600)
+        self.assertIsNone(relationship_dict["athlete_id"])
+        self.assertEqual(relationship_dict["status"], "pending")
+
+        # Verify returned object
+        self.assertIsInstance(result, Relationship)
+        self.assertEqual(result.invitation_code, relationship_dict["invitation_code"])
+        self.assertEqual(result.expiration_time, 1678701600)
+
+    def test_validate_invitation_code_athlete_has_relationship(self):
+        """
+        Test validation fails when athlete already has an active relationship
+        """
+        # Setup
+        invitation_code = "TESTCODE123"
+        athlete_id = "athlete123"
+
+        # Mock athlete already having an active relationship
+        self.relationship_repository_mock.get_active_relationship_for_athlete.return_value = {
+            "relationship_id": "existing-rel",
+            "coach_id": "coach456",
+            "athlete_id": athlete_id,
+            "status": "active",
+        }
+
+        # Act & Assert exception
+        with self.assertRaises(ValueError) as context:
+            self.relationship_service.validate_invitation_code(
+                invitation_code, athlete_id
+            )
+
+        # Verify error message
+        self.assertIn(
+            "Athlete already has an active coach relationship", str(context.exception)
+        )
+
+        # Verify repository called with correct parameters
+        self.relationship_repository_mock.get_active_relationship_for_athlete.assert_called_once_with(
+            athlete_id
+        )
+
+        # Verify code validation was not attempted
+        self.relationship_repository_mock.get_relationship_by_code.assert_not_called()
+
+    def test_validate_invitation_code_not_found(self):
+        """
+        Test validation fails when invitation code doesn't exist
+        """
+        # Setup
+        invitation_code = "NONEXISTENT"
+        athlete_id = "athlete123"
+
+        # Mock athlete not having a relationship
+        self.relationship_repository_mock.get_active_relationship_for_athlete.return_value = (
+            None
+        )
+
+        # Mock invitation code not found
+        self.relationship_repository_mock.get_relationship_by_code.return_value = None
+
+        # Act
+        result = self.relationship_service.validate_invitation_code(
+            invitation_code, athlete_id
+        )
+
+        # Assert
+        self.assertIsNone(result)
+
+        # Verify repository methods called correctly
+        self.relationship_repository_mock.get_active_relationship_for_athlete.assert_called_once_with(
+            athlete_id
+        )
+        self.relationship_repository_mock.get_relationship_by_code.assert_called_once_with(
+            invitation_code
+        )
+
+    def test_validate_invitation_code_expired(self):
+        """
+        Test validation fails when invitation code is expired
+        """
+        # Setup
+        invitation_code = "EXPIRED"
+        athlete_id = "athlete123"
+
+        # Mock athlete not having a relationship
+        self.relationship_repository_mock.get_active_relationship_for_athlete.return_value = (
+            None
+        )
+
+        # Mock time.time() for consistent testing
+        with patch("time.time", return_value=1678701600):  # current time
+            # Mock invitation code found but expired
+            self.relationship_repository_mock.get_relationship_by_code.return_value = {
+                "relationship_id": "rel789",
+                "coach_id": "coach456",
+                "invitation_code": invitation_code,
+                "expiration_time": 1678697000,  # earlier than current time
+            }
+
+            # Act
+            result = self.relationship_service.validate_invitation_code(
+                invitation_code, athlete_id
+            )
+
+        # Assert
+        self.assertIsNone(result)
+
+        # Verify code was found but no update attempted
+        self.relationship_repository_mock.get_relationship_by_code.assert_called_once_with(
+            invitation_code
+        )
+        # No mocked update_relationship in this setUp, so we can't easily assert it wasn't called
+
+    def test_validate_invitation_code_success(self):
+        """
+        Test successful validation and acceptance of invitation code
+        """
+        # Setup
+        invitation_code = "VALID123"
+        athlete_id = "athlete123"
+        relationship_id = "rel456"
+
+        # Mock athlete not having a relationship
+        self.relationship_repository_mock.get_active_relationship_for_athlete.return_value = (
+            None
+        )
+
+        # Create mock for update_relationship method
+        self.relationship_service.update_relationship = MagicMock()
+
+        # Mock returned updated relationship
+        updated_relationship = Relationship(
+            relationship_id=relationship_id,
+            coach_id="coach789",
+            athlete_id=athlete_id,
+            status="active",
+        )
+        self.relationship_service.update_relationship.return_value = (
+            updated_relationship
+        )
+
+        # Mock current time for expiration check
+        with patch("time.time", return_value=1678701600):  # current time
+            # Mock invitation code found and valid
+            self.relationship_repository_mock.get_relationship_by_code.return_value = {
+                "relationship_id": relationship_id,
+                "coach_id": "coach789",
+                "invitation_code": invitation_code,
+                "expiration_time": 1678705200,  # future timestamp
+            }
+
+            # Act
+            result = self.relationship_service.validate_invitation_code(
+                invitation_code, athlete_id
+            )
+
+        # Assert
+        self.assertEqual(result, updated_relationship)
+
+        # Verify correct update was attempted
+        expected_update = {
+            "athlete_id": athlete_id,
+            "status": "active",
+            "invitation_code": None,
+            "expiration_time": None,
+        }
+        self.relationship_service.update_relationship.assert_called_once_with(
+            relationship_id, expected_update
+        )
 
     def test_update_relationship(self):
         """

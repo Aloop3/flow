@@ -3,11 +3,6 @@ from unittest.mock import MagicMock, patch
 from src.repositories.relationship_repository import RelationshipRepository
 from boto3.dynamodb.conditions import Key
 
-import unittest
-from unittest.mock import MagicMock, patch
-from src.repositories.relationship_repository import RelationshipRepository
-from boto3.dynamodb.conditions import Key
-
 
 class TestRelationshipRepository(unittest.TestCase):
     """
@@ -279,6 +274,84 @@ class TestRelationshipRepository(unittest.TestCase):
         # Assert
         self.mock_table.put_item.assert_called_once_with(Item=relationship_data)
         self.assertEqual(result, relationship_data)
+
+    def test_get_relationship_by_code_found(self):
+        """
+        Test retrieving a relationship by invitation code when it exists
+        """
+        # Setup mock return value
+        mock_data = {
+            "relationship_id": "rel123",
+            "coach_id": "coach456",
+            "invitation_code": "TEST123",
+            "status": "pending",
+        }
+        self.mock_table.scan.return_value = {"Items": [mock_data]}
+
+        # Call the method
+        result = self.repository.get_relationship_by_code("TEST123")
+
+        # Assert
+        self.assertEqual(result, mock_data)
+        # Check that scan was called with correct filter
+        from boto3.dynamodb.conditions import Attr
+
+        self.mock_table.scan.assert_called_once()
+
+    def test_get_relationship_by_code_not_found(self):
+        """
+        Test retrieving a relationship by invitation code when it doesn't exist
+        """
+        # Setup empty return value
+        self.mock_table.scan.return_value = {"Items": []}
+
+        # Call the method
+        result = self.repository.get_relationship_by_code("NONEXISTENT")
+
+        # Assert
+        self.assertIsNone(result)
+        self.mock_table.scan.assert_called_once()
+
+    def test_get_active_relationship_for_athlete_found(self):
+        """
+        Test retrieving an active relationship for an athlete when it exists
+        """
+        # Setup mock return value
+        athlete_id = "athlete123"
+        mock_data = {
+            "relationship_id": "rel456",
+            "coach_id": "coach789",
+            "athlete_id": athlete_id,
+            "status": "active",
+        }
+        self.mock_table.query.return_value = {"Items": [mock_data]}
+
+        # Call the method
+        result = self.repository.get_active_relationship_for_athlete(athlete_id)
+
+        # Assert
+        self.assertEqual(result, mock_data)
+        self.mock_table.query.assert_called_once()
+        # Verify correct index and key condition used
+        args, kwargs = self.mock_table.query.call_args
+        from src.config.relationship_config import RelationshipConfig
+
+        self.assertEqual(kwargs["IndexName"], RelationshipConfig.ATHLETE_INDEX)
+
+    def test_get_active_relationship_for_athlete_not_found(self):
+        """
+        Test retrieving an active relationship for an athlete when none exists
+        """
+        # Setup empty return value
+        athlete_id = "athlete999"
+        self.mock_table.query.return_value = {"Items": []}
+
+        # Call the method
+        result = self.repository.get_active_relationship_for_athlete(athlete_id)
+
+        # Assert
+        self.assertIsNone(result)
+        self.mock_table.query.assert_called_once()
 
     def test_update_relationship(self):
         """

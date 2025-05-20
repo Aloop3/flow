@@ -63,6 +63,8 @@ class TestRelationshipModel(unittest.TestCase):
             athlete_id="athlete789",
             status="pending",
             created_at="2025-03-13T12:00:00",
+            invitation_code="invite123",
+            expiration_time=3600,
         )
 
         relationship_dict = relationship.to_dict()
@@ -72,6 +74,8 @@ class TestRelationshipModel(unittest.TestCase):
         self.assertEqual(relationship_dict["athlete_id"], "athlete789")
         self.assertEqual(relationship_dict["status"], "pending")
         self.assertEqual(relationship_dict["created_at"], "2025-03-13T12:00:00")
+        self.assertEqual(relationship_dict["invitation_code"], "invite123")
+        self.assertEqual(relationship_dict["expiration_time"], 3600)
 
 
 if __name__ == "__main__":  # pragma: no cover
