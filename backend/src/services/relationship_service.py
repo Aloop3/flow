@@ -1,5 +1,9 @@
 import uuid
 import datetime as dt
+from datetime import timedelta
+import random
+import string
+import time
 from typing import List, Dict, Any, Optional
 from src.repositories.relationship_repository import RelationshipRepository
 from src.models.relationship import Relationship
@@ -58,6 +62,74 @@ class RelationshipService:
         if relationship_data:
             return Relationship(**relationship_data)
         return None
+
+    def generate_invitation_code(self, coach_id: str) -> Relationship:
+        """
+        Generates a unique invitation code for a coach to invite an athlete
+
+        :param coach_id: The ID of the coach
+        :return: The created Relationship object with invitation code
+        """
+        # Generate random alphanumeric code (6 characters)
+        code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+        # Calculate expiration time (24 hours from now)
+        expiry = int((dt.datetime.now() + timedelta(hours=24)).timestamp())
+
+        # Create a pending relationship with the code
+        relationship = Relationship(
+            relationship_id=str(uuid.uuid4()),
+            coach_id=coach_id,
+            status="pending",
+            invitation_code=code,
+            expiration_time=expiry,
+        )
+
+        self.relationship_repository.create_relationship(relationship.to_dict())
+        return relationship
+
+    def validate_invitation_code(
+        self, invitation_code: str, athlete_id: str
+    ) -> Optional[Relationship]:
+        """
+        Validates an invitation code and converts it to an active relationship
+
+        :param invitation_code: The invitation code to validate
+        :param athlete_id: The ID of the athlete accepting the invitation
+        :return: The accepted Relationship object if valid, None otherwise
+        """
+        # Check if athlete already has an active relationship
+        existing = self.relationship_repository.get_active_relationship_for_athlete(
+            athlete_id
+        )
+        if existing:
+            raise ValueError("Athlete already has an active coach relationship")
+
+        # Find the relationship by code
+        relationship_data = self.relationship_repository.get_relationship_by_code(
+            invitation_code
+        )
+
+        if not relationship_data:
+            return None
+
+        # Check if code is expired
+        current_time = int(time.time())
+        if relationship_data.get("expiration_time", 0) < current_time:
+            return None
+
+        # Update the relationship
+        update_data = {
+            "athlete_id": athlete_id,
+            "status": "active",
+            "invitation_code": None,  # Clear the code once used
+            "expiration_time": None,  # Clear the expiration
+        }
+
+        relationship_id = relationship_data["relationship_id"]
+        updated = self.update_relationship(relationship_id, update_data)
+
+        return updated
 
     def create_relationship(self, coach_id: str, athlete_id: str) -> Relationship:
         """
