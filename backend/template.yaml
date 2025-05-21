@@ -717,6 +717,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /coaches/{coach_id}/relationships
             Method: get
+        GetAthleteRelationships:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/relationships
+            Method: get
         GetRelationship:
           Type: Api
           Properties:
