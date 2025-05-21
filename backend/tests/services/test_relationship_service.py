@@ -390,7 +390,7 @@ class TestRelationshipService(unittest.TestCase):
         self.assertEqual(relationship_dict["coach_id"], coach_id)
         self.assertEqual(relationship_dict["invitation_code"], result.invitation_code)
         self.assertEqual(relationship_dict["expiration_time"], 1678701600)
-        self.assertIsNone(relationship_dict["athlete_id"])
+        self.assertNotIn("athlete_id", relationship_dict)
         self.assertEqual(relationship_dict["status"], "pending")
 
         # Verify returned object
