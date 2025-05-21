@@ -46,6 +46,24 @@ class RelationshipService:
             for relationship_data in relationships_data
         ]
 
+    def get_relationships_for_athlete(
+        self, athlete_id: str, status: Optional[str] = None
+    ) -> List[Relationship]:
+        """
+        Retrieves all relationships for a specific athlete
+
+        :param athlete_id: The ID of the athlete
+        :param status: Optional status filter for the relationships
+        :return: A list of Relationship objects
+        """
+        relationships_data = self.relationship_repository.get_relationships_for_athlete(
+            athlete_id, status
+        )
+        return [
+            Relationship(**relationship_data)
+            for relationship_data in relationships_data
+        ]
+
     def get_active_relationship(
         self, coach_id: str, athlete_id: str
     ) -> Optional[Relationship]:

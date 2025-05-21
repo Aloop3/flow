@@ -70,7 +70,7 @@ const Profile = ({ user, signOut }: ProfileProps) => {
         )}
         
         {activeTab === 'connections' && (
-          <div key={refreshKey} className="space-y-6">
+          <div className="space-y-6">
             {/* Show different sections based on user role */}
             {user.role === 'coach' && (
               <CoachInviteSection user={user} onGenerateCode={handleRefresh} />
@@ -81,7 +81,7 @@ const Profile = ({ user, signOut }: ProfileProps) => {
             )}
             
             {/* Show relationships for both roles */}
-            <RelationshipsList user={user} onRelationshipChange={handleRefresh} />
+            <RelationshipsList key={refreshKey} user={user} onRelationshipChange={handleRefresh} />
           </div>
         )}
       </div>

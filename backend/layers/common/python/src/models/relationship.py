@@ -22,12 +22,21 @@ class Relationship:
         self.expiration_time: Optional[int] = expiration_time
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "relationship_id": self.relationship_id,
             "coach_id": self.coach_id,
-            "athlete_id": self.athlete_id,
             "status": self.status,
             "created_at": self.created_at,
-            "invitation_code": self.invitation_code,
-            "expiration_time": self.expiration_time,
         }
+
+        # Only add non-None values
+        if self.athlete_id is not None:
+            result["athlete_id"] = self.athlete_id
+
+        if self.invitation_code is not None:
+            result["invitation_code"] = self.invitation_code
+
+        if self.expiration_time is not None:
+            result["expiration_time"] = self.expiration_time
+
+        return result
