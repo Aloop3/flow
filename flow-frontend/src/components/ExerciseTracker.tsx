@@ -471,7 +471,8 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
           exerciseState.status !== 'completed' &&
           exerciseState.sets_data &&
           exerciseState.sets_data.length > 0 &&
-          activeSetNumber === null && (
+          activeSetNumber === null && 
+          allSetsCompleted && (
             <FormButton
               type="button"
               variant="primary"
@@ -479,7 +480,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
               isLoading={isSubmitting}
               onClick={handleCompleteExercise}
             >
-              {allSetsCompleted ? 'Update Exercise' : 'Mark Exercise Complete'}
+              Mark Exercise Complete
             </FormButton>
           )}
 
