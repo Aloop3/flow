@@ -113,6 +113,33 @@ def get_relationships_for_coach(event, context):
 
 
 @with_middleware([log_request, handle_errors])
+def get_relationships_for_athlete(event, context):
+    """
+    Handle GET /athletes/{athlete_id}/relationships request to get all relationships for an athlete
+    """
+    try:
+        # Extract athlete_id from path parameters
+        athlete_id = event["pathParameters"]["athlete_id"]
+
+        # Get query parameter for status filter
+        query_params = event.get("queryStringParameters", {}) or {}
+        status = query_params.get("status")
+
+        # Get relationships
+        relationships = relationship_service.get_relationships_for_athlete(
+            athlete_id, status
+        )
+
+        return create_response(
+            200, [relationship.to_dict() for relationship in relationships]
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting relationships: {str(e)}")
+        return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
 def get_relationship(event, context):
     """
     Handle GET /relationships/{relationship_id} request to retrieve a relationship by ID
