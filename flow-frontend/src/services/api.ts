@@ -1056,7 +1056,7 @@ export const deleteSet = async (exerciseId: string, setNumber: number): Promise<
 };
 
 // Relationship endpoints
-export const getCoachRelationships = async (coachId: string, status: 'active' | 'pending' | 'ended' = 'active'): Promise<any[]> => {
+export const getCoachRelationships = async (coachId: string, status: 'active' | 'pending' | 'ended' = 'pending'): Promise<any[]> => {
   try {
     const headers = await getAuthHeaders();
     console.log('Fetching relationships for coach:', coachId);
@@ -1090,22 +1090,39 @@ export const getCoachRelationships = async (coachId: string, status: 'active' | 
 export const generateInvitationCode = async (coach_id: string): Promise<any> => {
   try {
     const headers = await getAuthHeaders();
+    console.log('Sending invitation code request for coach:', coach_id);
+    
     const apiResponse = await post({
       apiName: 'flow-api',
       path: `/coaches/${coach_id}/invitation`,
-      options: { headers }
+      options: { 
+        headers,
+        body: { timestamp: Date.now() }
+      }
     });
-
+    
+    console.log('Raw API response:', apiResponse);
     const actualResponse = await apiResponse.response;
+    console.log('Actual response after awaiting:', actualResponse);
     
     if (actualResponse && actualResponse.body) {
       try {
-        const responseData = await actualResponse.body.json();
+        // Try to read the response as text first to see raw content
+        const responseText = await actualResponse.body.text();
+        console.log('Response body as text:', responseText);
+        
+        // Parse the text as JSON
+        const responseData = JSON.parse(responseText);
+        console.log('Parsed response data:', responseData);
+        
         return responseData;
       } catch (e) {
         console.error('Failed to parse invitation code data:', e);
+        console.log('Response body type:', actualResponse.body.constructor.name);
         throw new Error('Invalid response format');
       }
+    } else {
+      console.log('No response body found');
     }
     
     throw new Error('No response data');
