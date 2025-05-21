@@ -44,7 +44,7 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
       
       setIsLoadingAthletes(true);
       try {
-        const relationships = await getCoachRelationships(user.user_id);
+        const relationships = await getCoachRelationships(user.user_id, 'active');
         
         // Extract athlete IDs from relationships
         const athletesList = await Promise.all(
