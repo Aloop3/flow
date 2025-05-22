@@ -121,10 +121,10 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
   }
 
   return null; // fallback
-  };
+};
 
-  // Thin wrapper App
-  function App() {
+// Thin wrapper App
+function App() {
   useEffect(() => {
     console.log("Auth state check");
     getCurrentUser()
@@ -133,22 +133,25 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
   }, []);
 
   return (
-    <Authenticator signUpAttributes={['name']} initialState="signIn">
+    <Authenticator 
+      signUpAttributes={['name']} 
+      initialState="signIn"
+      loginMechanisms={['email']}
+    >
       {({ signOut, user }) => {
-    const safeSignOut = signOut ?? (() => {});
-    return (
-      <>
-        {user ? (
-          <AuthenticatedApp user={user} signOut={safeSignOut} />
-        ) : (
-          <div>Loading...</div>
-        )}
-      </>
-    );
-  }}
+        const safeSignOut = signOut ?? (() => {});
+        return (
+          <>
+            {user ? (
+              <AuthenticatedApp user={user} signOut={safeSignOut} />
+            ) : (
+              <div>Loading...</div>
+            )}
+          </>
+        );
+      }}
     </Authenticator>
   );
 }
-
 
 export default App;
