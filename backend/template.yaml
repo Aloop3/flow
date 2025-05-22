@@ -806,11 +806,17 @@ Outputs:
   FlowApi:
     Description: API Gateway endpoint URL for dev stage
     Value: !Sub "https://${FlowAPI}.execute-api.${AWS::Region}.amazonaws.com/dev/"
+    Export:
+      Name: flow-dev-FlowApi
   
   UserPoolId:
     Description: Cognito User Pool ID
     Value: !Ref FlowUserPool
+    Export:
+      Name: flow-devUserPoolId
   
   UserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref FlowUserPoolClient
+    Export:
+      Name: flow-devUserPoolClientId
