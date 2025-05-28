@@ -1,9 +1,4 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
@@ -22,6 +17,14 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/__tests__/**/*",
+    "src/**/__tests__/**/*",
+    "src/__mocks__/**/*",
+    "src/**/setupTests.*",
+    "src/**/*.test.*",
+    "src/**/*.spec.*",
+    "../temp-tests/**/*"
+  ]
 }
-
