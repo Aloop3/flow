@@ -1,19 +1,12 @@
-import os
-
-
-def add_cors_headers(response):
-    """Add CORS headers to response"""
+def add_cors_headers(response, event=None):
+    """
+    Minimal response headers - API Gateway handles all CORS
+    """
     if "headers" not in response:
         response["headers"] = {}
-
-    response["headers"].update(
-        {
-            "Access-Control-Allow-Origin": os.environ.get(
-                "CORS_ALLOWED_ORIGIN", "http://localhost:5173"
-            ),
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
+    
+    # Only ensure Content-Type exists
+    if "Content-Type" not in response["headers"]:
+        response["headers"]["Content-Type"] = "application/json"
+    
     return response
