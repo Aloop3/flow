@@ -4,9 +4,9 @@ def add_cors_headers(response, event=None):
     """
     if "headers" not in response:
         response["headers"] = {}
-    
+
     # Only ensure Content-Type exists
     if "Content-Type" not in response["headers"]:
         response["headers"]["Content-Type"] = "application/json"
-    
+
     return response
