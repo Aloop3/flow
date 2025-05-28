@@ -4,13 +4,7 @@ Description: >
  Flow - Powerlifting Tracking App
  SAM Template for Flow backend services
 
-Parameters:
-  CorsOrigin:
-    Type: String
-    Default: 'http://localhost:5173'
-    Description: 'CORS allowed origin'
 
-# Global values that are applied to all resources
 Globals:
   Function:
     Timeout: 30  # Lambda function timeout in seconds
@@ -27,33 +21,9 @@ Globals:
         DAYS_TABLE: !Ref DaysTable
         EXERCISES_TABLE: !Ref ExercisesTable
         WORKOUTS_TABLE: !Ref WorkoutsTable
-        # COMPLETED_EXERCISES_TABLE: !Ref CompletedExercisesTable
         RELATIONSHIPS_TABLE: !Ref RelationshipsTable
-        # SETS_TABLE: !Ref SetsTable
         LOG_LEVEL: INFO
         REGION: !Ref AWS::Region
-        CORS_ALLOWED_ORIGIN: !Ref CorsOrigin
-  Api:
-    Cors:
-      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
-      AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,Access-Control-Allow-Origin'"
-      AllowOrigin: !Sub "'${CorsOrigin}'"
-      AllowCredentials: true
-    GatewayResponses:
-      DEFAULT_4XX:
-        ResponseParameters:
-          Headers:
-            Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
-            Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
-            Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-            Access-Control-Allow-Credentials: "'true'"
-      DEFAULT_5XX:
-        ResponseParameters:
-          Headers:
-            Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
-            Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
-            Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-            Access-Control-Allow-Credentials: "'true'"
 
 Resources:
   # API Gateway Definition
@@ -64,8 +34,7 @@ Resources:
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
         AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,Access-Control-Allow-Origin'"
-        AllowOrigin: !Sub "'${CorsOrigin}'"
-        AllowCredentials: true
+        AllowOrigin: "'https://staging.d12ov0bktfjbfe.amplifyapp.com'"
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
         Authorizers:
@@ -299,62 +268,6 @@ Resources:
           Projection:
             ProjectionType: ALL
 
-  # CompletedExercisesTable:
-  #   Type: AWS::DynamoDB::Table
-  #   Properties:
-  #     BillingMode: PAY_PER_REQUEST
-  #     AttributeDefinitions:
-  #       - AttributeName: completed_id
-  #         AttributeType: S
-  #       - AttributeName: workout_id
-  #         AttributeType: S
-  #       - AttributeName: exercise_id
-  #         AttributeType: S
-  #     KeySchema:
-  #       - AttributeName: completed_id
-  #         KeyType: HASH
-  #     GlobalSecondaryIndexes:
-  #       - IndexName: workout-index
-  #         KeySchema:
-  #           - AttributeName: workout_id
-  #             KeyType: HASH
-  #         Projection:
-  #           ProjectionType: ALL
-  #       - IndexName: exercise-index
-  #         KeySchema:
-  #           - AttributeName: exercise_id
-  #             KeyType: HASH
-  #         Projection:
-  #           ProjectionType: ALL
-
-  # SetsTable:
-  #   Type: AWS::DynamoDB::Table
-  #   Properties:
-  #     BillingMode: PAY_PER_REQUEST
-  #     AttributeDefinitions:
-  #       - AttributeName: set_id
-  #         AttributeType: S
-  #       - AttributeName: completed_exercise_id
-  #         AttributeType: S
-  #       - AttributeName: workout_id
-  #         AttributeType: S
-  #     KeySchema:
-  #       - AttributeName: set_id
-  #         KeyType: HASH
-  #     GlobalSecondaryIndexes:
-  #       - IndexName: exercise-index
-  #         KeySchema:
-  #           - AttributeName: completed_exercise_id
-  #             KeyType: HASH
-  #         Projection:
-  #           ProjectionType: ALL
-  #       - IndexName: workout-index
-  #         KeySchema:
-  #           - AttributeName: workout_id
-  #             KeyType: HASH
-  #         Projection:
-  #           ProjectionType: ALL
-
   # User Lambda function
   UserFunction:
     Type: AWS::Serverless::Function
@@ -366,7 +279,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
-      
       
       Events:
         # User API Routes

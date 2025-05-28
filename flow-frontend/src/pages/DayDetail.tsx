@@ -29,7 +29,6 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [showWorkoutForm, setShowWorkoutForm] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
-  const [isCopying, setIsCopying] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -157,7 +156,6 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const handleCopyWorkout = async (targetDayId: string) => {
     if (!dayId) return;
 
-    setIsCopying(true);
     setCopyError(null);
 
     try {
@@ -177,7 +175,6 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
         setCopyError('Failed to copy workout. Please try again.');
       }
     } finally {
-      setIsCopying(false);
     }
   };
 

@@ -15,7 +15,6 @@ interface SetTrackerProps {
 
 const SetTracker = ({
   exerciseId,
-  exerciseType,
   plannedSets = 1,
   plannedReps = 0,
   plannedWeight = 0,
@@ -24,7 +23,6 @@ const SetTracker = ({
 }: SetTrackerProps) => {
   // Validate inputs to prevent rendering issues
   const validExerciseId = exerciseId || '';
-  const validExerciseType = exerciseType || 'Exercise';
   const validPlannedSets = Math.max(1, plannedSets); // Ensure at least 1 set
   const validPlannedReps = Math.max(0, plannedReps);
   const validPlannedWeight = Math.max(0, plannedWeight);
