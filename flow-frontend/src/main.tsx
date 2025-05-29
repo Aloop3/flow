@@ -7,8 +7,8 @@ import './index.css'
 const amplifyConfig = {
   aws_project_region: 'us-east-1',
   aws_cognito_region: 'us-east-1',
-  aws_user_pools_id: 'us-east-1_QqzemDqRL',
-  aws_user_pools_web_client_id: '18q46vrf08gujmp7q6t3j8h28l',
+  aws_user_pools_id: import.meta.env.VITE_USER_POOL_ID,
+  aws_user_pools_web_client_id: import.meta.env.VITE_USER_POOL_CLIENT_ID,
   oauth: {},
   aws_cognito_social_providers: [],
   aws_cognito_signup_attributes: ['email', 'name'],
@@ -26,7 +26,7 @@ const amplifyConfig = {
   aws_cloud_logic_custom: [
     {
       name: 'flow-api',
-      endpoint: 'https://hwrsjo20w9.execute-api.us-east-1.amazonaws.com/dev',
+      endpoint: import.meta.env.VITE_API_URL,
       region: 'us-east-1'
     }
   ]
