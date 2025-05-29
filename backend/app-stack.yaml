@@ -1,0 +1,493 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Flow - Application Stack (Lambda Functions + API Gateway)
+  Frequently changing resources
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+    Description: Environment name for resource naming
+  CorsOrigin:
+    Type: String
+    Default: 'https://dev.dykl7ea8q4fpo.amplifyapp.com'
+    Description: CORS origin for API Gateway
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.9
+    MemorySize: 256
+    Layers:
+      - !ImportValue flow-layers-VendorLayerArn-us-east-1
+      - !ImportValue flow-layers-CommonLayerArn-us-east-1
+    Environment:
+      Variables:
+        USERS_TABLE: !ImportValue 
+          Fn::Sub: "flow-${Environment}-UsersTable"
+        BLOCKS_TABLE: !ImportValue
+          Fn::Sub: "flow-${Environment}-BlocksTable"
+        WEEKS_TABLE: !ImportValue
+          Fn::Sub: "flow-${Environment}-WeeksTable"
+        DAYS_TABLE: !ImportValue
+          Fn::Sub: "flow-${Environment}-DaysTable"
+        EXERCISES_TABLE: !ImportValue
+          Fn::Sub: "flow-${Environment}-ExercisesTable"
+        WORKOUTS_TABLE: !ImportValue
+          Fn::Sub: "flow-${Environment}-WorkoutsTable"
+        RELATIONSHIPS_TABLE: !ImportValue
+          Fn::Sub: "flow-${Environment}-RelationshipsTable"
+        LOG_LEVEL: INFO
+        REGION: !Ref AWS::Region
+
+Resources:
+  # API Gateway Definition
+  FlowAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,Access-Control-Allow-Origin'"
+        AllowOrigin: !Sub "'${CorsOrigin}'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+         CognitoAuthorizer:
+            UserPoolArn: !ImportValue
+              Fn::Sub: "flow-${Environment}-UserPoolArn"
+        AddDefaultAuthorizerToCorsPreflight: false
+
+  # User Lambda function
+  UserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/user_lambda/
+      Handler: user_lambda.handler
+      Description: Lambda handler for user-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-UsersTable"
+      
+      Events:
+        # User API Routes
+        CreateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users
+            Method: post
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users/{user_id}
+            Method: get
+        UpdateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /users/{user_id}
+            Method: put
+  
+  # Block Lambda function
+  BlockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/block_lambda/
+      Handler: block_lambda.handler
+      Description: Lambda handler for block-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-BlocksTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-WeeksTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-DaysTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-ExercisesTable"
+
+      Events:
+        # Block API Routes
+        CreateBlock:
+          Type: Api
+          Properties:
+           RestApiId: !Ref FlowAPI
+           Path: /blocks
+           Method: post
+        GetBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: get
+        GetBlocksByAthlete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/blocks
+            Method: get
+        UpdateBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: put
+        DeleteBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}
+            Method: delete
+
+  # WeekFunction
+  WeekFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/week_lambda/
+      Handler: week_lambda.handler
+      Description: Lambda handler for week-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-WeeksTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-DaysTable"
+
+      Events:
+        # Week API Routes
+        CreateWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks
+            Method: post
+        GetWeeksForBlock:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /blocks/{block_id}/weeks
+            Method: get
+        UpdateWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}
+            Method: put
+        DeleteWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}
+            Method: delete
+  
+  # Day Lambda function
+  DayFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/day_lambda/
+      Handler: day_lambda.handler
+      Description: Lambda handler for day-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-DaysTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-ExercisesTable"
+
+      Events:
+        # Day API Routes
+        CreateDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days
+            Method: post
+        GetDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}
+            Method: get
+        GetDaysForWeek:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /weeks/{week_id}/days
+            Method: get
+        UpdateDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}
+            Method: put
+        DeleteDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}
+            Method: delete
+
+  # ExerciseFunction
+  ExerciseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/exercise_lambda/
+      Handler: exercise_lambda.handler
+      Description: Lambda handler for exercise-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-ExercisesTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-WorkoutsTable"
+
+      Events:
+        # Exercise API Routes
+        CreateExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises
+            Method: post
+        GetExercisesForDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}/exercises
+            Method: get
+        CompleteExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/complete
+            Method: post
+        GetExerciseTypes:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/types
+            Method: get
+        UpdateExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}
+            Method: put
+        DeleteExercise:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}
+            Method: delete
+        ReorderExercises:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/reorder
+            Method: post
+        TrackSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/sets/{set_number}
+            Method: post
+        DeleteSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/sets/{set_number}
+            Method: delete
+
+  # Workout Lambda function
+  WorkoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/workout_lambda
+      Handler: workout_lambda.handler
+      Description: Lambda handler for workout-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-WorkoutsTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-DaysTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-ExercisesTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-BlocksTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-WeeksTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-RelationshipsTable"
+
+      Events:
+        # Workout API Routes
+        CreateWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts
+            Method: post
+        CreateDayWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /days/{day_id}/workout
+            Method: post
+        GetWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: get
+        GetWorkoutsByAthlete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/workouts
+            Method: get
+        GetWorkoutByDay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/days/{day_id}/workout
+            Method: get
+        UpdateWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: put
+        DeleteWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}
+            Method: delete
+        CopyWorkout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/copy
+            Method: post
+  
+  # Relationship Lambda function
+  RelationshipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/relationship_lambda/
+      Handler: relationship_lambda.handler
+      Description: Lambda handler for relationship-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-RelationshipsTable"
+
+      Events:
+        # Relationship API Routes
+        CreateRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships
+            Method: post
+        AcceptRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}/accept
+            Method: post
+        EndRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}/end
+            Method: post
+        GetCoachRelationships:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /coaches/{coach_id}/relationships
+            Method: get
+        GetAthleteRelationships:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/relationships
+            Method: get
+        GetRelationship:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /relationships/{relationship_id}
+            Method: get
+        GenerateInvitationCode:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /coaches/{coach_id}/invitation
+            Method: post
+        AcceptInvitationCode:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /athletes/{athlete_id}/accept-invitation
+            Method: post
+          
+  # CognitoPostConfirmationFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     CodeUri: src/lambdas/cognito_triggers/
+  #     Handler: post_confirmation_lambda.handler
+  #     Runtime: python3.9
+  #     Timeout: 30
+  #     Environment:
+  #       Variables:
+  #         USERS_TABLE: !ImportValue
+  #           Fn::Sub: "flow-${Environment}-UsersTable"
+  #     Policies:
+  #       - DynamoDBCrudPolicy:
+  #           TableName: !ImportValue
+  #             Fn::Sub: "flow-${Environment}-UsersTable"
+
+  # # Lambda permission for Cognito to invoke the function
+  # CognitoTriggerPermission:
+  #   Type: AWS::Lambda::Permission
+  #   Properties:
+  #     Action: lambda:InvokeFunction
+  #     FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
+  #     Principal: cognito-idp.amazonaws.com
+  #     SourceArn: !Sub
+  #       - "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}"
+  #       - UserPoolId: !ImportValue
+  #           Fn::Sub: "flow-${Environment}-UserPoolId"
+
+Outputs:
+  FlowApi:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${FlowAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+    Export:
+      Name: !Sub "flow-app-${Environment}-FlowApi"
