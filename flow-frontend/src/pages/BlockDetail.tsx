@@ -35,30 +35,64 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
       setIsLoading(true);
       try {
+        // Fetch block data first (needed for validation)
+        console.log('Fetching block data for:', blockId);
         const blockData = await getBlock(blockId);
         setBlock(blockData);
 
-        if (blockData) {
-          const weeksData = await getWeeks(blockId);
-          const sortedWeeks = Array.isArray(weeksData)
-            ? [...weeksData].sort((a, b) => a.week_number - b.week_number)
-            : [];
-
-          setWeeks(sortedWeeks);
-          if (sortedWeeks.length > 0) {
-            setActiveWeek(sortedWeeks[0].week_id);
-            const daysObj: { [weekId: string]: Day[] } = {};
-
-            for (const week of sortedWeeks) {
-              const daysData = await getDays(week.week_id);
-              const sortedDays = Array.isArray(daysData)
-                ? [...daysData].sort((a, b) => a.day_number - b.day_number)
-                : [];
-              daysObj[week.week_id] = sortedDays;
-            }
-            setDaysMap(daysObj);
-          }
+        if (!blockData) {
+          console.log('Block not found');
+          return;
         }
+
+        // Fetch weeks in parallel
+        console.log('Fetching weeks for block:', blockId);
+        const weeksData = await getWeeks(blockId);
+        const sortedWeeks = Array.isArray(weeksData)
+          ? [...weeksData].sort((a, b) => a.week_number - b.week_number)
+          : [];
+
+        setWeeks(sortedWeeks);
+
+        if (sortedWeeks.length === 0) {
+          console.log('No weeks found for block');
+          setActiveWeek(null);
+          setDaysMap({});
+          return;
+        }
+
+        // Fetch all days in parallel using Promise.all
+        console.log('Fetching days for all weeks in parallel...');
+        const daysFetchPromises = sortedWeeks.map(async (week) => {
+          try {
+            const daysData = await getDays(week.week_id);
+            const sortedDays = Array.isArray(daysData)
+              ? [...daysData].sort((a, b) => a.day_number - b.day_number)
+              : [];
+            return { weekId: week.week_id, days: sortedDays };
+          } catch (error) {
+            console.error(`Error fetching days for week ${week.week_id}:`, error);
+            return { weekId: week.week_id, days: [] };
+          }
+        });
+
+        // Execute all days fetches in parallel
+        const daysResults = await Promise.all(daysFetchPromises);
+        
+        // Build days map from parallel results
+        const daysObj: { [weekId: string]: Day[] } = {};
+        daysResults.forEach(({ weekId, days }) => {
+          daysObj[weekId] = days;
+        });
+
+        setDaysMap(daysObj);
+        setActiveWeek(sortedWeeks[0].week_id);
+        
+        console.log('Parallel loading complete:', {
+          weeksCount: sortedWeeks.length,
+          totalDays: Object.values(daysObj).flat().length
+        });
+
       } catch (error) {
         console.error('Error fetching block data:', error);
       } finally {
@@ -236,10 +270,73 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
         {isLoading ? (
-          <div className="animate-pulse space-y-4">
-            <div className="h-10 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-20 bg-gray-200 rounded"></div>
-            <div className="h-40 bg-gray-200 rounded"></div>
+          <div className="space-y-6">
+            {/* Block Header Skeleton */}
+            <div className="flex justify-between items-center">
+              <div className="h-8 bg-gray-200 rounded w-64 animate-pulse"></div>
+              <div className="h-9 bg-gray-200 rounded w-24 animate-pulse"></div>
+            </div>
+
+            {/* Block Info Card Skeleton */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-4 animate-pulse"></div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <div className="h-3 bg-gray-200 rounded w-16 mb-2 animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                </div>
+                <div>
+                  <div className="h-3 bg-gray-200 rounded w-16 mb-2 animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                </div>
+                <div>
+                  <div className="h-3 bg-gray-200 rounded w-12 mb-2 animate-pulse"></div>
+                  <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Week Tabs Skeleton */}
+            <div className="bg-white shadow rounded-lg overflow-hidden">
+              <div className="border-b border-gray-200">
+                <nav className="flex">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="py-4 px-6">
+                      <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                    </div>
+                  ))}
+                </nav>
+              </div>
+
+              {/* Days Grid Skeleton */}
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <div className="h-6 bg-gray-200 rounded w-20 mb-2 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded w-40 animate-pulse"></div>
+                  </div>
+                  <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                    <div key={i} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="h-5 bg-gray-200 rounded w-12 animate-pulse"></div>
+                        <div className="h-5 bg-gray-200 rounded w-16 animate-pulse"></div>
+                      </div>
+                      <div className="h-3 bg-gray-200 rounded w-20 mb-2 animate-pulse"></div>
+                      <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
+                      <div className="mt-4 flex justify-between">
+                        <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                        <div className="h-8 bg-gray-200 rounded w-24 animate-pulse"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         ) : block ? (
           <>
