@@ -15,3 +15,4 @@ layers/*/python/*/
 !layers/*/python/requirements.txt
 !layers/*/python/src
 .samignore
+.DS_Store
