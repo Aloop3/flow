@@ -32,12 +32,15 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   useEffect(() => {
     const fetchBlockData = async () => {
       if (!blockId) return;
-
+      
+      const startTime = performance.now();
       setIsLoading(true);
       try {
         // Fetch block data first (needed for validation)
         console.log('Fetching block data for:', blockId);
+        const blockStart = performance.now();
         const blockData = await getBlock(blockId);
+        console.log(`📊 Block fetch: ${(performance.now() - blockStart).toFixed(0)}ms`);
         setBlock(blockData);
 
         if (!blockData) {
@@ -47,7 +50,9 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
         // Fetch weeks in parallel
         console.log('Fetching weeks for block:', blockId);
+        const weeksStart = performance.now();
         const weeksData = await getWeeks(blockId);
+        console.log(`📊 Weeks fetch: ${(performance.now() - weeksStart).toFixed(0)}ms`);
         const sortedWeeks = Array.isArray(weeksData)
           ? [...weeksData].sort((a, b) => a.week_number - b.week_number)
           : [];
@@ -63,9 +68,12 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
         // Fetch all days in parallel using Promise.all
         console.log('Fetching days for all weeks in parallel...');
+        const daysStart = performance.now();
         const daysFetchPromises = sortedWeeks.map(async (week) => {
+          const singleDayStart = performance.now();
           try {
             const daysData = await getDays(week.week_id);
+            console.log(`📊 Week ${week.week_number} days: ${(performance.now() - singleDayStart).toFixed(0)}ms`);
             const sortedDays = Array.isArray(daysData)
               ? [...daysData].sort((a, b) => a.day_number - b.day_number)
               : [];
@@ -78,6 +86,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
         // Execute all days fetches in parallel
         const daysResults = await Promise.all(daysFetchPromises);
+        console.log(`📊 All days parallel: ${(performance.now() - daysStart).toFixed(0)}ms`);
         
         // Build days map from parallel results
         const daysObj: { [weekId: string]: Day[] } = {};
@@ -87,6 +96,10 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
         setDaysMap(daysObj);
         setActiveWeek(sortedWeeks[0].week_id);
+
+        const totalTime = performance.now() - startTime;
+        console.log(`🎯 TOTAL LOAD TIME: ${totalTime.toFixed(0)}ms`);
+        console.log(`📈 Breakdown: Block+Weeks+Days for ${sortedWeeks.length} weeks`);
         
         console.log('Parallel loading complete:', {
           weeksCount: sortedWeeks.length,
