@@ -76,6 +76,59 @@ class TestUserService(unittest.TestCase):
         # Assert the result is None
         self.assertIsNone(result)
 
+    def test_get_user_weight_unit_preference_found(self):
+        """
+        Test getting user weight unit preference when user exists
+        """
+        # Mock data that would be returned from the repository
+        mock_user_data = {
+            "user_id": "user123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": "kg",
+        }
+        self.user_repository_mock.get_user.return_value = mock_user_data
+
+        # Call the service method
+        result = self.user_service.get_user_weight_unit_preference("user123")
+
+        # Assert correct preference returned
+        self.assertEqual(result, "kg")
+
+    def test_get_user_weight_unit_preference_not_found(self):
+        """
+        Test getting user weight unit preference when user not found
+        """
+        # Mock repository to return None
+        self.user_repository_mock.get_user.return_value = None
+
+        # Call the service method
+        result = self.user_service.get_user_weight_unit_preference("user123")
+
+        # Assert fallback to lb
+        self.assertEqual(result, "lb")
+
+    def test_get_user_weight_unit_preference_no_preference(self):
+        """
+        Test getting user weight unit preference when user has no preference set
+        """
+        # Mock user without weight_unit_preference
+        mock_user_data = {
+            "user_id": "user123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": None,
+        }
+        self.user_repository_mock.get_user.return_value = mock_user_data
+
+        # Call the service method
+        result = self.user_service.get_user_weight_unit_preference("user123")
+
+        # Assert fallback to lb
+        self.assertEqual(result, "lb")
+
     def test_create_user(self):
         """
         Test creating a new user
@@ -128,6 +181,54 @@ class TestUserService(unittest.TestCase):
 
         # Assert the returned object has correct role
         self.assertEqual(result.role, "both")
+
+    def test_create_user_with_weight_unit_preference(self):
+        """
+        Test creating a user with specific weight unit preference
+        """
+        # Call the service method
+        result = self.user_service.create_user(
+            email="test@example.com",
+            name="Test User",
+            role="athlete",
+            weight_unit_preference="kg",
+        )
+
+        # Assert repository was called correctly
+        self.user_repository_mock.create_user.assert_called_once()
+        call_args = self.user_repository_mock.create_user.call_args[0][0]
+
+        # Assert the result is a User instance with correct data
+        self.assertIsInstance(result, User)
+        self.assertEqual(result.weight_unit_preference, "kg")
+        self.assertEqual(call_args["weight_unit_preference"], "kg")
+
+    def test_create_user_default_weight_unit_preference(self):
+        """
+        Test creating a user with default weight unit preference
+        """
+        # Call the service method without weight unit preference
+        result = self.user_service.create_user(
+            email="test@example.com", name="Test User", role="athlete"
+        )
+
+        # Assert default weight unit preference is set
+        self.assertEqual(result.weight_unit_preference, "lb")
+
+    def test_create_user_invalid_weight_unit_preference(self):
+        """
+        Test creating a user with invalid weight unit preference defaults to lb
+        """
+        # Call the service method with invalid weight unit
+        result = self.user_service.create_user(
+            email="test@example.com",
+            name="Test User",
+            role="athlete",
+            weight_unit_preference="invalid",
+        )
+
+        # Assert fallback to lb
+        self.assertEqual(result.weight_unit_preference, "lb")
 
     def test_update_user(self):
         """
@@ -195,6 +296,52 @@ class TestUserService(unittest.TestCase):
 
         # Assert the result is None (user not found)
         self.assertIsNone(result)
+
+    def test_update_user_weight_unit_preference(self):
+        """
+        Test updating user weight unit preference
+        """
+        # Mock the get_user call for the update method
+        mock_user_data = {
+            "user_id": "user123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": "kg",
+        }
+        self.user_repository_mock.get_user.return_value = mock_user_data
+
+        # Call the service method
+        update_data = {"weight_unit_preference": "kg"}
+        result = self.user_service.update_user("user123", update_data)
+
+        # Assert repository was called correctly
+        self.user_repository_mock.update_user.assert_called_once_with(
+            "user123", {"weight_unit_preference": "kg"}
+        )
+
+    def test_update_user_invalid_weight_unit_preference(self):
+        """
+        Test updating user with invalid weight unit preference
+        """
+        # Mock the get_user call
+        mock_user_data = {
+            "user_id": "user123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": "lb",
+        }
+        self.user_repository_mock.get_user.return_value = mock_user_data
+
+        # Call the service method with invalid weight unit
+        update_data = {"weight_unit_preference": "invalid"}
+        result = self.user_service.update_user("user123", update_data)
+
+        # Assert repository was called with fallback value
+        self.user_repository_mock.update_user.assert_called_once_with(
+            "user123", {"weight_unit_preference": "lb"}
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

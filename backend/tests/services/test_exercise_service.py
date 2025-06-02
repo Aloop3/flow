@@ -208,6 +208,122 @@ class TestExerciseService(unittest.TestCase):
         # Assert the create method was called with the correct data
         self.exercise_repository_mock.create_exercise.assert_called_once()
 
+    def test_create_exercise_with_defaults_powerlifting(self):
+        """
+        Test creating a powerlifting exercise uses kg default
+        """
+        # Mock existing exercises (empty)
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = []
+
+        # Mock user service to return lb preference
+        with patch("src.services.exercise_service.UserService") as mock_user_service:
+            mock_user_service_instance = MagicMock()
+            mock_user_service_instance.get_user_weight_unit_preference.return_value = (
+                "lb"
+            )
+            mock_user_service.return_value = mock_user_service_instance
+
+            # Recreate service with mocked user service
+            with patch(
+                "src.services.exercise_service.ExerciseRepository",
+                return_value=self.exercise_repository_mock,
+            ):
+                service = ExerciseService()
+                service.user_service = mock_user_service_instance
+
+            # Call the service method for powerlifting exercise
+            result = service.create_exercise(
+                workout_id="wo123",
+                exercise_type="Squat",
+                sets=3,
+                reps=5,
+                weight_value=100.0,
+                athlete_id="athlete123",
+            )
+
+            # Assert powerlifting exercise defaults to kg despite user preference
+            call_args = self.exercise_repository_mock.create_exercise.call_args[0][0]
+            self.assertEqual(call_args["weight_data"]["unit"], "kg")
+
+    def test_create_exercise_with_defaults_non_powerlifting(self):
+        """
+        Test creating a non-powerlifting exercise uses user preference
+        """
+        # Mock existing exercises (empty)
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = []
+
+        # Mock user service to return kg preference
+        with patch("src.services.exercise_service.UserService") as mock_user_service:
+            mock_user_service_instance = MagicMock()
+            mock_user_service_instance.get_user_weight_unit_preference.return_value = (
+                "kg"
+            )
+            mock_user_service.return_value = mock_user_service_instance
+
+            # Recreate service with mocked user service
+            with patch(
+                "src.services.exercise_service.ExerciseRepository",
+                return_value=self.exercise_repository_mock,
+            ):
+                service = ExerciseService()
+                service.user_service = mock_user_service_instance
+
+            # Call the service method for non-powerlifting exercise
+            result = service.create_exercise(
+                workout_id="wo123",
+                exercise_type="Bicep Curl",
+                sets=3,
+                reps=10,
+                weight_value=25.0,
+                athlete_id="athlete123",
+            )
+
+            # Assert non-powerlifting exercise uses user preference
+            call_args = self.exercise_repository_mock.create_exercise.call_args[0][0]
+            self.assertEqual(call_args["weight_data"]["unit"], "kg")
+
+    def test_create_exercise_with_explicit_weight_unit(self):
+        """
+        Test creating an exercise with explicit weight unit override
+        """
+        # Mock existing exercises (empty)
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = []
+
+        # Call the service method with explicit unit
+        result = self.exercise_service.create_exercise(
+            workout_id="wo123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight_value=100.0,
+            weight_unit="lb",  # Explicit override
+        )
+
+        # Assert explicit unit is used regardless of defaults
+        call_args = self.exercise_repository_mock.create_exercise.call_args[0][0]
+        self.assertEqual(call_args["weight_data"]["unit"], "lb")
+        self.assertEqual(call_args["weight_data"]["value"], 100.0)
+
+    def test_create_exercise_no_athlete_id_fallback(self):
+        """
+        Test creating an exercise without athlete_id uses fallback defaults
+        """
+        # Mock existing exercises (empty)
+        self.exercise_repository_mock.get_exercises_by_workout.return_value = []
+
+        # Call the service method without athlete_id
+        result = self.exercise_service.create_exercise(
+            workout_id="wo123",
+            exercise_type="Bicep Curl",
+            sets=3,
+            reps=10,
+            weight_value=25.0,
+        )
+
+        # Assert fallback to lb for non-powerlifting exercise
+        call_args = self.exercise_repository_mock.create_exercise.call_args[0][0]
+        self.assertEqual(call_args["weight_data"]["unit"], "lb")
+
     def test_update_exercise(self):
         """
         Test updating an exercise
@@ -851,6 +967,72 @@ class TestExerciseService(unittest.TestCase):
 
         # Assert the result is None, as the set was not found
         self.assertEqual(result, None)
+
+    def test_track_set_with_weight_data(self):
+        """
+        Test tracking a set with weight_data structure
+        """
+        # Mock exercise data
+        mock_exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "wo123",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 5,
+            "weight_data": {"value": 225.0, "unit": "lb"},
+            "status": "planned",
+            "sets_data": [],
+        }
+
+        # Configure mocks
+        self.exercise_repository_mock.get_exercise.return_value = mock_exercise_data
+
+        # Call the service method
+        result = self.exercise_service.track_set(
+            exercise_id="ex123",
+            set_number=1,
+            reps=5,
+            weight_value=230.0,
+            weight_unit="lb",
+        )
+
+        # Assert repository update was called with weight_data structure
+        update_call = self.exercise_repository_mock.update_exercise.call_args[0][1]
+        sets_data = update_call["sets_data"]
+
+        self.assertEqual(len(sets_data), 1)
+        self.assertEqual(sets_data[0]["weight_data"]["value"], 230.0)
+        self.assertEqual(sets_data[0]["weight_data"]["unit"], "lb")
+
+    def test_track_set_uses_exercise_default_unit(self):
+        """
+        Test tracking a set without unit uses exercise default
+        """
+        # Mock exercise data with kg unit
+        mock_exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "wo123",
+            "exercise_type": "Squat",
+            "sets": 3,
+            "reps": 5,
+            "weight_data": {"value": 100.0, "unit": "kg"},
+            "status": "planned",
+            "sets_data": [],
+        }
+
+        # Configure mocks
+        self.exercise_repository_mock.get_exercise.return_value = mock_exercise_data
+
+        # Call the service method without specifying unit
+        result = self.exercise_service.track_set(
+            exercise_id="ex123", set_number=1, reps=5, weight_value=105.0
+        )
+
+        # Assert set uses exercise's default unit
+        update_call = self.exercise_repository_mock.update_exercise.call_args[0][1]
+        sets_data = update_call["sets_data"]
+
+        self.assertEqual(sets_data[0]["weight_data"]["unit"], "kg")
 
 
 if __name__ == "__main__":  # pragma: no cover

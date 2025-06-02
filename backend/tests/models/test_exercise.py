@@ -76,17 +76,90 @@ class TestExerciseModel(unittest.TestCase):
         self.assertEqual(exercise.exercise_category, ExerciseCategory.CUSTOM)
         self.assertFalse(exercise.is_predefined)
 
+    def test_exercise_initialization_with_weight_data(self):
+        """
+        Test Exercise model initialization with weight_data
+        """
+        weight_data = {"value": 225.0, "unit": "lb"}
+
+        exercise = Exercise(
+            exercise_id="ex123",
+            workout_id="wo123",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+            weight_data=weight_data,
+        )
+
+        self.assertEqual(exercise.exercise_id, "ex123")
+        self.assertEqual(exercise.workout_id, "wo123")
+        self.assertEqual(exercise.sets, 3)
+        self.assertEqual(exercise.reps, 5)
+        self.assertEqual(exercise.weight_data, {"value": 225.0, "unit": "lb"})
+
+    def test_exercise_initialization_default_weight_data(self):
+        """
+        Test Exercise model initialization with default weight_data
+        """
+        exercise = Exercise(
+            exercise_id="ex123",
+            workout_id="wo123",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+        )
+
+        self.assertEqual(exercise.weight_data, {"value": 0.0, "unit": "lb"})
+
+    def test_exercise_initialization_invalid_weight_data_unit(self):
+        """
+        Test Exercise model initialization with invalid weight_data unit raises error
+        """
+        weight_data = {"value": 225.0, "unit": "stones"}
+
+        with self.assertRaises(ValueError) as context:
+            Exercise(
+                exercise_id="ex123",
+                workout_id="wo123",
+                exercise_type="Bench Press",
+                sets=3,
+                reps=5,
+                weight_data=weight_data,
+            )
+
+        self.assertIn("weight_data unit must be 'kg' or 'lb'", str(context.exception))
+
+    def test_exercise_initialization_negative_weight_value(self):
+        """
+        Test Exercise model initialization with negative weight value raises error
+        """
+        weight_data = {"value": -10.0, "unit": "lb"}
+
+        with self.assertRaises(ValueError) as context:
+            Exercise(
+                exercise_id="ex123",
+                workout_id="wo123",
+                exercise_type="Bench Press",
+                sets=3,
+                reps=5,
+                weight_data=weight_data,
+            )
+
+        self.assertIn("weight_data value must be non-negative", str(context.exception))
+
     def test_to_dict(self):
         """
         Test Exercise model to_dict method for serialization
         """
+        weight_data = {"value": 225.0, "unit": "kg"}
+
         exercise = Exercise(
             exercise_id="ex123",
             workout_id="workout456",
             exercise_type="Squat",
             sets=5,
             reps=5,
-            weight=315.0,
+            weight_data=weight_data,
             rpe=8.5,
             notes="Focus on bracing into belt",
             order=1,
@@ -101,10 +174,11 @@ class TestExerciseModel(unittest.TestCase):
         self.assertTrue(exercise_dict["is_predefined"])
         self.assertEqual(exercise_dict["sets"], 5)
         self.assertEqual(exercise_dict["reps"], 5)
-        self.assertEqual(exercise_dict["weight"], 315.0)
         self.assertEqual(exercise_dict["rpe"], 8.5)
         self.assertEqual(exercise_dict["notes"], "Focus on bracing into belt")
         self.assertEqual(exercise_dict["order"], 1)
+        self.assertEqual(exercise_dict["weight_data"], {"value": 225.0, "unit": "kg"})
+        self.assertIn("weight_data", exercise_dict)
 
     def test_from_dict(self):
         """
@@ -118,7 +192,7 @@ class TestExerciseModel(unittest.TestCase):
             "is_predefined": True,
             "sets": 3,
             "reps": 5,
-            "weight": 315.0,
+            "weight_data": {"value": 225.0, "unit": "kg"},
             "rpe": 8.5,
             "notes": "Focus on bracing into belt",
             "order": 1,
@@ -130,7 +204,7 @@ class TestExerciseModel(unittest.TestCase):
         self.assertEqual(exercise.exercise_type.name, "Squat")
         self.assertEqual(exercise.exercise_category, ExerciseCategory.BARBELL)
         self.assertTrue(exercise.exercise_type.is_predefined)
-        self.assertEqual(exercise.weight, 315.0)
+        self.assertEqual(exercise.weight_data, {"value": 225.0, "unit": "kg"})
 
     def test_from_dict_custom_exercise(self):
         """
@@ -405,6 +479,58 @@ class TestExerciseModel(unittest.TestCase):
         self.assertEqual(len(exercise.sets_data), 2)
         self.assertEqual(exercise.sets_data[0]["set_number"], 1)
         self.assertEqual(exercise.sets_data[1]["set_number"], 2)
+
+    def test_add_set_data_with_weight_data(self):
+        """
+        Test adding set data with weight_data structure
+        """
+        exercise = Exercise(
+            exercise_id="ex123",
+            workout_id="wo123",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+        )
+
+        set_data = {
+            "set_number": 1,
+            "reps": 5,
+            "weight_data": {"value": 225.0, "unit": "kg"},
+            "completed": True,
+        }
+
+        exercise.add_set_data(set_data)
+
+        self.assertEqual(len(exercise.sets_data), 1)
+        self.assertEqual(
+            exercise.sets_data[0]["weight_data"], {"value": 225.0, "unit": "kg"}
+        )
+
+    def test_add_set_data_invalid_weight_unit(self):
+        """
+        Test adding set data with invalid weight unit raises error
+        """
+        exercise = Exercise(
+            exercise_id="ex123",
+            workout_id="wo123",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=5,
+        )
+
+        set_data = {
+            "set_number": 1,
+            "reps": 5,
+            "weight_data": {"value": 225.0, "unit": "stones"},
+            "completed": True,
+        }
+
+        with self.assertRaises(ValueError) as context:
+            exercise.add_set_data(set_data)
+
+        self.assertIn(
+            "Set weight_data unit must be 'kg' or 'lb'", str(context.exception)
+        )
 
     def test_get_set_data(self):
         # Create exercise with sets
