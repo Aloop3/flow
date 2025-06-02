@@ -10,7 +10,7 @@ class Exercise:
         exercise_type: Union[str, ExerciseType],
         sets: int,
         reps: int,
-        weight: float,
+        weight_data: Optional[Dict[str, Any]] = None,
         rpe: Optional[Union[int, float]] = None,
         status: Optional[Literal["planned", "completed", "skipped"]] = "planned",
         notes: Optional[str] = None,
@@ -30,8 +30,6 @@ class Exercise:
             raise ValueError("sets must be positive")
         if reps <= 0:
             raise ValueError("reps must be positive")
-        if weight < 0:
-            raise ValueError("weight must be non-negative")
         if rpe is not None and (rpe < 0 or rpe > 10):
             raise ValueError("rpe must be between 0 and 10")
         if order is not None and order < 0:
@@ -67,15 +65,29 @@ class Exercise:
             # For custom exercises
             self.exercise_category = ExerciseCategory.CUSTOM
 
+        # Initialize weight_data with defaults
+        if weight_data is None:
+            weight_data = {"value": 0.0, "unit": "lb"}
+
+        # Validate weight_data structure
+        if "value" not in weight_data:
+            raise ValueError("weight_data must contain 'value' field")
+        if "unit" not in weight_data:
+            weight_data["unit"] = "lb"  # Default unit
+        if weight_data["unit"] not in ["kg", "lb"]:
+            raise ValueError("weight_data unit must be 'kg' or 'lb'")
+        if weight_data["value"] < 0:
+            raise ValueError("weight_data value must be non-negative")
+
         self.exercise_id: str = exercise_id
         self.workout_id: str = workout_id
-        self.sets: int = sets  # Planned sets
-        self.reps: int = reps  # Planned reps
-        self.weight: float = weight  # Planned weight
-        self.rpe: Optional[Union[int, float]] = rpe  # Planned RPE
+        self.sets: int = sets
+        self.reps: int = reps
+        self.weight_data: Dict[str, Any] = weight_data
+        self.rpe: Optional[Union[int, float]] = rpe
         self.status: Literal["planned", "completed", "skipped"] = status
         self.notes: Optional[str] = notes
-        self.order: Optional[int] = order  # Sequence in workout
+        self.order: Optional[int] = order
         self.sets_data: Optional[List[Dict[str, Any]]] = sets_data
 
     def to_dict(self) -> Dict[str, Any]:
@@ -89,7 +101,7 @@ class Exercise:
             "exercise_category": self.exercise_category.value,
             "sets": self.sets,
             "reps": self.reps,
-            "weight": self.weight,
+            "weight_data": self.weight_data,
             "rpe": self.rpe,
             "status": self.status,
             "notes": self.notes,
@@ -117,13 +129,19 @@ class Exercise:
                     exercise_category = category
                     break
 
+        # Handle weight_data - migrate from legacy weight if needed
+        weight_data = data.get("weight_data")
+        if weight_data is None and "weight" in data:
+            # Migration from legacy weight field
+            weight_data = {"value": data["weight"], "unit": "lb"}
+
         return cls(
             exercise_id=data["exercise_id"],
             workout_id=data["workout_id"],
             exercise_type=data["exercise_type"],
             sets=data["sets"],
             reps=data["reps"],
-            weight=data["weight"],
+            weight_data=weight_data,
             rpe=data.get("rpe"),
             status=data.get("status"),
             notes=data.get("notes"),
@@ -142,6 +160,12 @@ class Exercise:
         # Initialize sets_data if None
         if self.sets_data is None:
             self.sets_data = []
+
+        # Validate weight_data in set if present
+        if "weight_data" in set_data:
+            weight_data = set_data["weight_data"]
+            if "unit" in weight_data and weight_data["unit"] not in ["kg", "lb"]:
+                raise ValueError("Set weight_data unit must be 'kg' or 'lb'")
 
         # Check if set with this number already exists
         set_number = set_data.get("set_number")
@@ -171,6 +195,9 @@ class Exercise:
         :param set_number: Number of the set to retrieve
         :return: Set data if found, else None
         """
+        if not self.sets_data:
+            return None
+
         for set_data in self.sets_data:
             if set_data.get("set_number") == set_number:
                 return set_data
