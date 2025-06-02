@@ -2,11 +2,14 @@ import uuid
 from typing import List, Dict, Any, Optional, Union, Literal
 from src.repositories.exercise_repository import ExerciseRepository
 from src.models.exercise import Exercise
+from src.services.user_service import UserService
+from src.utils.weight_defaults import get_default_unit
 
 
 class ExerciseService:
     def __init__(self):
         self.exercise_repository: ExerciseRepository = ExerciseRepository()
+        self.user_service: UserService = UserService()
 
     def get_exercise(self, exercise_id: str) -> Optional[Exercise]:
         """
@@ -18,7 +21,7 @@ class ExerciseService:
         exercise_data = self.exercise_repository.get_exercise(exercise_id)
 
         if exercise_data:
-            return Exercise(**exercise_data)
+            return Exercise.from_dict(exercise_data)
         return None
 
     def get_exercises_for_workout(self, workout_id: str) -> List[Exercise]:
@@ -32,7 +35,7 @@ class ExerciseService:
 
         # Sort by order
         exercises_data.sort(key=lambda x: x.get("order", 999))
-        return [Exercise(**exercise_data) for exercise_data in exercises_data]
+        return [Exercise.from_dict(exercise_data) for exercise_data in exercises_data]
 
     def create_exercise(
         self,
@@ -40,7 +43,9 @@ class ExerciseService:
         exercise_type: str,
         sets: int,
         reps: int,
-        weight: float,
+        weight_value: float = 0.0,
+        athlete_id: Optional[str] = None,
+        weight_unit: Optional[str] = None,
         rpe: Optional[Union[int, float]] = None,
         status: Optional[Literal["planned", "completed", "skipped"]] = "planned",
         notes: Optional[str] = None,
@@ -48,15 +53,17 @@ class ExerciseService:
         exercise_category: Optional[str] = None,
     ) -> Exercise:
         """
-        Creates a new exercise
+        Creates a new exercise with weight unit defaults
 
         :param workout_id: The ID of the workout to create the exercise for
         :param exercise_type: The type of exercise
         :param sets: The number of sets
         :param reps: The number of reps
-        :param weight: The weight used
+        :param weight_value: The weight value
+        :param athlete_id: The athlete's ID (for weight preference lookup)
+        :param weight_unit: Explicit unit override ('kg' or 'lb')
         :param rpe: The RPE rating
-        :param status: The status of the exercise (planned, completed, skipped)
+        :param status: The status of the exercise
         :param exercise_category: The category of the exercise
         :param notes: Any additional notes
         :param order: The order of the exercise
@@ -71,13 +78,27 @@ class ExerciseService:
                 max([ex.get("order", 0) for ex in existing_exercises], default=0) + 1
             )
 
+        # Determine weight unit using defaults
+        if weight_unit and weight_unit in ["kg", "lb"]:
+            final_unit = weight_unit
+        elif athlete_id:
+            user_preference = self.user_service.get_user_weight_unit_preference(
+                athlete_id
+            )
+            final_unit = get_default_unit(exercise_type, user_preference)
+        else:
+            final_unit = get_default_unit(exercise_type, "lb")  # Default fallback
+
+        # Create weight_data structure
+        weight_data = {"value": weight_value, "unit": final_unit}
+
         exercise = Exercise(
             exercise_id=str(uuid.uuid4()),
             workout_id=workout_id,
             exercise_type=exercise_type,
             sets=sets,
             reps=reps,
-            weight=weight,
+            weight_data=weight_data,
             rpe=rpe,
             status=status,
             notes=notes,
@@ -85,7 +106,6 @@ class ExerciseService:
         )
 
         self.exercise_repository.create_exercise(exercise.to_dict())
-
         return exercise
 
     def update_exercise(
@@ -111,66 +131,38 @@ class ExerciseService:
         response = self.exercise_repository.delete_exercise(exercise_id)
         return bool(response)
 
-    def reorder_exercises(
-        self, workout_id: str, exercise_order: List[str]
-    ) -> List[Exercise]:
-        """
-        Reorder exercises for a workout
-
-        :param workout_id: The ID of the workout to reorder exercises for
-        :param exercise_order: A list of exercise IDs in the desired order
-        :return: A list of reordered Exercise objects
-        """
-        # Get all exercises for the workout
-        exercises = self.get_exercises_for_workout(workout_id)
-        exercise_dict = {ex.exercise_id: ex for ex in exercises}
-
-        # Update order for each exercise
-        for i, exercise_id in enumerate(exercise_order):
-            if exercise_id in exercise_dict:
-                self.update_exercise(exercise_id, {"order": i + 1})
-
-        return self.get_exercises_for_workout(workout_id)
-
-    def delete_exercises_by_workout(self, workout_id: str) -> int:
-        """
-        Delete all exercises associated with a given workout_id (cascading delete)
-
-        :param workout_id: The workout_id to filter exercises by
-        :return: The number of exercises deleted
-        """
-        exercises = self.exercise_repository.get_exercises_by_workout(workout_id)
-
-        # Batch delete all exercises
-        with self.exercise_repository.table.batch_writer() as batch:
-            for exercise in exercises:
-                batch.delete_item(Key={"exercise_id": exercise["exercise_id"]})
-
-        return len(exercises)
-
     def track_set(
         self,
         exercise_id: str,
         set_number: int,
         reps: int,
-        weight: float,
+        weight_value: float,
+        weight_unit: Optional[str] = None,
         rpe: Optional[Union[int, float]] = None,
         completed: bool = True,
         notes: Optional[str] = None,
     ) -> Optional[Exercise]:
-        """Track a specific set within an exercise"""
+        """
+        Track a specific set within an exercise with weight unit support
+        """
         # Get the exercise
         exercise = self.get_exercise(exercise_id)
         if not exercise:
             return None
 
-        # Add/update set data as before
+        # Determine weight unit (use exercise default if not specified)
+        final_unit = weight_unit or exercise.weight_data.get("unit", "lb")
+        if final_unit not in ["kg", "lb"]:
+            final_unit = "lb"  # Fallback
+
+        # Prepare set data with weight_data structure
         set_data = {
             "set_number": set_number,
             "reps": reps,
-            "weight": weight,
+            "weight_data": {"value": weight_value, "unit": final_unit},
             "completed": completed,
         }
+
         if rpe is not None:
             set_data["rpe"] = rpe
         if notes:
@@ -192,7 +184,7 @@ class ExerciseService:
 
         # Update exercise data
         update_data = {
-            "sets_data": exercise.sets_data,
+            "sets_data": [s for s in exercise.sets_data],
             "sets": actual_sets_count,
         }
 
@@ -240,7 +232,7 @@ class ExerciseService:
         # Update the exercise with the new sets_data
         update_data = {
             "sets_data": updated_sets_data,
-            "sets": new_set_count,  # Update the total set count
+            "sets": new_set_count,
         }
 
         # Automatically recalculate exercise status based on remaining sets
