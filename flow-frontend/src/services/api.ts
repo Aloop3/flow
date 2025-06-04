@@ -86,6 +86,7 @@ export interface User {
   email: string;
   name: string;
   role: 'athlete' | 'coach';
+  weight_unit_preference?: 'auto' | 'kg' | 'lb';
 }
 
 export interface Workout {

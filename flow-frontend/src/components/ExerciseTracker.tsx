@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { trackExerciseSet, deleteSet, completeExercise } from '../services/api';
 import type { Exercise, ExerciseSetData } from '../services/api';
 import FormButton from './FormButton';
+import { useWeightUnit } from '../contexts/UserContext';
 
 interface ExerciseTrackerProps {
   exercise: Exercise;
@@ -27,6 +28,8 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     rpe: undefined as number | undefined,
     notes: '',
   });
+  const { getDisplayUnit } = useWeightUnit();
+  const displayUnit = getDisplayUnit(exercise.exercise_type);
 
   useEffect(() => {
     setExerciseState(exercise);
@@ -342,7 +345,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Weight</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{displayUnit}</label>
               <input
                 type="number"
                 name="weight"
@@ -409,7 +412,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
                       Reps
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Weight
+                      {displayUnit}
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       RPE

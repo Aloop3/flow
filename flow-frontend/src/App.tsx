@@ -15,6 +15,7 @@ import BlockEdit from './pages/BlockEdit';
 import DayDetail from './pages/DayDetail';
 import CoachAthleteBlocks from './pages/coach/CoachAthleteBlocks';
 import CoachBlockCreate from './pages/coach/CoachBlockCreate';
+import { UserProvider } from './contexts/UserContext';
 
 
 //  AuthenticatedApp component extracted
@@ -101,22 +102,24 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
   // Show main application once user is fully set up
   if (userSetupComplete === true && userData) {
     return (
-      <Router>
-        <Routes>
-          <Route path="/" element={<Dashboard user={userData} signOut={signOut} />} />
-          <Route path="/blocks" element={<Blocks user={userData} signOut={signOut} />} />
-          <Route path="/blocks/new" element={<BlockCreate user={userData} signOut={signOut} />} />
-          <Route path="/blocks/:blockId" element={<BlockDetail user={userData} signOut={signOut} />} />
-          <Route path="/blocks/:blockId/edit" element={<BlockEdit user={userData} signOut={signOut} />} />
-          <Route path="/workout/:workoutId" element={<Workout user={userData} signOut={signOut} />} />
-          <Route path="/days/:dayId" element={<DayDetail user={userData} signOut={signOut} />} />
-          <Route path="/profile" element={<Profile user={userData} signOut={signOut} />} />
-          <Route path="/coach/athletes/:athleteId/blocks" element={<CoachAthleteBlocks user={userData} signOut={signOut} />} />
-          <Route path="/coach/athletes/:athleteId/blocks/new" element={<CoachBlockCreate user={userData} signOut={signOut} />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <DebugButton />
-      </Router>
+      <UserProvider user={userData}>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Dashboard user={userData} signOut={signOut} />} />
+            <Route path="/blocks" element={<Blocks user={userData} signOut={signOut} />} />
+            <Route path="/blocks/new" element={<BlockCreate user={userData} signOut={signOut} />} />
+            <Route path="/blocks/:blockId" element={<BlockDetail user={userData} signOut={signOut} />} />
+            <Route path="/blocks/:blockId/edit" element={<BlockEdit user={userData} signOut={signOut} />} />
+            <Route path="/workout/:workoutId" element={<Workout user={userData} signOut={signOut} />} />
+            <Route path="/days/:dayId" element={<DayDetail user={userData} signOut={signOut} />} />
+            <Route path="/profile" element={<Profile user={userData} signOut={signOut} />} />
+            <Route path="/coach/athletes/:athleteId/blocks" element={<CoachAthleteBlocks user={userData} signOut={signOut} />} />
+            <Route path="/coach/athletes/:athleteId/blocks/new" element={<CoachBlockCreate user={userData} signOut={signOut} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <DebugButton />
+        </Router>
+      </UserProvider>
     );
   }
 
