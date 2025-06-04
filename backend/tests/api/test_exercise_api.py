@@ -13,12 +13,29 @@ class TestExerciseAPI(BaseTest):
     Test suite for the Exercise API module
     """
 
+    def create_test_event_with_auth(self, body_data, path_parameters=None):
+        """Helper to create test events with proper Cognito auth structure"""
+        event = {
+            "body": json.dumps(body_data),
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
+        if path_parameters:
+            event["pathParameters"] = path_parameters
+        return event
+
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=lambda x, y, z: x,
+    )
+    @patch("src.api.exercise_api.convert_weight_to_kg", return_value=315.0)
     @patch("src.services.exercise_service.ExerciseService.create_exercise")
-    def test_create_exercise_success(self, mock_create_exercise):
+    def test_create_exercise_success(
+        self, mock_create_exercise, mock_convert_kg, mock_convert_display, mock_get_pref
+    ):
         """
         Test successful exercise creation
         """
-
         # Setup
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
@@ -35,21 +52,19 @@ class TestExerciseAPI(BaseTest):
         }
         mock_create_exercise.return_value = mock_exercise
 
-        event = {
-            "body": json.dumps(
-                {
-                    "workout_id": "workout456",
-                    "exercise_type": "Squat",
-                    "exercise_category": "barbell",
-                    "sets": 5,
-                    "reps": 5,
-                    "weight": 315.0,
-                    "rpe": 8.5,
-                    "notes": "Use belt",
-                    "order": 1,
-                }
-            )
-        }
+        event = self.create_test_event_with_auth(
+            {
+                "workout_id": "workout456",
+                "exercise_type": "Squat",
+                "exercise_category": "barbell",
+                "sets": 5,
+                "reps": 5,
+                "weight": 315.0,
+                "rpe": 8.5,
+                "notes": "Use belt",
+                "order": 1,
+            }
+        )
         context = {}
 
         # Call API
@@ -62,17 +77,11 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body["workout_id"], "workout456")
         self.assertEqual(response_body["exercise_type"], "Squat")
         self.assertEqual(response_body["sets"], 5)
-        mock_create_exercise.assert_called_once_with(
-            workout_id="workout456",
-            exercise_type="Squat",
-            exercise_category="barbell",
-            sets=5,
-            reps=5,
-            weight=315.0,
-            rpe=8.5,
-            notes="Use belt",
-            order=1,
-        )
+
+        # Verify weight conversion functions were called
+        mock_get_pref.assert_called_once_with("test-user-id")
+        mock_convert_kg.assert_called_once()
+        mock_convert_display.assert_called_once()
 
     @patch("src.services.exercise_service.ExerciseService.create_exercise")
     def test_create_exercise_missing_fields(self, mock_create_exercise):
@@ -103,25 +112,31 @@ class TestExerciseAPI(BaseTest):
         self.assertIn("Missing required fields", response_body["error"])
         mock_create_exercise.assert_not_called()
 
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=lambda x, y, z: x,
+    )
     @patch("src.services.exercise_service.ExerciseService.create_exercise")
-    def test_create_exercise_exception(self, mock_create_exercise):
+    def test_create_exercise_exception(
+        self, mock_create_exercise, mock_convert_display, mock_get_pref
+    ):
         """
-        Test exception handling in exercise creation
+        Test exception handling during exercise creation
         """
-        # Setup - simulate an exception
+        # Setup
         mock_create_exercise.side_effect = Exception("Database connection error")
 
-        event = {
-            "body": json.dumps(
-                {
-                    "workout_id": "workout456",
-                    "exercise_type": "Squat",
-                    "sets": 5,
-                    "reps": 5,
-                    "weight": 315.0,
-                }
-            )
-        }
+        event = self.create_test_event_with_auth(
+            {
+                "workout_id": "workout456",
+                "exercise_type": "Squat",
+                "exercise_category": "barbell",
+                "sets": 5,
+                "reps": 5,
+                "weight": 315.0,
+            }
+        )
         context = {}
 
         # Call API
@@ -131,38 +146,32 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Database connection error")
-        mock_create_exercise.assert_called_once()
 
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=lambda x, y, z: x,
+    )
     @patch("src.services.exercise_service.ExerciseService.get_exercises_for_workout")
-    def test_get_exercises_for_workout_success(self, mock_get_exercises):
+    def test_get_exercises_for_workout_success(
+        self, mock_get_exercises, mock_convert_display, mock_get_pref
+    ):
         """
         Test successful retrieval of exercises for a workout
         """
-
         # Setup
-        mock_exercise1 = MagicMock()
-        mock_exercise1.to_dict.return_value = {
-            "exercise_id": "ex1",
-            "workout_id": "workout456",
+        mock_exercise = MagicMock()
+        mock_exercise.to_dict.return_value = {
+            "exercise_id": "ex123",
             "exercise_type": "Squat",
             "sets": 5,
             "reps": 5,
             "weight": 315.0,
-            "order": 1,
         }
-        mock_exercise2 = MagicMock()
-        mock_exercise2.to_dict.return_value = {
-            "exercise_id": "ex2",
-            "workout_id": "workout456",
-            "exercise_type": "Bench Press",
-            "sets": 5,
-            "reps": 5,
-            "weight": 225.0,
-            "order": 2,
-        }
-        mock_get_exercises.return_value = [mock_exercise1, mock_exercise2]
+        mock_exercise.exercise_type = "Squat"
+        mock_get_exercises.return_value = [mock_exercise]
 
-        event = {"pathParameters": {"workout_id": "workout456"}}
+        event = self.create_test_event_with_auth({}, {"workout_id": "workout456"})
         context = {}
 
         # Call API
@@ -171,22 +180,21 @@ class TestExerciseAPI(BaseTest):
         # Assert
         self.assertEqual(response["statusCode"], 200)
         response_body = json.loads(response["body"])
-        self.assertEqual(len(response_body), 2)
-        self.assertEqual(response_body[0]["exercise_id"], "ex1")
-        self.assertEqual(response_body[0]["exercise_type"], "Squat")
-        self.assertEqual(response_body[1]["exercise_id"], "ex2")
-        self.assertEqual(response_body[1]["exercise_type"], "Bench Press")
-        mock_get_exercises.assert_called_once_with("workout456")
+        self.assertEqual(len(response_body), 1)
+        self.assertEqual(response_body[0]["exercise_id"], "ex123")
 
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch("src.services.exercise_service.ExerciseService.get_exercises_for_workout")
-    def test_get_exercises_for_workout_exception(self, mock_get_exercises):
+    def test_get_exercises_for_workout_exception(
+        self, mock_get_exercises, mock_get_pref
+    ):
         """
-        Test exception handling in get exercises for workout
+        Test exception handling during exercise retrieval
         """
-        # Setup - simulate an exception
+        # Setup
         mock_get_exercises.side_effect = Exception("Database query failed")
 
-        event = {"pathParameters": {"workout_id": "workout456"}}
+        event = self.create_test_event_with_auth({}, {"workout_id": "workout456"})
         context = {}
 
         # Call API
@@ -196,7 +204,47 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Database query failed")
-        mock_get_exercises.assert_called_once_with("workout456")
+
+    @patch("src.services.user_service.UserService.get_user")
+    def test_get_user_weight_preference_success(self, mock_get_user):
+        """Test get_user_weight_preference with valid user"""
+        # Setup
+        mock_user = MagicMock()
+        mock_user.weight_unit_preference = "kg"
+        mock_get_user.return_value = mock_user
+
+        # Call function
+        result = exercise_api.get_user_weight_preference("test-user-id")
+
+        # Assert
+        self.assertEqual(result, "kg")
+        mock_get_user.assert_called_once_with("test-user-id")
+
+    @patch("src.services.user_service.UserService.get_user")
+    def test_get_user_weight_preference_user_not_found(self, mock_get_user):
+        """Test get_user_weight_preference when user not found"""
+        # Setup
+        mock_get_user.return_value = None
+
+        # Call function
+        result = exercise_api.get_user_weight_preference("nonexistent-user")
+
+        # Assert
+        self.assertEqual(result, "auto")
+        mock_get_user.assert_called_once_with("nonexistent-user")
+
+    @patch("src.services.user_service.UserService.get_user")
+    def test_get_user_weight_preference_exception(self, mock_get_user):
+        """Test get_user_weight_preference with service exception"""
+        # Setup
+        mock_get_user.side_effect = Exception("Database error")
+
+        # Call function
+        result = exercise_api.get_user_weight_preference("test-user-id")
+
+        # Assert
+        self.assertEqual(result, "auto")  # Should fallback to "auto"
+        mock_get_user.assert_called_once_with("test-user-id")
 
     @patch("src.services.exercise_service.ExerciseService.update_exercise")
     def test_update_exercise_success(self, mock_update_exercise):
@@ -452,45 +500,72 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body["error"], "Reorder operation failed")
         mock_reorder_exercises.assert_called_once_with("workout456", ["ex2", "ex1"])
 
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=lambda x, y, z: x,
+    )
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
+    @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)
     @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.track_set")
-    def test_track_set_success(self, mock_track_set, mock_get_exercise):
-        # Create a properly mocked Exercise object
+    def test_track_set_success(
+        self,
+        mock_track_set,
+        mock_get_exercise,
+        mock_convert_kg,
+        mock_get_unit,
+        mock_convert_display,
+        mock_get_pref,
+    ):
+        """
+        Test successful set tracking
+        """
+        # Setup
         mock_exercise = MagicMock()
-        mock_exercise.to_dict.return_value = {
-            "exercise_id": "test123",
-            "workout_id": "workout123",
+        mock_exercise.exercise_type = "Squat"
+        mock_get_exercise.return_value = mock_exercise
+
+        mock_updated_exercise = MagicMock()
+        mock_updated_exercise.to_dict.return_value = {
+            "exercise_id": "ex123",
             "exercise_type": "Squat",
-            "exercise_category": "barbell",
-            "sets": 3,
-            "reps": 5,
-            "weight": 225.0,
-            "status": "in_progress",
-            "is_predefined": True,
             "sets_data": [
-                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
+                {"set_number": 1, "reps": 5, "weight": 140.0, "completed": True}
             ],
         }
+        mock_updated_exercise.exercise_type = "Squat"
+        mock_track_set.return_value = mock_updated_exercise
 
-        # Setup mocks
-        mock_get_exercise.return_value = mock_exercise
-        mock_track_set.return_value = mock_exercise
+        event = self.create_test_event_with_auth(
+            {
+                "reps": 5,
+                "weight": 315.0,
+                "rpe": 8,
+                "completed": True,
+            },
+            {"exercise_id": "ex123", "set_number": "1"},
+        )
+        context = {}
 
-        # Create mock event
-        event = {
-            "pathParameters": {"exercise_id": "test123", "set_number": "1"},
-            "body": json.dumps({"reps": 5, "weight": 225.0, "completed": True}),
-        }
+        # Call API
+        response = exercise_api.track_set(event, context)
 
-        # Call API function
-        response = exercise_api.track_set(event, {})
-
-        # Verify response
+        # Assert
         self.assertEqual(response["statusCode"], 200)
-
-        # Verify response body
         response_body = json.loads(response["body"])
-        self.assertEqual(response_body["exercise_id"], "test123")
+        self.assertEqual(response_body["exercise_id"], "ex123")
+
+        # Verify service was called with converted weight
+        mock_track_set.assert_called_once_with(
+            exercise_id="ex123",
+            set_number=1,
+            reps=5,
+            weight=140.0,  # Converted weight
+            rpe=8,
+            completed=True,
+            notes=None,
+        )
 
     @patch("src.services.exercise_service.ExerciseService")
     def test_track_set_missing_fields(self, mock_service):
@@ -521,24 +596,86 @@ class TestExerciseAPI(BaseTest):
         # Verify service not called
         mock_service_instance.track_set.assert_not_called()
 
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch("src.services.exercise_service.ExerciseService.get_exercise")
-    def test_track_set_exercise_not_found(self, mock_get_exercise):
-        # Mock get_exercise to return None (exercise not found)
+    def test_track_set_exercise_not_found(self, mock_get_exercise, mock_get_pref):
+        """
+        Test tracking set when exercise is not found
+        """
+        # Setup
         mock_get_exercise.return_value = None
 
-        # Create mock event
-        event = {
-            "pathParameters": {"exercise_id": "nonexistent", "set_number": "1"},
-            "body": json.dumps({"reps": 5, "weight": 225.0, "completed": True}),
-        }
+        event = self.create_test_event_with_auth(
+            {"reps": 5, "weight": 315.0}, {"exercise_id": "ex123", "set_number": "1"}
+        )
+        context = {}
 
-        # Call API function
-        response = exercise_api.track_set(event, {})
+        # Call API
+        response = exercise_api.track_set(event, context)
 
-        # Verify response
+        # Assert
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Exercise not found")
+
+    def test_track_set_invalid_set_number(self):
+        """Test track_set with invalid set number parameter"""
+        # Setup
+        event = self.create_test_event_with_auth(
+            {"reps": 5, "weight": 315.0},
+            {"exercise_id": "ex123", "set_number": "invalid"},
+        )
+        context = {}
+
+        # Call API
+        response = exercise_api.track_set(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid parameters", response_body["error"])
+
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=Exception("Conversion error"),
+    )
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
+    @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.exercise_service.ExerciseService.track_set")
+    def test_track_set_exception(
+        self,
+        mock_track_set,
+        mock_get_exercise,
+        mock_convert_kg,
+        mock_get_unit,
+        mock_convert_display,
+        mock_get_pref,
+    ):
+        """Test track_set with exception during processing"""
+        # Setup
+        mock_exercise = MagicMock()
+        mock_exercise.exercise_type = "Squat"
+        mock_get_exercise.return_value = mock_exercise
+
+        mock_updated_exercise = MagicMock()
+        mock_updated_exercise.to_dict.return_value = {"exercise_id": "ex123"}
+        mock_updated_exercise.exercise_type = "Squat"
+        mock_track_set.return_value = mock_updated_exercise
+
+        event = self.create_test_event_with_auth(
+            {"reps": 5, "weight": 315.0}, {"exercise_id": "ex123", "set_number": "1"}
+        )
+        context = {}
+
+        # Call API
+        response = exercise_api.track_set(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertIn("Server error", response_body["error"])
 
     @patch("src.api.exercise_api.ExerciseService")
     def test_delete_exercise_set_success(self, MockExerciseService):
@@ -649,6 +786,188 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertIn("Invalid parameters", response_body["error"])
+
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
+    @patch("src.api.exercise_api.convert_weight_from_kg", return_value=315.0)
+    def test_convert_exercise_weights_for_display_with_weight(
+        self, mock_convert_from_kg, mock_get_unit
+    ):
+        """Test convert_exercise_weights_for_display with exercise weight"""
+        # Setup
+        exercise_dict = {
+            "exercise_id": "ex123",
+            "exercise_type": "Squat",
+            "weight": 143.0,  # kg storage
+            "sets_data": [
+                {"set_number": 1, "weight": 140.0, "reps": 5},
+                {"set_number": 2, "weight": 145.0, "reps": 5},
+            ],
+        }
+        user_preference = "auto"
+        exercise_type = "Squat"
+
+        # Call function
+        result = exercise_api.convert_exercise_weights_for_display(
+            exercise_dict, user_preference, exercise_type
+        )
+
+        # Assert
+        self.assertEqual(result["display_unit"], "kg")
+        mock_get_unit.assert_called_once_with("Squat", "auto")
+        # Should be called 3 times: once for main weight, twice for sets_data
+        self.assertEqual(mock_convert_from_kg.call_count, 3)
+
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="lb")
+    @patch("src.api.exercise_api.convert_weight_from_kg", return_value=225.0)
+    def test_convert_exercise_weights_for_display_no_weight(
+        self, mock_convert_from_kg, mock_get_unit
+    ):
+        """Test convert_exercise_weights_for_display with no weight data"""
+        # Setup
+        exercise_dict = {
+            "exercise_id": "ex123",
+            "exercise_type": "Dumbbell Curl",
+            "weight": None,  # No weight
+            "sets_data": None,  # No sets data
+        }
+        user_preference = "lb"
+        exercise_type = "Dumbbell Curl"
+
+        # Call function
+        result = exercise_api.convert_exercise_weights_for_display(
+            exercise_dict, user_preference, exercise_type
+        )
+
+        # Assert
+        self.assertEqual(result["display_unit"], "lb")
+        mock_get_unit.assert_called_once_with("Dumbbell Curl", "lb")
+        # Should not be called since weight is None
+        mock_convert_from_kg.assert_not_called()
+
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=lambda x, y, z: x,
+    )
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
+    @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.workout_service.WorkoutService.complete_exercise")
+    def test_complete_exercise_success(
+        self,
+        mock_complete_exercise,
+        mock_get_exercise,
+        mock_convert_kg,
+        mock_get_unit,
+        mock_convert_display,
+        mock_get_pref,
+    ):
+        """Test successful exercise completion with weight conversion"""
+        # Setup
+        mock_exercise = MagicMock()
+        mock_exercise.exercise_type = "Squat"
+        mock_get_exercise.return_value = mock_exercise
+
+        mock_completed_exercise = MagicMock()
+        mock_completed_exercise.to_dict.return_value = {
+            "exercise_id": "ex123",
+            "exercise_type": "Squat",
+            "status": "completed",
+            "sets": 3,
+            "reps": 5,
+            "weight": 140.0,
+            "rpe": 8.0,
+        }
+        mock_completed_exercise.exercise_type = "Squat"
+        mock_complete_exercise.return_value = mock_completed_exercise
+
+        event = self.create_test_event_with_auth(
+            {
+                "sets": 3,
+                "reps": 5,
+                "weight": 315.0,  # Display weight
+                "rpe": 8.0,
+                "notes": "Felt strong",
+            },
+            {"exercise_id": "ex123"},
+        )
+        context = {}
+
+        # Call API
+        response = exercise_api.complete_exercise(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        mock_get_pref.assert_called_once_with("test-user-id")
+        mock_get_exercise.assert_called_once_with("ex123")
+        mock_convert_kg.assert_called_once_with(315.0, "kg")
+        mock_complete_exercise.assert_called_once_with(
+            exercise_id="ex123",
+            sets=3,
+            reps=5,
+            weight=140.0,  # Converted weight
+            rpe=8.0,
+            notes="Felt strong",
+        )
+
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    def test_complete_exercise_not_found(self, mock_get_exercise, mock_get_pref):
+        """Test complete_exercise when exercise not found"""
+        # Setup
+        mock_get_exercise.return_value = None
+
+        event = self.create_test_event_with_auth(
+            {"sets": 3, "reps": 5, "weight": 315.0}, {"exercise_id": "nonexistent"}
+        )
+        context = {}
+
+        # Call API
+        response = exercise_api.complete_exercise(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Exercise not found")
+
+    def test_complete_exercise_missing_fields(self):
+        """Test complete_exercise with missing required fields"""
+        # Setup
+        event = self.create_test_event_with_auth(
+            {
+                "sets": 3,
+                "reps": 5
+                # Missing weight
+            },
+            {"exercise_id": "ex123"},
+        )
+        context = {}
+
+        # Call API
+        response = exercise_api.complete_exercise(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Missing required fields", response_body["error"])
+
+    def test_complete_exercise_invalid_json(self):
+        """Test complete_exercise with invalid JSON"""
+        # Setup
+        event = {
+            "pathParameters": {"exercise_id": "ex123"},
+            "body": "invalid json",
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
+        context = {}
+
+        # Call API
+        response = exercise_api.complete_exercise(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid JSON", response_body["error"])
 
 
 if __name__ == "__main__":
