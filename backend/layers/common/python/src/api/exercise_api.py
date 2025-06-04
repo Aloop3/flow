@@ -1,16 +1,62 @@
 import json
 import logging
+from src.services.user_service import UserService
 from src.services.exercise_service import ExerciseService
 from src.services.workout_service import WorkoutService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
 from src.middleware.common_middleware import log_request, handle_errors
+from src.utils.weight_utils import (
+    convert_weight_to_kg,
+    convert_weight_from_kg,
+    get_exercise_default_unit,
+)
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+user_service = UserService()
 exercise_service = ExerciseService()
 workout_service = WorkoutService()
+
+
+def get_user_weight_preference(user_id: str) -> str:
+    """
+    Get user's weight preference with graceful fallback.
+
+    :param user_id: User ID from Cognito claims
+    :return: Weight preference ("auto", "kg", "lb")
+    """
+    try:
+        user = user_service.get_user(user_id)
+        return user.weight_unit_preference if user else "auto"
+    except Exception as e:
+        logger.warning(f"Failed to get user weight preference for {user_id}: {str(e)}")
+        return "auto"
+
+
+def convert_exercise_weights_for_display(exercise_dict, user_preference, exercise_type):
+    """Convert exercise weights from kg (storage) to display unit"""
+    display_unit = get_exercise_default_unit(exercise_type, user_preference)
+
+    # Convert template weight
+    if "weight" in exercise_dict and exercise_dict["weight"] is not None:
+        exercise_dict["weight"] = convert_weight_from_kg(
+            exercise_dict["weight"], display_unit
+        )
+
+    # Convert sets_data weights
+    if "sets_data" in exercise_dict and exercise_dict["sets_data"]:
+        for set_data in exercise_dict["sets_data"]:
+            if "weight" in set_data and set_data["weight"] is not None:
+                set_data["weight"] = convert_weight_from_kg(
+                    set_data["weight"], display_unit
+                )
+
+    # Add display unit info
+    exercise_dict["display_unit"] = display_unit
+    return exercise_dict
 
 
 @with_middleware([log_request, handle_errors])
@@ -36,6 +82,16 @@ def create_exercise(event, context):
         if not workout_id or not exercise_type or sets is None or reps is None:
             return create_response(400, {"error": "Missing required fields"})
 
+        # Get user preference for weight conversion
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        user_preference = get_user_weight_preference(user_id)
+
+        # Convert weight from display unit to kg for storage
+        weight_kg = weight
+        if weight is not None:
+            display_unit = get_exercise_default_unit(exercise_type, user_preference)
+            weight_kg = convert_weight_to_kg(weight, display_unit)
+
         # Create exercise
         exercise = exercise_service.create_exercise(
             workout_id=workout_id,
@@ -43,13 +99,17 @@ def create_exercise(event, context):
             exercise_category=exercise_category,
             sets=sets,
             reps=reps,
-            weight=weight,
+            weight=weight_kg,  # Use converted weight
             rpe=rpe,
             notes=notes,
             order=order,
         )
 
-        return create_response(201, exercise.to_dict())
+        # Convert response back to display units
+        response_data = convert_exercise_weights_for_display(
+            exercise.to_dict(), user_preference, exercise_type
+        )
+        return create_response(201, response_data)
 
     except Exception as e:
         logger.error(f"Error creating exercise: {str(e)}")
@@ -65,10 +125,23 @@ def get_exercises_for_workout(event, context):
         # Extract workout_id from path parameters
         workout_id = event["pathParameters"]["workout_id"]
 
+        # Get user preference for weight conversion
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        user_preference = get_user_weight_preference(user_id)
+
         # Get exercises
         exercises = exercise_service.get_exercises_for_workout(workout_id)
 
-        return create_response(200, [exercise.to_dict() for exercise in exercises])
+        # Convert all exercise weights to display units
+        converted_exercises = []
+        for exercise in exercises:
+            exercise_dict = exercise.to_dict()
+            converted_exercise = convert_exercise_weights_for_display(
+                exercise_dict, user_preference, exercise.exercise_type
+            )
+            converted_exercises.append(converted_exercise)
+
+        return create_response(200, converted_exercises)
 
     except Exception as e:
         logger.error(f"Error getting exercises for workout: {str(e)}")
@@ -119,12 +192,27 @@ def complete_exercise(event, context):
         if sets is None or reps is None or weight is None:
             return create_response(400, {"error": "Missing required fields"})
 
-        # Complete the exercise
+        # Get user preference and exercise info for weight conversion
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        user_preference = get_user_weight_preference(user_id)
+
+        # Get exercise to determine type
+        exercise = exercise_service.get_exercise(exercise_id)
+        if not exercise:
+            return create_response(404, {"error": "Exercise not found"})
+
+        # Convert weight from display unit to kg
+        display_unit = get_exercise_default_unit(
+            exercise.exercise_type, user_preference
+        )
+        weight_kg = convert_weight_to_kg(weight, display_unit)
+
+        # Complete the exercise with converted weight
         updated_exercise = workout_service.complete_exercise(
             exercise_id=exercise_id,
             sets=sets,
             reps=reps,
-            weight=weight,
+            weight=weight_kg,  # Use converted weight
             rpe=rpe,
             notes=notes,
         )
@@ -132,7 +220,11 @@ def complete_exercise(event, context):
         if not updated_exercise:
             return create_response(404, {"error": "Exercise not found"})
 
-        return create_response(200, updated_exercise.to_dict())
+        # Convert response back to display units
+        response_data = convert_exercise_weights_for_display(
+            updated_exercise.to_dict(), user_preference, updated_exercise.exercise_type
+        )
+        return create_response(200, response_data)
 
     except json.JSONDecodeError:
         return create_response(400, {"error": "Invalid JSON in request body"})
@@ -217,27 +309,39 @@ def track_set(event, context):
                 400, {"error": "Missing required fields: reps and weight"}
             )
 
-        # Create service and call method
+        # Create service instance
         service = ExerciseService()
 
-        # First check if exercise exists to avoid TypeError
+        # Get user preference and exercise info for weight conversion
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        user_preference = get_user_weight_preference(user_id)
+
+        # Get exercise to determine type
         exercise = service.get_exercise(exercise_id)
         if not exercise:
             return create_response(404, {"error": "Exercise not found"})
 
-        # If exercise exists, track the set
+        # Convert weight from display unit to kg
+        display_unit = get_exercise_default_unit(
+            exercise.exercise_type, user_preference
+        )
+        weight_kg = convert_weight_to_kg(weight, display_unit)
+
+        # Track the set with converted weight
         updated_exercise = service.track_set(
             exercise_id=exercise_id,
             set_number=set_number,
             reps=reps,
-            weight=weight,
+            weight=weight_kg,
             rpe=rpe,
             completed=completed,
             notes=notes,
         )
 
-        # Convert to dict and return
-        response_data = updated_exercise.to_dict()
+        # Convert response back to display units for frontend
+        response_data = convert_exercise_weights_for_display(
+            updated_exercise.to_dict(), user_preference, updated_exercise.exercise_type
+        )
         return create_response(200, response_data)
 
     except ValueError as e:
