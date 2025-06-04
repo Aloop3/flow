@@ -5,16 +5,18 @@ set -e
 
 ENVIRONMENT=${1:-dev}
 CORS_ORIGIN=${2:-'https://dev.dykl7ea8q4fpo.amplifyapp.com'}
+LAYER_VERSION=${3:-v0-1-0}
 
 echo "Deploying to environment: $ENVIRONMENT"
 echo "CORS Origin: $CORS_ORIGIN"
+echo "Layer Version: $LAYER_VERSION"
 
 # Validate environment
 if [[ ! "$ENVIRONMENT" =~ ^(dev|prod)$ ]]; then
     echo "Error: Environment must be 'dev' or 'prod'"
-    echo "Usage: $0 <environment> [cors-origin]"
+    echo "Usage: $0 <environment> [cors-origin] [layer-version]"
     echo "Example: $0 dev"
-    echo "Example: $0 prod 'https://app.myflow.com'"
+    echo "Example: $0 prod 'https://app.myflow.com' v1-0-0"
     exit 1
 fi
 
@@ -35,7 +37,9 @@ else
 fi
 
 sam build -t "$LAYER_TEMPLATE"
-sam deploy -t "$LAYER_TEMPLATE" --stack-name flow-layers
+sam deploy -t "$LAYER_TEMPLATE" \
+    --stack-name flow-layers \
+    --parameter-overrides LayerVersion=${LAYER_VERSION}
 
 if [ $? -ne 0 ]; then
   echo "Failed to deploy layers stack."
@@ -56,7 +60,7 @@ fi
 sam build -t "$DATA_TEMPLATE"
 sam deploy -t "$DATA_TEMPLATE" \
     --stack-name "flow-data-${ENVIRONMENT}" \
-    --parameter-overrides Environment=${ENVIRONMENT}
+    --parameter-overrides Environment=${ENVIRONMENT} LayerVersion=${LAYER_VERSION}
 
 if [ $? -ne 0 ]; then
   echo "Failed to deploy data stack."
@@ -77,7 +81,7 @@ fi
 sam build -t "$APP_TEMPLATE"
 sam deploy -t "$APP_TEMPLATE" \
     --stack-name "flow-app-${ENVIRONMENT}" \
-    --parameter-overrides Environment=${ENVIRONMENT} CorsOrigin="${CORS_ORIGIN}"
+    --parameter-overrides Environment=${ENVIRONMENT} CorsOrigin="${CORS_ORIGIN}" LayerVersion=${LAYER_VERSION}
 
 if [ $? -ne 0 ]; then
   echo "Failed to deploy app stack."
@@ -87,7 +91,7 @@ fi
 echo "✅ Deployment complete for environment: $ENVIRONMENT"
 echo ""
 echo "Stack Names:"
-echo "- Layers: flow-layers"
+echo "- Layers: flow-layers (version: ${LAYER_VERSION})"
 echo "- Data: flow-data-${ENVIRONMENT}"
 echo "- App: flow-app-${ENVIRONMENT}"
 echo ""
