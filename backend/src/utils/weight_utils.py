@@ -6,7 +6,7 @@ All weights are stored in kg internally and converted at API boundaries.
 
 def lb_to_kg(weight_lb: float) -> float:
     """
-    Convert pounds to kilograms. 
+    Convert pounds to kilograms.
 
     :param weight_lb: Weight in pounds
     :return: Weight in kilograms, rounded to 2 decimal places
@@ -59,7 +59,7 @@ def convert_weight_from_kg(weight_kg: float, to_unit: str) -> float:
 def get_exercise_default_unit(exercise_type, user_preference="auto"):
     """
     Determine the appropriate weight unit for an exercise
-    
+
     :param exercise_type: ExerciseType object or string name of the exercise
     :param user_preference: User's weight preference ("auto", "kg", "lb")
     :return: "kg" or "lb"
@@ -68,17 +68,17 @@ def get_exercise_default_unit(exercise_type, user_preference="auto"):
         return "kg"
     elif user_preference == "lb":
         return "lb"
-    
+
     # Handle both ExerciseType objects and strings
-    if hasattr(exercise_type, 'name'):
+    if hasattr(exercise_type, "name"):
         exercise_name = exercise_type.name
     else:
         exercise_name = str(exercise_type)
-    
+
     # Auto behavior: Big 3 → kg, accessories → lb
     exercise_lower = exercise_name.lower()
-    
-    big_three_keywords = ['squat', 'bench press', 'deadlift']
+
+    big_three_keywords = ["squat", "bench press", "deadlift"]
     is_big_three = any(keyword in exercise_lower for keyword in big_three_keywords)
-    
+
     return "kg" if is_big_three else "lb"
