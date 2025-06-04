@@ -256,6 +256,9 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-WorkoutsTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-UsersTable"
 
       Events:
         # Exercise API Routes

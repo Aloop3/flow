@@ -20,16 +20,29 @@ class UserService:
             return User(**user_data)
         return None
 
-    def create_user(self, email: str, name: str, role: Optional[str] = None) -> User:
+    def create_user(
+        self,
+        email: str,
+        name: str,
+        role: Optional[str] = None,
+        weight_unit_preference: Optional[str] = "auto",
+    ) -> User:
         """
         Creates a new user
 
         :param email: The email of the user
         :param name: The name of the user
         :param role: The role of the user
+        :param weight_unit_preference: The user's weight unit preference
         :return: The created User object
         """
-        user = User(user_id=str(uuid.uuid4()), email=email, name=name, role=role)
+        user = User(
+            user_id=str(uuid.uuid4()),
+            email=email,
+            name=name,
+            role=role,
+            weight_unit_preference=weight_unit_preference,
+        )
 
         self.user_repository.create_user(user.to_dict())
 

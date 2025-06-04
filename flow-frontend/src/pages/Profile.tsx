@@ -3,6 +3,9 @@ import Layout from '../components/Layout';
 import CoachInviteSection from '../components/CoachInviteSection';
 import AthleteAcceptSection from '../components/AthleteAcceptSection';
 import RelationshipsList from '../components/RelationshipsList';
+import { useWeightUnit } from '../contexts/UserContext';
+import { updateUser } from '../services/api';
+
 
 interface ProfileProps {
   user: any;
@@ -12,6 +15,20 @@ interface ProfileProps {
 const Profile = ({ user, signOut }: ProfileProps) => {
   const [activeTab, setActiveTab] = useState('info');
   const [refreshKey, setRefreshKey] = useState(0);
+  const { weightPreference, updateWeightPreference } = useWeightUnit();
+  const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
+
+  const handleWeightPreferenceChange = async (newPreference: 'auto' | 'kg' | 'lb') => {
+    setIsUpdatingPreference(true);
+    try {
+      await updateUser(user.user_id, { weight_unit_preference: newPreference });
+      updateWeightPreference(newPreference);
+    } catch (error) {
+      console.error('Error updating weight preference:', error);
+    } finally {
+      setIsUpdatingPreference(false);
+    }
+  };
   
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
@@ -84,6 +101,22 @@ const Profile = ({ user, signOut }: ProfileProps) => {
             <RelationshipsList key={refreshKey} user={user} onRelationshipChange={handleRefresh} />
           </div>
         )}
+
+        <div>
+          <dt className="text-sm font-medium text-gray-500">Weight Units</dt>
+          <dd className="mt-1">
+            <select
+              value={weightPreference}
+              onChange={(e) => handleWeightPreferenceChange(e.target.value as 'auto' | 'kg' | 'lb')}
+              disabled={isUpdatingPreference}
+              className="text-sm border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="auto">Smart defaults (SBD→kg)</option>
+              <option value="kg">kg</option>
+              <option value="lb">lb</option>
+            </select>
+          </dd>
+        </div>
       </div>
     </Layout>
   );
