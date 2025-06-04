@@ -99,22 +99,47 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
     );
   }
 
+  const handleEnhancedSignOut = async () => {
+    try {
+      console.log('Starting enhanced logout process');
+      
+      // 1. Clear all cached data FIRST
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // 2. Reset React state that might persist
+      setUserSetupComplete(null);
+      setUserData(null);
+      
+      // 3. Call the original signOut function
+      await signOut();
+      
+      // 4. Force navigation to root and reload
+      window.location.href = '/';
+      
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback: force reload to clear everything
+      window.location.href = '/';
+    }
+  };
+
   // Show main application once user is fully set up
   if (userSetupComplete === true && userData) {
     return (
       <UserProvider user={userData}>
         <Router>
           <Routes>
-            <Route path="/" element={<Dashboard user={userData} signOut={signOut} />} />
-            <Route path="/blocks" element={<Blocks user={userData} signOut={signOut} />} />
-            <Route path="/blocks/new" element={<BlockCreate user={userData} signOut={signOut} />} />
-            <Route path="/blocks/:blockId" element={<BlockDetail user={userData} signOut={signOut} />} />
-            <Route path="/blocks/:blockId/edit" element={<BlockEdit user={userData} signOut={signOut} />} />
-            <Route path="/workout/:workoutId" element={<Workout user={userData} signOut={signOut} />} />
-            <Route path="/days/:dayId" element={<DayDetail user={userData} signOut={signOut} />} />
-            <Route path="/profile" element={<Profile user={userData} signOut={signOut} />} />
-            <Route path="/coach/athletes/:athleteId/blocks" element={<CoachAthleteBlocks user={userData} signOut={signOut} />} />
-            <Route path="/coach/athletes/:athleteId/blocks/new" element={<CoachBlockCreate user={userData} signOut={signOut} />} />
+            <Route path="/" element={<Dashboard user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/blocks" element={<Blocks user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/blocks/new" element={<BlockCreate user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/blocks/:blockId" element={<BlockDetail user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/blocks/:blockId/edit" element={<BlockEdit user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/workout/:workoutId" element={<Workout user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/days/:dayId" element={<DayDetail user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/profile" element={<Profile user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/coach/athletes/:athleteId/blocks" element={<CoachAthleteBlocks user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/coach/athletes/:athleteId/blocks/new" element={<CoachBlockCreate user={userData} signOut={handleEnhancedSignOut} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <DebugButton />
@@ -123,7 +148,7 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
     );
   }
 
-  return null; // fallback
+  return null;
 };
 
 // Thin wrapper App
