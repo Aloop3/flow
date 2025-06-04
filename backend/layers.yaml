@@ -2,6 +2,12 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Lambda Layers for Flow App
 
+Parameters:
+  LayerVersion:
+    Type: String
+    Default: v0-1-0
+    Description: Semantic version for layer exports (underscores for CloudFormation compatibility)
+
 Resources:
   VendorLayer:
     Type: AWS::Serverless::LayerVersion
@@ -28,10 +34,10 @@ Outputs:
     Description: ARN for the Vendor Layer
     Value: !Ref VendorLayer
     Export:
-      Name: flow-layers-VendorLayerArn-us-east-1
+      Name: !Sub "flow-layers-VendorLayerArn-${LayerVersion}"
 
   CommonLayerArn:
     Description: ARN for the Common Layer
     Value: !Ref CommonLayer
     Export:
-      Name: flow-layers-CommonLayerArn-us-east-1
+      Name: !Sub "flow-layers-CommonLayerArn-${LayerVersion}"

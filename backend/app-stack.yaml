@@ -14,6 +14,10 @@ Parameters:
     Type: String
     Default: 'https://dev.dykl7ea8q4fpo.amplifyapp.com'
     Description: CORS origin for API Gateway
+  LayerVersion:
+    Type: String
+    Default: v0.1.0
+    Description: Version of layers to use
 
 Globals:
   Function:
@@ -21,8 +25,10 @@ Globals:
     Runtime: python3.9
     MemorySize: 256
     Layers:
-      - !ImportValue flow-layers-VendorLayerArn-us-east-1
-      - !ImportValue flow-layers-CommonLayerArn-us-east-1
+      - !ImportValue 
+        Fn::Sub: "flow-layers-VendorLayerArn-${LayerVersion}"
+      - !ImportValue
+        Fn::Sub: "flow-layers-CommonLayerArn-${LayerVersion}"
     Environment:
       Variables:
         USERS_TABLE: !ImportValue 
