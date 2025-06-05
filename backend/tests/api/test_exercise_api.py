@@ -500,6 +500,158 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body["error"], "Reorder operation failed")
         mock_reorder_exercises.assert_called_once_with("workout456", ["ex2", "ex1"])
 
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="kg")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=lambda x, y, z: x,
+    )
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_reorder_sets_success(
+        self, mock_service_class, mock_convert_weights, mock_get_preference
+    ):
+        # Arrange
+        body_data = {"set_order": [3, 1, 2]}
+        path_parameters = {"exercise_id": "test-exercise-id"}
+        event = self.create_test_event_with_auth(body_data, path_parameters)
+
+        # Mock service instance
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        # Create complete Exercise object for get_exercise return
+        from src.models.exercise import Exercise
+
+        exercise = Exercise(
+            exercise_id="test-exercise-id",
+            workout_id="test-workout",
+            exercise_type="Bench Press",
+            sets=3,
+            reps=10,
+            weight=100,
+            rpe=8,
+            status="planned",
+            notes="",
+            order=1,
+            sets_data=[
+                {"set_number": 1, "reps": 10, "weight": 100},
+                {"set_number": 2, "reps": 8, "weight": 105},
+                {"set_number": 3, "reps": 6, "weight": 110},
+            ],
+        )
+
+        # Mock service methods directly
+        mock_service.get_exercise.return_value = exercise
+        mock_service.reorder_sets.return_value = exercise  # Simplified for test
+
+        # Act & Assert
+        response = exercise_api.reorder_sets(event, {})
+        self.assertEqual(response["statusCode"], 200)
+
+    def test_reorder_sets_invalid_json(self):
+        """
+        Test reorder_sets with invalid JSON body.
+
+        Given: Event with malformed JSON body
+        When: POST /exercises/{exercise_id}/reorder-sets
+        Then: Should return 400 error with JSON decode message
+        """
+        # Arrange
+        event = {
+            "pathParameters": {"exercise_id": "test-exercise-id"},
+            "body": "invalid json {{",
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
+        context = {}
+
+        # Act
+        response = exercise_api.reorder_sets(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid JSON", response_body["error"])
+
+    def test_reorder_sets_missing_set_order(self):
+        """
+        Test reorder_sets with missing set_order in body.
+
+        Given: Valid JSON body without set_order field
+        When: POST /exercises/{exercise_id}/reorder-sets
+        Then: Should return 400 error for missing set_order
+        """
+        # Arrange
+        body_data = {"other_field": "value"}  # Missing set_order
+        path_parameters = {"exercise_id": "test-exercise-id"}
+        event = self.create_test_event_with_auth(body_data, path_parameters)
+        context = {}
+
+        # Act
+        response = exercise_api.reorder_sets(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Missing set_order array", response_body["error"])
+
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_reorder_sets_exercise_not_found(self, mock_service_class):
+        """
+        Test reorder_sets when exercise doesn't exist.
+
+        Given: Non-existent exercise ID
+        When: POST /exercises/{exercise_id}/reorder-sets
+        Then: Should return 404 error
+        """
+        # Arrange
+        body_data = {"set_order": [1, 2, 3]}
+        path_parameters = {"exercise_id": "nonexistent-exercise"}
+        event = self.create_test_event_with_auth(body_data, path_parameters)
+
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+        mock_service.get_exercise.return_value = None  # Exercise not found
+
+        context = {}
+
+        # Act
+        response = exercise_api.reorder_sets(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertIn("Exercise not found", response_body["error"])
+
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_reorder_sets_value_error(self, mock_service_class):
+        """
+        Test reorder_sets when service raises ValueError.
+
+        Given: Invalid set_order causing ValueError in service
+        When: POST /exercises/{exercise_id}/reorder-sets
+        Then: Should return 400 error with ValueError message
+        """
+        # Arrange
+        body_data = {"set_order": [1, 2, 4]}  # Invalid set number
+        path_parameters = {"exercise_id": "test-exercise-id"}
+        event = self.create_test_event_with_auth(body_data, path_parameters)
+
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        mock_exercise = MagicMock()
+        mock_service.get_exercise.return_value = mock_exercise
+        mock_service.reorder_sets.side_effect = ValueError("Invalid set numbers")
+
+        context = {}
+
+        # Act
+        response = exercise_api.reorder_sets(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid parameters: Invalid set numbers", response_body["error"])
+
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch(
         "src.api.exercise_api.convert_exercise_weights_for_display",
