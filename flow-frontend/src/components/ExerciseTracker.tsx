@@ -1,8 +1,24 @@
-import { useState, useEffect } from 'react';
-import { trackExerciseSet, deleteSet, completeExercise } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { trackExerciseSet, deleteSet, completeExercise, reorderExerciseSets } from '../services/api';
 import type { Exercise, ExerciseSetData } from '../services/api';
 import FormButton from './FormButton';
 import { useWeightUnit } from '../contexts/UserContext';
+import SortableSetButton from './SortableSetButton';
 
 interface ExerciseTrackerProps {
   exercise: Exercise;
@@ -30,6 +46,45 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   });
   const { getDisplayUnit } = useWeightUnit();
   const displayUnit = getDisplayUnit(exercise.exercise_type);
+
+  // Add drag-and-drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = sets.findIndex(setNum => setNum === active.id);
+      const newIndex = sets.findIndex(setNum => setNum === over?.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // Create new order array
+        const newOrder = arrayMove(sets, oldIndex, newIndex);
+        
+        try {
+          setIsSubmitting(true);
+          setError(null);
+          
+          // Send reorder request to backend
+          await reorderExerciseSets(exerciseState.exercise_id, newOrder);
+          
+          // Refresh exercise data
+          onComplete();
+        } catch (err: any) {
+          console.error('Error reordering sets:', err);
+          setError('Failed to reorder sets. Please try again.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     setExerciseState(exercise);
@@ -257,68 +312,52 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
       </div>
 
       {/* Set Buttons */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {sets.map((setNumber) => {
-          const isCompleted = setsDataMap[setNumber]?.completed;
-          const isActive = activeSetNumber === setNumber;
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex flex-wrap gap-2 mb-4">
+          <SortableContext items={sets} strategy={verticalListSortingStrategy}>
+            {sets.map((setNumber) => {
+              const isCompleted = setsDataMap[setNumber]?.completed;
+              const isActive = activeSetNumber === setNumber;
 
-          return (
-            <div key={setNumber} className="relative group">
-              <button
-                onClick={() => selectSet(setNumber)}
-                disabled={readOnly}
-                className={`w-12 h-12 rounded-full flex items-center justify-center font-medium ${
-                  isCompleted
-                    ? 'bg-green-100 text-green-800 border-2 border-green-300'
-                    : isActive
-                      ? 'bg-blue-100 text-blue-800 border-2 border-blue-500'
-                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                }`}
-              >
-                {setNumber}
-              </button>
-              {/* Remove button - appears on hover */}
-              {!readOnly && sets.length > 1 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeSet(setNumber);
-                  }}
-                  className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 hidden group-hover:block hover:bg-red-200"
-                  title="Remove set"
-                >
-                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
-          );
-        })}
+              return (
+                <SortableSetButton
+                  key={setNumber}
+                  setNumber={setNumber}
+                  isCompleted={isCompleted}
+                  isActive={isActive}
+                  onSelect={selectSet}
+                  onRemove={removeSet}
+                  canRemove={sets.length > 1}
+                  readOnly={readOnly}
+                />
+              );
+            })}
+          </SortableContext>
 
-        {/* Add set button */}
-        {!readOnly && (
-          <button
-            onClick={addSet}
-            className="w-12 h-12 rounded-full flex items-center justify-center font-medium bg-blue-50 text-blue-600 border-2 border-dashed border-blue-300 hover:bg-blue-100"
-            title="Add set"
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              />
-            </svg>
-          </button>
-        )}
-      </div>
+          {/* Add set button */}
+          {!readOnly && (
+            <button
+              onClick={addSet}
+              disabled={isSubmitting}
+              className="w-12 h-12 rounded-full flex items-center justify-center font-medium bg-blue-50 text-blue-600 border-2 border-dashed border-blue-300 hover:bg-blue-100 disabled:opacity-50"
+              title="Add set"
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      </DndContext>
 
       {/* Set Form */}
       {activeSetNumber !== null && !readOnly && (

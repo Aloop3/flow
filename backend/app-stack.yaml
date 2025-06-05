@@ -310,6 +310,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /exercises/reorder
             Method: post
+        ReorderSets:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /exercises/{exercise_id}/reorder-sets
+            Method: post
         TrackSet:
           Type: Api
           Properties:

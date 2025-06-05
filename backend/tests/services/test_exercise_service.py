@@ -394,6 +394,217 @@ class TestExerciseService(unittest.TestCase):
             # Assert update_exercise was called only for valid IDs (2 times, not 3)
             self.assertEqual(mock_update_exercise.call_count, 2)
 
+    def test_reorder_sets_success_simple_reorder(self):
+        """
+        Test successful reordering of sets in simple case.
+
+        Given: Exercise with 3 sets in order [1, 2, 3]
+        When: Reordering to [3, 1, 2]
+        Then: Set numbers should be renumbered to [1, 2, 3] respectively
+        """
+        # Arrange
+        exercise_id = "test-exercise-id"
+        original_sets_data = [
+            {"set_number": 1, "reps": 10, "weight": 100, "completed": True},
+            {"set_number": 2, "reps": 8, "weight": 105, "completed": True},
+            {"set_number": 3, "reps": 6, "weight": 110, "completed": False},
+        ]
+
+        exercise_dict = {
+            "exercise_id": exercise_id,
+            "workout_id": "test-workout",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 10,
+            "weight": 100,
+            "sets_data": original_sets_data,
+        }
+
+        # Mock repository responses
+        self.exercise_repository_mock.get_exercise.return_value = exercise_dict
+
+        updated_exercise_dict = exercise_dict.copy()
+        updated_exercise_dict["sets_data"] = [
+            {
+                "set_number": 1,
+                "reps": 6,
+                "weight": 110,
+                "completed": False,
+            },  # Was set 3
+            {
+                "set_number": 2,
+                "reps": 10,
+                "weight": 100,
+                "completed": True,
+            },  # Was set 1
+            {"set_number": 3, "reps": 8, "weight": 105, "completed": True},  # Was set 2
+        ]
+
+        # Mock update_exercise to return updated exercise
+        with patch.object(self.exercise_service, "update_exercise") as mock_update:
+            from src.models.exercise import Exercise
+
+            updated_exercise = Exercise.from_dict(updated_exercise_dict)
+            mock_update.return_value = updated_exercise
+
+            new_order = [3, 1, 2]  # Reorder: set 3 first, then set 1, then set 2
+
+            # Act
+            result = self.exercise_service.reorder_sets(exercise_id, new_order)
+
+            # Assert
+            self.assertIsNotNone(result)
+            self.assertEqual(len(result.sets_data), 3)
+
+            # Verify the sets are reordered correctly
+            self.assertEqual(
+                result.sets_data[0]["reps"], 6
+            )  # Original set 3 → position 1
+            self.assertEqual(
+                result.sets_data[1]["reps"], 10
+            )  # Original set 1 → position 2
+            self.assertEqual(
+                result.sets_data[2]["reps"], 8
+            )  # Original set 2 → position 3
+
+            # Verify set_numbers are sequential
+            self.assertEqual(result.sets_data[0]["set_number"], 1)
+            self.assertEqual(result.sets_data[1]["set_number"], 2)
+            self.assertEqual(result.sets_data[2]["set_number"], 3)
+
+            # Verify update_exercise was called with correct data
+            mock_update.assert_called_once()
+
+    def test_reorder_sets_exercise_not_found(self):
+        """
+        Test reorder_sets when exercise doesn't exist.
+
+        Given: Non-existent exercise ID
+        When: Attempting to reorder sets
+        Then: Should return None
+        """
+        # Arrange
+        exercise_id = "nonexistent-exercise"
+        self.exercise_repository_mock.get_exercise.return_value = None
+        new_order = [1, 2, 3]
+
+        # Act
+        result = self.exercise_service.reorder_sets(exercise_id, new_order)
+
+        # Assert
+        self.assertIsNone(result)
+
+    def test_reorder_sets_no_sets_data(self):
+        """
+        Test reorder_sets when exercise has no sets_data.
+
+        Given: Exercise without any tracked sets
+        When: Attempting to reorder sets
+        Then: Should return None
+        """
+        # Arrange
+        exercise_id = "test-exercise-id"
+        exercise_dict = {
+            "exercise_id": exercise_id,
+            "workout_id": "test-workout",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 10,
+            "weight": 100,
+            "sets_data": None,  # No sets tracked yet
+        }
+
+        self.exercise_repository_mock.get_exercise.return_value = exercise_dict
+        new_order = [1, 2, 3]
+
+        # Act
+        result = self.exercise_service.reorder_sets(exercise_id, new_order)
+
+        # Assert
+        self.assertIsNone(result)
+
+    def test_reorder_sets_invalid_order_missing_set(self):
+        """
+        Test reorder_sets with invalid new_order (missing set numbers).
+
+        Given: Exercise with sets [1, 2, 3]
+        When: new_order is [1, 2] (missing set 3)
+        Then: Should raise ValueError
+        """
+        # Arrange
+        exercise_id = "test-exercise-id"
+        original_sets_data = [
+            {"set_number": 1, "reps": 10, "weight": 100},
+            {"set_number": 2, "reps": 8, "weight": 105},
+            {"set_number": 3, "reps": 6, "weight": 110},
+        ]
+
+        exercise_dict = {
+            "exercise_id": exercise_id,
+            "workout_id": "test-workout",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 10,
+            "weight": 100,
+            "sets_data": original_sets_data,
+        }
+
+        self.exercise_repository_mock.get_exercise.return_value = exercise_dict
+
+        invalid_order = [1, 2]  # Missing set 3
+
+        # Act & Assert
+        with self.assertRaises(ValueError) as context:
+            self.exercise_service.reorder_sets(exercise_id, invalid_order)
+
+        self.assertIn(
+            "new_order must contain all existing set numbers", str(context.exception)
+        )
+
+    def test_reorder_sets_single_set_no_change(self):
+        """
+        Test reorder_sets with single set (edge case).
+
+        Given: Exercise with only 1 set
+        When: Reordering with [1]
+        Then: Should succeed with no changes
+        """
+        # Arrange
+        exercise_id = "test-exercise-id"
+        original_sets_data = [
+            {"set_number": 1, "reps": 10, "weight": 100, "completed": True}
+        ]
+
+        exercise_dict = {
+            "exercise_id": exercise_id,
+            "workout_id": "test-workout",
+            "exercise_type": "Bench Press",
+            "sets": 1,
+            "reps": 10,
+            "weight": 100,
+            "sets_data": original_sets_data,
+        }
+
+        self.exercise_repository_mock.get_exercise.return_value = exercise_dict
+
+        # Mock update_exercise to return same exercise
+        with patch.object(self.exercise_service, "update_exercise") as mock_update:
+            from src.models.exercise import Exercise
+
+            exercise = Exercise.from_dict(exercise_dict)
+            mock_update.return_value = exercise
+
+            new_order = [1]
+
+            # Act
+            result = self.exercise_service.reorder_sets(exercise_id, new_order)
+
+            # Assert
+            self.assertIsNotNone(result)
+            self.assertEqual(len(result.sets_data), 1)
+            self.assertEqual(result.sets_data[0]["set_number"], 1)
+            self.assertEqual(result.sets_data[0]["reps"], 10)
+
     def test_get_exercises_for_workout_empty(self):
         """Test retrieving exercises for a workout that has no exercises"""
         # Configure mock to return an empty list

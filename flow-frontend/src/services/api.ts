@@ -1042,6 +1042,41 @@ export const trackExerciseSet = async (
   }
 };
 
+export const reorderExerciseSets = async (
+  exerciseId: string,
+  setOrder: number[]
+): Promise<Exercise> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await post({
+      apiName: 'flow-api',
+      path: `/exercises/${exerciseId}/reorder-sets`,
+      options: {
+        headers,
+        body: { set_order: setOrder },
+      },
+    });
+
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        return responseData as unknown as Exercise;
+      } catch (e) {
+        console.error('Failed to parse response in reorderExerciseSets:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+
+    throw new Error('No response data');
+  } catch (error) {
+    console.error('Error reordering exercise sets:', error);
+    throw error;
+  }
+};
+
 export const deleteSet = async (exerciseId: string, setNumber: number): Promise<void> => {
   try {
     const headers = await getAuthHeaders();
