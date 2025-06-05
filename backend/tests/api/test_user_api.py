@@ -304,6 +304,185 @@ class TestUserAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Invalid role")
 
+    @patch("src.services.user_service.UserService.create_custom_exercise")
+    def test_create_custom_exercise_success(self, mock_create_custom_exercise):
+        """
+        Test successful custom exercise creation
+        """
+        # Setup
+        mock_create_custom_exercise.return_value = {
+            "message": "Custom exercise created successfully",
+            "exercise": {"name": "Bulgarian Split Squat", "category": "BODYWEIGHT"},
+            "user": {"user_id": "user123"},
+        }
+
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "user123"}}},
+            "body": json.dumps(
+                {"name": "Bulgarian Split Squat", "category": "bodyweight"}
+            ),
+        }
+        context = {}
+
+        # Bypass middleware for successful test case
+        with patch(
+            "src.middleware.middleware.LambdaMiddleware.__call__"
+        ) as mock_middleware:
+            mock_middleware.side_effect = (
+                lambda e, c: user_api.create_custom_exercise.__wrapped__(e, c)
+            )
+            response = user_api.create_custom_exercise(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 201)
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["message"], "Custom exercise created successfully"
+        )
+        self.assertEqual(response_body["exercise"]["name"], "Bulgarian Split Squat")
+        mock_create_custom_exercise.assert_called_once_with(
+            "user123", "Bulgarian Split Squat", "bodyweight"
+        )
+
+    @patch("src.services.user_service.UserService.create_custom_exercise")
+    def test_create_custom_exercise_unauthorized_user(
+        self, mock_create_custom_exercise
+    ):
+        """
+        Test custom exercise creation with unauthorized user (different user_id)
+        """
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "different-user"}}},
+            "body": json.dumps(
+                {"name": "Bulgarian Split Squat", "category": "bodyweight"}
+            ),
+        }
+        context = {}
+
+        # Bypass middleware for test case
+        with patch(
+            "src.middleware.middleware.LambdaMiddleware.__call__"
+        ) as mock_middleware:
+            mock_middleware.side_effect = (
+                lambda e, c: user_api.create_custom_exercise.__wrapped__(e, c)
+            )
+            response = user_api.create_custom_exercise(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 403)
+        response_body = json.loads(response["body"])
+        self.assertIn(
+            "Cannot create custom exercises for other users", response_body["error"]
+        )
+        mock_create_custom_exercise.assert_not_called()
+
+    @patch("src.services.user_service.UserService.create_custom_exercise")
+    def test_create_custom_exercise_missing_fields(self, mock_create_custom_exercise):
+        """
+        Test custom exercise creation with missing required fields
+        """
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "user123"}}},
+            "body": json.dumps({"name": "", "category": "bodyweight"}),  # Missing name
+        }
+        context = {}
+
+        # Bypass middleware for test case
+        with patch(
+            "src.middleware.middleware.LambdaMiddleware.__call__"
+        ) as mock_middleware:
+            mock_middleware.side_effect = (
+                lambda e, c: user_api.create_custom_exercise.__wrapped__(e, c)
+            )
+            response = user_api.create_custom_exercise(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Missing required fields", response_body["error"])
+        mock_create_custom_exercise.assert_not_called()
+
+    @patch("src.services.user_service.UserService.create_custom_exercise")
+    def test_create_custom_exercise_service_error(self, mock_create_custom_exercise):
+        """
+        Test custom exercise creation with service error (duplicate exercise)
+        """
+        # Setup
+        mock_create_custom_exercise.return_value = {
+            "error": "Custom exercise 'Bulgarian Split Squat' already exists"
+        }
+
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "user123"}}},
+            "body": json.dumps(
+                {"name": "Bulgarian Split Squat", "category": "bodyweight"}
+            ),
+        }
+        context = {}
+
+        # Bypass middleware for test case
+        with patch(
+            "src.middleware.middleware.LambdaMiddleware.__call__"
+        ) as mock_middleware:
+            mock_middleware.side_effect = (
+                lambda e, c: user_api.create_custom_exercise.__wrapped__(e, c)
+            )
+            response = user_api.create_custom_exercise(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("already exists", response_body["error"])
+        mock_create_custom_exercise.assert_called_once()
+
+    def test_create_custom_exercise_invalid_json(self):
+        """
+        Test custom exercise creation with invalid JSON
+        """
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "user123"}}},
+            "body": "{invalid json",
+        }
+        context = {}
+
+        # Direct call to function without middleware
+        response = user_api.create_custom_exercise.__wrapped__(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertIn("Invalid JSON", response_body["error"])
+
+    @patch("src.services.user_service.UserService.create_custom_exercise")
+    def test_create_custom_exercise_exception(self, mock_create_custom_exercise):
+        """
+        Test custom exercise creation with unexpected exception
+        """
+        # Setup
+        mock_create_custom_exercise.side_effect = Exception("Database error")
+
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "user123"}}},
+            "body": json.dumps(
+                {"name": "Bulgarian Split Squat", "category": "bodyweight"}
+            ),
+        }
+        context = {}
+
+        # Direct call to function without middleware
+        response = user_api.create_custom_exercise.__wrapped__(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertIn("Database error", response_body["error"])
+
     @patch("src.services.user_service.UserService.get_user")
     def test_get_user_success(self, mock_get_user):
         """
