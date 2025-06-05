@@ -132,6 +132,51 @@ class ExerciseService:
 
         return self.get_exercises_for_workout(workout_id)
 
+    def reorder_sets(
+        self, exercise_id: str, new_order: List[int]
+    ) -> Optional[Exercise]:
+        """
+        Reorder sets for an exercise by renumbering them according to new_order
+
+        :param exercise_id: ID of the exercise
+        :param new_order: Array of current set_numbers in desired order [3, 1, 2]
+        :return: Updated Exercise object if successful, None otherwise
+        """
+        # Get the exercise
+        exercise = self.get_exercise(exercise_id)
+        if not exercise or not exercise.sets_data:
+            return None
+
+        # Validate new_order contains all existing set numbers
+        existing_set_numbers = [
+            set_data.get("set_number") for set_data in exercise.sets_data
+        ]
+        if sorted(new_order) != sorted(existing_set_numbers):
+            raise ValueError("new_order must contain all existing set numbers")
+
+        # Create mapping from old set_number to new set_number
+        reorder_mapping = {}
+        for new_position, old_set_number in enumerate(new_order, 1):
+            reorder_mapping[old_set_number] = new_position
+
+        # Update sets_data with new set_numbers
+        updated_sets_data = []
+        for set_data in exercise.sets_data:
+            old_set_number = set_data.get("set_number")
+            new_set_number = reorder_mapping.get(old_set_number)
+
+            if new_set_number:
+                updated_set_data = set_data.copy()
+                updated_set_data["set_number"] = new_set_number
+                updated_sets_data.append(updated_set_data)
+
+        # Sort by new set_number
+        updated_sets_data.sort(key=lambda x: x.get("set_number", 0))
+
+        # Update the exercise
+        update_data = {"sets_data": updated_sets_data}
+        return self.update_exercise(exercise_id, update_data)
+
     def delete_exercises_by_workout(self, workout_id: str) -> int:
         """
         Delete all exercises associated with a given workout_id (cascading delete)

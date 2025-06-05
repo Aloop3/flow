@@ -286,6 +286,59 @@ def reorder_exercises(event, context):
 
 
 @with_middleware([log_request, handle_errors])
+def reorder_sets(event, context):
+    """
+    Handle POST /exercises/{exercise_id}/reorder-sets request to reorder sets
+    """
+    try:
+        # Extract exercise_id from path parameters
+        exercise_id = event["pathParameters"]["exercise_id"]
+        body = json.loads(event["body"])
+
+        # Extract new set order from request
+        new_order = body.get("set_order", [])  # Array of set_numbers in new order
+
+        # Validate required fields
+        if not new_order:
+            return create_response(400, {"error": "Missing set_order array"})
+
+        # Create service instance
+        service = ExerciseService()
+
+        # Get exercise to verify it exists
+        exercise = service.get_exercise(exercise_id)
+        if not exercise:
+            return create_response(404, {"error": "Exercise not found"})
+
+        # Reorder the sets
+        updated_exercise = service.reorder_sets(exercise_id, new_order)
+
+        if not updated_exercise:
+            return create_response(404, {"error": "Failed to reorder sets"})
+
+        # Get user preference for weight conversion in response
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        user_preference = get_user_weight_preference(user_id)
+
+        # Convert response back to display units
+        response_data = convert_exercise_weights_for_display(
+            updated_exercise.to_dict(), user_preference, updated_exercise.exercise_type
+        )
+        return create_response(200, response_data)
+
+    except json.JSONDecodeError:
+        return create_response(400, {"error": "Invalid JSON in request body"})
+    except ValueError as e:
+        return create_response(400, {"error": f"Invalid parameters: {str(e)}"})
+    except Exception as e:
+        logger.error(f"Error reordering sets: {str(e)}")
+        import traceback
+
+        logger.error(traceback.format_exc())
+        return create_response(500, {"error": f"Server error: {str(e)}"})
+
+
+@with_middleware([log_request, handle_errors])
 def track_set(event, context):
     """
     Handle POST /exercises/{exercise_id}/sets/{set_number} request to track a set
