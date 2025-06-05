@@ -87,6 +87,12 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /users
             Method: post
+        CreateCustomExercise:
+        Type: Api
+        Properties:
+          Path: /users/{user_id}/custom-exercises
+          Method: post
+          RestApiId: !Ref ApiGateway
         GetUser:
           Type: Api
           Properties:
