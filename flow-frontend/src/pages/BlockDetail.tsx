@@ -395,7 +395,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
             {weeks.length > 0 ? (
               <div className="bg-white shadow rounded-lg overflow-hidden">
                 <div className="border-b border-gray-200">
-                  <nav className="flex">
+                  <nav className="flex overflow-x-auto">
                     {weeks.map((week) => (
                       <button
                         key={week.week_id}
