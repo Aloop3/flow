@@ -88,3 +88,49 @@ def update_user(event, context):
     except Exception as e:
         logger.error(f"Error updating user: {str(e)}")
         return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
+def create_custom_exercise(event, context):
+    """
+    Handle POST /users/{user_id}/custom-exercises request to create a custom exercise
+    """
+    try:
+        # Extract user_id from path and get authenticated user
+        user_id = event["pathParameters"]["user_id"]
+        authenticated_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+
+        # Verify user can only create custom exercises for themselves
+        if user_id != authenticated_user_id:
+            return create_response(
+                403, {"error": "Cannot create custom exercises for other users"}
+            )
+
+        body = json.loads(event["body"])
+
+        # Extract custom exercise data
+        exercise_name = body.get("name", "").strip()
+        exercise_category = body.get("category", "").strip()
+
+        # Validate required fields
+        if not exercise_name or not exercise_category:
+            return create_response(
+                400, {"error": "Missing required fields: name and category"}
+            )
+
+        # Create custom exercise
+        result = user_service.create_custom_exercise(
+            user_id, exercise_name, exercise_category
+        )
+
+        if result.get("error"):
+            return create_response(400, {"error": result["error"]})
+
+        return create_response(201, result)
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in request body: {str(e)}")
+        return create_response(400, {"error": "Invalid JSON in request body"})
+    except Exception as e:
+        logger.error(f"Error creating custom exercise: {str(e)}")
+        return create_response(500, {"error": str(e)})
