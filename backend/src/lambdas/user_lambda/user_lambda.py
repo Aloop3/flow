@@ -2,6 +2,7 @@ import json
 import logging
 from src.utils.cors_utils import add_cors_headers
 from src.api import user_api
+from src.api.user_api import create_user, get_user, update_user, create_custom_exercise
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -11,6 +12,7 @@ ROUTE_MAP = {
     "POST /users": user_api.create_user,
     "GET /users/{user_id}": user_api.get_user,
     "PUT /users/{user_id}": user_api.update_user,
+    "POST /users/{user_id}/custom-exercises": user_api.create_custom_exercise,
 }
 
 

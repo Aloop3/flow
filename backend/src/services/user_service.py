@@ -2,6 +2,7 @@ import uuid
 from typing import Dict, Any, Optional
 from src.repositories.user_repository import UserRepository
 from src.models.user import User
+from src.models.exercise_type import ExerciseType, ExerciseCategory
 
 
 class UserService:
@@ -58,3 +59,65 @@ class UserService:
         """
         self.user_repository.update_user(user_id, update_data)
         return self.get_user(user_id)
+
+    def create_custom_exercise(
+        self, user_id: str, exercise_name: str, exercise_category: str
+    ) -> Dict[str, Any]:
+        """
+        Creates a custom exercise for a user
+
+        :param user_id: The ID of the user
+        :param exercise_name: Name of the custom exercise
+        :param exercise_category: Category of the custom exercise
+        :return: Dictionary with result or error
+        """
+        # Validate category exists (input should be lowercase, enum values are lowercase)
+        try:
+            category_enum = ExerciseCategory(exercise_category.lower())
+            # Don't allow CUSTOM category for user-created exercises
+            if category_enum == ExerciseCategory.CUSTOM:
+                return {"error": "Cannot use CUSTOM category for user exercises"}
+        except ValueError:
+            valid_categories = [
+                cat.value for cat in ExerciseCategory if cat != ExerciseCategory.CUSTOM
+            ]
+            return {
+                "error": f"Invalid category. Must be one of: {', '.join(valid_categories)}"
+            }
+
+        # Check if exercise name conflicts with predefined exercises
+        if ExerciseType.is_valid_predefined(exercise_name):
+            return {
+                "error": f"Exercise '{exercise_name}' already exists in predefined library"
+            }
+
+        # Get current user to check existing custom exercises
+        user = self.get_user(user_id)
+        if not user:
+            return {"error": "User not found"}
+
+        # Check for duplicate custom exercises (case-insensitive)
+        normalized_name = exercise_name.lower()
+        for custom_exercise in user.custom_exercises:
+            if custom_exercise.get("name", "").lower() == normalized_name:
+                return {"error": f"Custom exercise '{exercise_name}' already exists"}
+
+        # Create custom exercise object (store category as uppercase enum name for consistency)
+        custom_exercise = {
+            "name": exercise_name,
+            "category": category_enum.name,  # This stores "BODYWEIGHT" instead of "bodyweight"
+        }
+
+        # Add to user's custom exercises
+        updated_custom_exercises = user.custom_exercises + [custom_exercise]
+
+        # Update user in database
+        update_result = self.user_repository.update_user(
+            user_id, {"custom_exercises": updated_custom_exercises}
+        )
+
+        return {
+            "message": "Custom exercise created successfully",
+            "exercise": custom_exercise,
+            "user": update_result,
+        }

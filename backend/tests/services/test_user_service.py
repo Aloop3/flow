@@ -196,6 +196,163 @@ class TestUserService(unittest.TestCase):
         # Assert the result is None (user not found)
         self.assertIsNone(result)
 
+    def test_create_custom_exercise_success(self):
+        """
+        Test successful custom exercise creation
+        """
+        # Arrange
+        mock_user_data = {
+            "user_id": "test-user-id",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": "auto",
+            "custom_exercises": [],
+        }
+
+        self.user_repository_mock.update_user.return_value = mock_user_data
+        mock_user = User(**mock_user_data)
+        self.user_service.get_user = MagicMock(return_value=mock_user)
+
+        # Act
+        result = self.user_service.create_custom_exercise(
+            "test-user-id", "Bulgarian Split Squat", "bodyweight"
+        )
+
+        # Assert
+        self.assertIn("message", result)
+        self.assertEqual(result["message"], "Custom exercise created successfully")
+        self.assertEqual(result["exercise"]["name"], "Bulgarian Split Squat")
+        self.assertEqual(result["exercise"]["category"], "BODYWEIGHT")
+
+        # Verify repository was called with correct data
+        self.user_repository_mock.update_user.assert_called_once()
+        update_call_args = self.user_repository_mock.update_user.call_args[0]
+        self.assertEqual(update_call_args[0], "test-user-id")
+        self.assertEqual(len(update_call_args[1]["custom_exercises"]), 1)
+
+    def test_create_custom_exercise_invalid_category(self):
+        """
+        Test custom exercise creation with invalid category
+        """
+        # Arrange
+        mock_user_data = {
+            "user_id": "test-user-id",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": "auto",
+            "custom_exercises": [],
+        }
+        mock_user = User(**mock_user_data)
+        self.user_service.get_user = MagicMock(return_value=mock_user)
+
+        # Act
+        result = self.user_service.create_custom_exercise(
+            "test-user-id", "Some Exercise", "INVALID_CATEGORY"
+        )
+
+        # Assert
+        self.assertIn("error", result)
+        self.assertIn("Invalid category", result["error"])
+
+    def test_create_custom_exercise_custom_category_blocked(self):
+        """
+        Test that CUSTOM category is blocked for user exercises
+        """
+        # Arrange
+        mock_user_data = {
+            "user_id": "test-user-id",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": "auto",
+            "custom_exercises": [],
+        }
+        mock_user = User(**mock_user_data)
+        self.user_service.get_user = MagicMock(return_value=mock_user)
+
+        # Act
+        result = self.user_service.create_custom_exercise(
+            "test-user-id", "Some Exercise", "custom"
+        )
+
+        # Assert
+        self.assertIn("error", result)
+        self.assertEqual(
+            result["error"], "Cannot use CUSTOM category for user exercises"
+        )
+
+    def test_create_custom_exercise_predefined_conflict(self):
+        """
+        Test that predefined exercise names are blocked
+        """
+        # Arrange
+        mock_user_data = {
+            "user_id": "test-user-id",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": "auto",
+            "custom_exercises": [],
+        }
+        mock_user = User(**mock_user_data)
+        self.user_service.get_user = MagicMock(return_value=mock_user)
+
+        # Act - try to create custom exercise with predefined name
+        result = self.user_service.create_custom_exercise(
+            "test-user-id", "Squat", "barbell"  # This is a predefined exercise
+        )
+
+        # Assert
+        self.assertIn("error", result)
+        self.assertIn("already exists in predefined library", result["error"])
+
+    def test_create_custom_exercise_duplicate_custom(self):
+        """
+        Test that duplicate custom exercise names are blocked
+        """
+        # Arrange
+        mock_user_data = {
+            "user_id": "test-user-id",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "athlete",
+            "weight_unit_preference": "auto",
+            "custom_exercises": [
+                {"name": "Bulgarian Split Squat", "category": "BODYWEIGHT"}
+            ],
+        }
+        mock_user = User(**mock_user_data)
+        self.user_service.get_user = MagicMock(return_value=mock_user)
+
+        # Act - try to create duplicate
+        result = self.user_service.create_custom_exercise(
+            "test-user-id",
+            "bulgarian split squat",  # Case-insensitive duplicate
+            "dumbbell",
+        )
+
+        # Assert
+        self.assertIn("error", result)
+        self.assertIn("already exists", result["error"])
+
+    def test_create_custom_exercise_user_not_found(self):
+        """
+        Test custom exercise creation when user not found
+        """
+        # Arrange
+        self.user_service.get_user = MagicMock(return_value=None)
+
+        # Act
+        result = self.user_service.create_custom_exercise(
+            "nonexistent-user", "Some Exercise", "bodyweight"
+        )
+
+        # Assert
+        self.assertIn("error", result)
+        self.assertEqual(result["error"], "User not found")
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

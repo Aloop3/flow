@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ExerciseSelector from './ExerciseSelector';
 import FormButton from './FormButton';
 import { createWorkout } from '../services/api';
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 // Define a single set configuration
 interface SetConfig {
@@ -20,14 +21,33 @@ interface ExerciseConfig {
 interface WorkoutFormProps {
   dayId: string;
   onSave: (workoutId: string) => void;
+  athleteId?: string;
 }
 
-const WorkoutForm = ({ dayId, onSave }: WorkoutFormProps) => {
+const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
   const [selectedExercise, setSelectedExercise] = useState<string>('');
   const [exercises, setExercises] = useState<ExerciseConfig[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string>();
   
+  useEffect(() => {
+    const getUserId = async () => {
+      try {
+        const { tokens } = await fetchAuthSession();
+        const userIdFromToken = tokens?.idToken?.payload?.sub as string;
+        setUserId(userIdFromToken);
+      } catch (error) {
+        console.error('Error getting user ID for custom exercises:', error);
+      }
+    };
+
+    getUserId();
+  }, []);
+
+  // Use athleteId when provided (coach context), otherwise current user
+  const userIdForExercises = athleteId || userId;
+
   // State for exercise configuration
   const [isConfiguring, setIsConfiguring] = useState(false);
   
@@ -313,7 +333,8 @@ const WorkoutForm = ({ dayId, onSave }: WorkoutFormProps) => {
           {/* Exercise selector */}
           <ExerciseSelector 
             onSelect={setSelectedExercise} 
-            selectedExercise={selectedExercise} 
+            selectedExercise={selectedExercise}
+            userId={userIdForExercises}
           />
           
           {/* Add exercise button */}

@@ -30,6 +30,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const [showWorkoutForm, setShowWorkoutForm] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [athleteId, setAthleteId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!dayId) return;
@@ -85,71 +86,76 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     fetchDayData();
   }, [dayId, user.user_id, user.role, blockId]);
 
-  const handleWorkoutSaved = async (workoutId: string) => {
-    // Refresh the workout data after saving
-    if (!workoutId || !dayId) {
-      console.error('No workout ID or day ID');
+  const handleWorkoutSaved = async () => {
+    if (!user || !dayId) {
+      console.error('Missing user or dayId');
       return;
     }
-
     try {
       // Determine the correct athlete ID
-      let athleteId = user.user_id;
+      let currentAthleteId = user.user_id;
       
       if (blockId && user.role === 'coach') {
         try {
           const blockData = await getBlock(blockId);
           if (blockData && blockData.athlete_id) {
-            athleteId = blockData.athlete_id;
-            console.log('Using athlete ID for workout refresh:', athleteId);
+            currentAthleteId = blockData.athlete_id;
+            console.log('Using athlete ID for workout refresh:', currentAthleteId);
           }
         } catch (blockErr) {
           console.error('Error fetching block data:', blockErr);
         }
       }
       
-      const workoutData = await getWorkoutByDay(athleteId, dayId);
+      // UPDATE STATE:
+      setAthleteId(currentAthleteId);
+      
+      const workoutData = await getWorkoutByDay(currentAthleteId, dayId);
       setWorkout(workoutData);
       setShowWorkoutForm(false);
       toast.success('Workout saved successfully!');
     } catch (err) {
       console.error('Error refreshing workout:', err);
-      toast.error('Error loading workout after save');
+      toast.error('Error loading workout data');
     }
   };
 
   const refreshWorkoutData = async () => {
-    if (!dayId) {
+    if (!user || !dayId) {
+      console.error('Missing user or dayId for refresh');
       return;
     }
-
+    
     try {
       console.log('Refreshing workout data');
       
       // Determine the correct athlete ID
-      let athleteId = user.user_id;
+      let currentAthleteId = user.user_id;
       
       if (blockId && user.role === 'coach') {
         try {
           const blockData = await getBlock(blockId);
           if (blockData && blockData.athlete_id) {
-            athleteId = blockData.athlete_id;
-            console.log('Refreshing with athlete ID:', athleteId);
+            currentAthleteId = blockData.athlete_id;
+            console.log('Refreshing with athlete ID:', currentAthleteId);
           }
         } catch (blockErr) {
           console.error('Error fetching block data:', blockErr);
         }
       }
       
-      console.log('Refreshing workout with athlete ID:', athleteId, 'day ID:', dayId);
-      const workoutData = await getWorkoutByDay(athleteId, dayId);
-
+      // UPDATE STATE:
+      setAthleteId(currentAthleteId);
+      
+      console.log('Refreshing workout with athlete ID:', currentAthleteId, 'day ID:', dayId);
+      const workoutData = await getWorkoutByDay(currentAthleteId, dayId);  
       if (workoutData) {
         console.log('Updated workout data:', workoutData);
         setWorkout(workoutData);
       }
     } catch (err) {
       console.error('Error refreshing workout data:', err);
+      toast.error('Error refreshing workout');
     }
   };
 
@@ -268,12 +274,17 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                 <ExerciseList
                   exercises={workout.exercises}
                   workoutId={workout.workout_id}
+                  athleteId={athleteId}
                   onExerciseComplete={refreshWorkoutData}
                   readOnly={false}
                 />
               </div>
             ) : showWorkoutForm ? (
-              <WorkoutForm dayId={dayId || ''} onSave={handleWorkoutSaved} />
+              <WorkoutForm 
+                dayId={dayId || ''} 
+                onSave={handleWorkoutSaved}
+                athleteId={athleteId}
+              />
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-500 mb-4">No workout planned yet</p>
