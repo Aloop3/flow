@@ -1,25 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Exercise } from '../services/api';
 import { createExercise, deleteExercise } from '../services/api';
 import ExerciseTracker from './ExerciseTracker';
 import ExerciseSelector from './ExerciseSelector';
 import Modal from './Modal';
 import FormButton from './FormButton';
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 interface ExerciseListProps {
   exercises: Exercise[];
   workoutId?: string;
   onExerciseComplete: () => void;
   readOnly?: boolean;
+  athleteId?: string;
 }
 
-const ExerciseList = ({ exercises, workoutId, onExerciseComplete, readOnly = false }: ExerciseListProps) => {
+const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, readOnly = false }: ExerciseListProps) => {
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [selectedExerciseType, setSelectedExerciseType] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const [userId, setUserId] = useState<string>();
+  
   const getStatusBadge = (status?: string) => {
     switch (status) {
       case 'completed':
@@ -33,6 +36,23 @@ const ExerciseList = ({ exercises, workoutId, onExerciseComplete, readOnly = fal
         return 'bg-blue-100 text-blue-800';
     }
   };
+
+  useEffect(() => {
+    const getUserId = async () => {
+      try {
+        const { tokens } = await fetchAuthSession();
+        const userIdFromToken = tokens?.idToken?.payload?.sub as string;
+        setUserId(userIdFromToken);
+      } catch (error) {
+        console.error('Error getting user ID for custom exercises:', error);
+      }
+    };
+
+    getUserId();
+  }, []);
+
+  // Use athleteId when provided (coach context), otherwise current user
+  const userIdForExercises = athleteId || userId;
 
   const handleExerciseClick = (exercise: Exercise) => {
     if (!readOnly) {
@@ -196,6 +216,7 @@ const ExerciseList = ({ exercises, workoutId, onExerciseComplete, readOnly = fal
               <ExerciseSelector 
                 onSelect={setSelectedExerciseType} 
                 selectedExercise={selectedExerciseType} 
+                userId={userIdForExercises}
               />
               <div className="flex justify-end space-x-2 mt-4">
                 <FormButton
