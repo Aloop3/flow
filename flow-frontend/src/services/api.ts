@@ -888,16 +888,16 @@ export const getExercisesForWorkout = async (workout_id: string): Promise<Exerci
   }
 };
 
-export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
+export const getExerciseTypes = async (user_id?: string): Promise<ExerciseTypeLibrary> => {
   try {
     const headers = await getAuthHeaders();
+    const path = user_id ? `/exercises/types?user_id=${user_id}` : '/exercises/types';
     const apiResponse = await get({
       apiName: 'flow-api',
-      path: '/exercises/types',
+      path,
       options: { headers },
     });
 
-    // For Amplify v6, we need to await the response and parse it
     const actualResponse = await apiResponse.response;
 
     if (actualResponse && actualResponse.body) {
@@ -916,6 +916,45 @@ export const getExerciseTypes = async (): Promise<ExerciseTypeLibrary> => {
     throw new Error('No exercise data received');
   } catch (error) {
     console.error('Error fetching exercise types:', error);
+    throw error;
+  }
+};
+
+export const createCustomExercise = async (
+  user_id: string,
+  exerciseData: { name: string; category: string }
+): Promise<void> => {
+  try {
+    console.log('Creating custom exercise with data:', exerciseData);
+    console.log('For user_id:', user_id);
+
+    const headers = await getAuthHeaders();
+    console.log('Auth headers:', headers);
+    
+    const requestBody = {
+      name: exerciseData.name.trim(),
+      category: exerciseData.category.toLowerCase()
+    };
+    
+    console.log('Sending request body:', requestBody);
+    
+    const response = await post({
+      apiName: 'flow-api',
+      path: `/users/${user_id}/custom-exercises`,
+      options: {
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      },
+    });
+    
+    console.log('Response:', response);
+  } catch (error: any) {
+    console.error('Full error object:', error);
+    console.error('Error message:', (error as Error).message);
+    console.error('Error creating custom exercise:', error);
     throw error;
   }
 };
