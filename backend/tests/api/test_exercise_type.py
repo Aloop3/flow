@@ -28,7 +28,14 @@ class TestExerciseTypeAPI(BaseTest):
         response_body = json.loads(response["body"])
 
         # Check that all expected categories are present
-        expected_categories = ["barbell", "dumbbell", "bodyweight", "machine", "cable", "all"]
+        expected_categories = [
+            "barbell",
+            "dumbbell",
+            "bodyweight",
+            "machine",
+            "cable",
+            "all",
+        ]
         for category in expected_categories:
             self.assertIn(category, response_body)
 
@@ -71,7 +78,7 @@ class TestExerciseTypeAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Test exception")
-    
+
     @patch("src.services.user_service.UserService.get_user")
     def test_get_exercise_types_with_custom_exercises(self, mock_get_user):
         """
@@ -82,14 +89,12 @@ class TestExerciseTypeAPI(BaseTest):
         mock_user.custom_exercises = [
             {"name": "Bulgarian Split Squat", "category": "BODYWEIGHT"},
             {"name": "Band Pull-Aparts", "category": "BODYWEIGHT"},
-            {"name": "Custom Barbell Exercise", "category": "BARBELL"}
+            {"name": "Custom Barbell Exercise", "category": "BARBELL"},
         ]
         mock_get_user.return_value = mock_user
 
         # Call API with user_id parameter
-        event = {
-            "queryStringParameters": {"user_id": "user123"}
-        }
+        event = {"queryStringParameters": {"user_id": "user123"}}
         context = {}
         response = exercise_type_api.get_exercise_types(event, context)
 
@@ -101,7 +106,7 @@ class TestExerciseTypeAPI(BaseTest):
         self.assertIn("Bulgarian Split Squat", response_body["bodyweight"])
         self.assertIn("Band Pull-Aparts", response_body["bodyweight"])
         self.assertIn("Custom Barbell Exercise", response_body["barbell"])
-        
+
         # Check that custom exercises are also in "all" category
         self.assertIn("Bulgarian Split Squat", response_body["all"])
         self.assertIn("Band Pull-Aparts", response_body["all"])
@@ -119,9 +124,7 @@ class TestExerciseTypeAPI(BaseTest):
         mock_get_user.return_value = None
 
         # Call API with user_id parameter
-        event = {
-            "queryStringParameters": {"user_id": "nonexistent"}
-        }
+        event = {"queryStringParameters": {"user_id": "nonexistent"}}
         context = {}
         response = exercise_type_api.get_exercise_types(event, context)
 
@@ -147,9 +150,7 @@ class TestExerciseTypeAPI(BaseTest):
         mock_get_user.return_value = mock_user
 
         # Call API with user_id parameter
-        event = {
-            "queryStringParameters": {"user_id": "user123"}
-        }
+        event = {"queryStringParameters": {"user_id": "user123"}}
         context = {}
         response = exercise_type_api.get_exercise_types(event, context)
 
@@ -173,9 +174,7 @@ class TestExerciseTypeAPI(BaseTest):
         mock_get_user.side_effect = Exception("Database error")
 
         # Call API with user_id parameter
-        event = {
-            "queryStringParameters": {"user_id": "user123"}
-        }
+        event = {"queryStringParameters": {"user_id": "user123"}}
         context = {}
         response = exercise_type_api.get_exercise_types(event, context)
 
@@ -205,7 +204,7 @@ class TestExerciseTypeAPI(BaseTest):
 
         # Should contain predefined exercises with correct structure
         self.assertIn("barbell", response_body)
-        self.assertIn("dumbbell", response_body) 
+        self.assertIn("dumbbell", response_body)
         self.assertIn("bodyweight", response_body)
         self.assertIn("machine", response_body)
         self.assertIn("cable", response_body)
@@ -219,9 +218,7 @@ class TestExerciseTypeAPI(BaseTest):
         Test get_exercise_types with empty query parameters
         """
         # Call API with empty query parameters
-        event = {
-            "queryStringParameters": {}
-        }
+        event = {"queryStringParameters": {}}
         context = {}
         response = exercise_type_api.get_exercise_types(event, context)
 

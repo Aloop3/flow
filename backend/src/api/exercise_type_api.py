@@ -21,11 +21,11 @@ def get_exercise_types(event, context):
         # Get query parameters
         query_params = event.get("queryStringParameters") or {}
         user_id = query_params.get("user_id")
-        
+
         # Build exercise library with string keys (matching original API structure)
         exercise_library = {}
         all_exercises = []
-        
+
         # Get predefined exercises by category
         for category in ExerciseType.get_categories():
             if category != ExerciseCategory.CUSTOM:  # Skip CUSTOM category
@@ -33,10 +33,10 @@ def get_exercise_types(event, context):
                 category_exercises = ExerciseType.get_by_category(category)
                 exercise_library[category_name] = category_exercises
                 all_exercises.extend(category_exercises)
-        
+
         # Add "all" category with all predefined exercises
         exercise_library["all"] = all_exercises
-        
+
         # If user_id provided, merge in custom exercises
         if user_id:
             try:
@@ -47,26 +47,34 @@ def get_exercise_types(event, context):
                     for custom_exercise in user.custom_exercises:
                         category_name = custom_exercise.get("category", "").lower()
                         exercise_name = custom_exercise.get("name", "")
-                        
+
                         if category_name and exercise_name:
                             # Convert enum name back to lowercase for API consistency
-                            if category_name in ["BARBELL", "DUMBBELL", "BODYWEIGHT", "MACHINE", "CABLE"]:
+                            if category_name in [
+                                "BARBELL",
+                                "DUMBBELL",
+                                "BODYWEIGHT",
+                                "MACHINE",
+                                "CABLE",
+                            ]:
                                 category_name = category_name.lower()
-                            
+
                             # Add to appropriate category
                             if category_name not in exercise_library:
                                 exercise_library[category_name] = []
                             exercise_library[category_name].append(exercise_name)
-                            
+
                             # Also add to "all" category
                             exercise_library["all"].append(exercise_name)
-                        
+
             except Exception as e:
                 # Log error but continue with predefined exercises only
-                logger.warning(f"Failed to load custom exercises for user {user_id}: {str(e)}")
-        
+                logger.warning(
+                    f"Failed to load custom exercises for user {user_id}: {str(e)}"
+                )
+
         return create_response(200, exercise_library)
-        
+
     except Exception as e:
         logger.error(f"Error getting exercise types: {str(e)}")
         return create_response(500, {"error": str(e)})
