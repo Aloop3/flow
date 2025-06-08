@@ -3,7 +3,6 @@ import type { Exercise } from '../services/api';
 import { createExercise, deleteExercise } from '../services/api';
 import ExerciseTracker from './ExerciseTracker';
 import ExerciseSelector from './ExerciseSelector';
-import Modal from './Modal';
 import FormButton from './FormButton';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
@@ -16,7 +15,7 @@ interface ExerciseListProps {
 }
 
 const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, readOnly = false }: ExerciseListProps) => {
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [selectedExerciseType, setSelectedExerciseType] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -54,15 +53,19 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
   // Use athleteId when provided (coach context), otherwise current user
   const userIdForExercises = athleteId || userId;
 
+  // CHANGED: Toggle expansion instead of opening modal
   const handleExerciseClick = (exercise: Exercise) => {
     if (!readOnly) {
-      setSelectedExercise(exercise);
+      // Toggle expansion - if clicking same exercise, collapse it
+      setExpandedExerciseId(
+        expandedExerciseId === exercise.exercise_id ? null : exercise.exercise_id
+      );
     }
   };
 
   const handleComplete = () => {
-    setSelectedExercise(null);
     onExerciseComplete();
+    // Keep exercise expanded after completion
   };
 
   const handleAddExercise = async () => {
@@ -99,6 +102,11 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
       
       await deleteExercise(exerciseId);
       
+      // Collapse if this exercise was expanded
+      if (expandedExerciseId === exerciseId) {
+        setExpandedExerciseId(null);
+      }
+      
       // Refresh the workout data
       onExerciseComplete();
     } catch (err: any) {
@@ -130,82 +138,109 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
         </div>
       )}
       
-      <ul className="divide-y">
+      <div className="divide-y">
         {exercises.map((exercise) => {
           const setProgress = getSetProgress(exercise);
           const hasSetData = exercise.sets_data && exercise.sets_data.length > 0;
+          const isExpanded = expandedExerciseId === exercise.exercise_id;
           
           return (
-            <li 
-              key={exercise.exercise_id} 
-              className={`py-3 flex justify-between items-start ${
-                !readOnly && exercise.status !== 'completed' ? 'cursor-pointer hover:bg-gray-50' : ''
-              }`}
-            >
-              <div 
-                className="flex-grow"
-                onClick={() => handleExerciseClick(exercise)}
-              >
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="font-medium">{exercise.exercise_type}</h3>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(exercise.status)}`}>
-                    {exercise.status || 'planned'}
-                  </span>
+            <div key={exercise.exercise_id} className="py-3">
+              {/* Exercise Summary Row */}
+              <div className={`flex justify-between items-start ${
+                !readOnly && exercise.status !== 'completed' ? 'cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors' : ''
+              }`}>
+                <div 
+                  className="flex-grow"
+                  onClick={() => handleExerciseClick(exercise)}
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-medium">{exercise.exercise_type}</h3>
+                      {/* Expansion indicator */}
+                      {!readOnly && (
+                        <svg 
+                          className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(exercise.status)}`}>
+                      {exercise.status || 'planned'}
+                    </span>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600">
+                    {exercise.sets} sets × {exercise.reps} reps
+                    {exercise.rpe && ` @ RPE ${exercise.rpe}`}
+                  </p>
+                  
+                  {exercise.notes && (
+                    <p className="mt-1 text-xs text-gray-500">{exercise.notes}</p>
+                  )}
+                  
+                  {/* Set progress bar */}
+                  {hasSetData && (
+                    <div className="mt-2">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Set progress</span>
+                        <span>{setProgress.completed} / {setProgress.total} sets</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full" 
+                          style={{ width: `${(setProgress.completed / setProgress.total) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
-                <p className="text-sm text-gray-600">
-                  {exercise.sets} sets × {exercise.reps} reps
-                  {exercise.rpe && ` @ RPE ${exercise.rpe}`}
-                </p>
-                
-                {exercise.notes && (
-                  <p className="mt-1 text-xs text-gray-500">{exercise.notes}</p>
-                )}
-                
-                {/* Set progress bar */}
-                {hasSetData && (
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>Set progress</span>
-                      <span>{setProgress.completed} / {setProgress.total} sets</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${(setProgress.completed / setProgress.total) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                {/* Remove button - only show if not readOnly and workoutId exists */}
+                {!readOnly && workoutId && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveExercise(exercise.exercise_id);
+                    }}
+                    disabled={isDeleting === exercise.exercise_id}
+                    className="ml-4 text-red-500 hover:text-red-700 disabled:text-gray-400"
+                    title="Remove exercise"
+                  >
+                    {isDeleting === exercise.exercise_id ? (
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                  </button>
                 )}
               </div>
-              
-              {/* Remove button - only show if not readOnly and workoutId exists */}
-              {!readOnly && workoutId && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRemoveExercise(exercise.exercise_id);
-                  }}
-                  disabled={isDeleting === exercise.exercise_id}
-                  className="ml-4 text-red-500 hover:text-red-700 disabled:text-gray-400"
-                  title="Remove exercise"
-                >
-                  {isDeleting === exercise.exercise_id ? (
-                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  )}
-                </button>
+
+              {/* Inline ExerciseTracker */}
+              {isExpanded && (
+                <div className="mt-4 ml-2">
+                  <ExerciseTracker
+                    exercise={exercise}
+                    onComplete={handleComplete}
+                    onCancel={() => setExpandedExerciseId(null)}
+                    readOnly={readOnly}
+                    forceExpanded={true}
+                  />
+                </div>
               )}
-            </li>
+            </div>
           );
         })}
-      </ul>
+      </div>
       
       {/* Add Exercise Button - only show if not readOnly and workoutId exists */}
       {!readOnly && workoutId && (
@@ -252,19 +287,6 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
         </div>
       )}
 
-      <Modal
-        isOpen={!!selectedExercise}
-        onClose={() => setSelectedExercise(null)}
-        title={selectedExercise ? `${selectedExercise.exercise_type}` : 'Exercise Details'}
-      >
-        {selectedExercise && (
-          <ExerciseTracker
-            exercise={selectedExercise}
-            onComplete={handleComplete}
-            onCancel={() => setSelectedExercise(null)}
-          />
-        )}
-      </Modal>
     </>
   );
 };
