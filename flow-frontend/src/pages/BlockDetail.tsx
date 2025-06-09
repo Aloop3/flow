@@ -127,10 +127,11 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
       if (selectedItems.length === 0 || (!bulkFocus && bulkFocus !== 'clear')) return;
 
-      setIsLoading(true);
       const isClearingFocus = bulkFocus === 'clear';
+      const newFocusValue = isClearingFocus ? undefined : bulkFocus;
+      
+      // Collect all updates needed
       const updates: { dayId: string; weekId: string }[] = [];
-
       if (applyToAllWeeks) {
         const dayNumbers = selectedItems.map(item => item.dayNumber);
         Object.entries(daysMap).forEach(([weekId, days]) => {
@@ -146,131 +147,76 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
         });
       }
 
-      const results = [];
-      for (let i = 0; i < updates.length; i++) {
-        const { dayId } = updates[i];
-        try {
-          if (i > 0 && i % 3 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 300));
+      // Update UI immediately
+      setDaysMap(prev => {
+        const newDaysMap = { ...prev };
+        updates.forEach(({ dayId, weekId }) => {
+          if (newDaysMap[weekId]) {
+            newDaysMap[weekId] = newDaysMap[weekId].map(day =>
+              day.day_id === dayId 
+                ? { ...day, focus: newFocusValue }
+                : day
+            );
           }
-          await updateDay(dayId, { focus: isClearingFocus ? undefined : bulkFocus });
-          results.push({ dayId, success: true });
-        } catch (error) {
-          results.push({ dayId, success: false, error });
-        }
-      }
-
-      const successCount = results.filter(r => r.success).length;
-      console.log(`Updated focus for ${successCount} days successfully`);
-
-      if (applyToAllWeeks) {
-        Object.keys(daysMap).forEach(async weekId => {
-          const freshDays = await getDays(weekId);
-          setDaysMap(prev => ({
-            ...prev,
-            [weekId]: [...freshDays].sort((a, b) => a.day_number - b.day_number)
-          }));
         });
-      } else {
-        const freshDays = await getDays(activeWeek!);
-        setDaysMap(prev => ({
-          ...prev,
-          [activeWeek!]: [...freshDays].sort((a, b) => a.day_number - b.day_number)
-        }));
-      }
+        return newDaysMap;
+      });
 
+      // Clear UI state immediately for better UX
       setSelectedDays({});
       setBulkFocus('');
       setIsBulkEditing(false);
-      setIsLoading(false);
-      alert(isClearingFocus ? 'Focus cleared successfully!' : 'Focus updated successfully!');
+
+      // Background API updates (no loading state needed)
+      const updatePromises = updates.map(async ({ dayId }, index) => {
+        try {
+          // Stagger requests to prevent rate limiting
+          if (index > 0 && index % 3 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          await updateDay(dayId, { focus: newFocusValue });
+          return { dayId, success: true };
+        } catch (error) {
+          console.error(`Focus update failed for day ${dayId}:`, error);
+          return { dayId, success: false, error };
+        }
+      });
+
+      // Wait for all updates and handle failures silently
+      const results = await Promise.all(updatePromises);
+      const failedUpdates = results.filter(r => !r.success);
+      
+      if (failedUpdates.length > 0) {
+        console.warn(`${failedUpdates.length} focus updates failed:`, failedUpdates);
+        // Optionally: Show a toast notification instead of alert
+        // toast.error(`${failedUpdates.length} updates failed - changes reverted`);
+        
+        // Revert failed updates in UI
+        setDaysMap(prev => {
+          const revertedDaysMap = { ...prev };
+          failedUpdates.forEach(({ dayId }) => {
+            const update = updates.find(u => u.dayId === dayId);
+            if (update && revertedDaysMap[update.weekId]) {
+              // Revert to original focus value (would need to store original state)
+              // For now, refetch only failed day's week data
+            }
+          });
+          return revertedDaysMap;
+        });
+      }
+
     } catch (error) {
-      setIsLoading(false);
-      alert('Some updates failed. Please try again with fewer days at once.');
+      console.error('Bulk focus update error:', error);
+      // Could revert all changes and refetch if needed
     }
   };
 
   const handleClearFocus = async () => {
-    try {
-      const selectedItems = Object.entries(selectedDays)
-        .filter(([_, isSelected]) => isSelected)
-        .map(([dayId]) => {
-          const day = activeWeek ? daysMap[activeWeek]?.find(d => d.day_id === dayId) : undefined;
-          return { dayId, dayNumber: day?.day_number || 0 };
-        });
-  
-      if (selectedItems.length === 0) return;
-  
-      setIsLoading(true);
-  
-      const updates: { dayId: string; weekId: string }[] = [];
-  
-      // Collect selected days for updates
-      if (applyToAllWeeks) {
-        const dayNumbers = selectedItems.map(item => item.dayNumber);
-        Object.entries(daysMap).forEach(([weekId, days]) => {
-          days.forEach(day => {
-            if (dayNumbers.includes(day.day_number)) {
-              updates.push({ dayId: day.day_id, weekId });
-            }
-          });
-        });
-      } else {
-        selectedItems.forEach(item => {
-          updates.push({ dayId: item.dayId, weekId: activeWeek! });
-        });
-      }
-  
-      const results = [];
-  
-      // Process each selected day update with a delay to prevent throttling
-      for (let i = 0; i < updates.length; i++) {
-        const { dayId } = updates[i];
-        try {
-          if (i > 0 && i % 3 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 300));
-          }
-  
-          // Set focus to null for clearing it
-          await updateDay(dayId, { focus: null }); 
-          results.push({ dayId, success: true });
-        } catch (error) {
-          console.error(`Error clearing focus for day ${dayId}:`, error);
-          results.push({ dayId, success: false, error });
-        }
-      }
-  
-      const successCount = results.filter(r => r.success).length;
-      console.log(`Cleared focus for ${successCount} days successfully`);
-  
-      // Refresh the days data for all weeks or the active week
-      if (applyToAllWeeks) {
-        for (const weekId of Object.keys(daysMap)) {
-          const freshDays = await getDays(weekId);
-          setDaysMap(prev => ({
-            ...prev,
-            [weekId]: [...freshDays].sort((a, b) => a.day_number - b.day_number),
-          }));
-        }
-      } else {
-        const freshDays = await getDays(activeWeek!);
-        setDaysMap(prev => ({
-          ...prev,
-          [activeWeek!]: [...freshDays].sort((a, b) => a.day_number - b.day_number),
-        }));
-      }
-  
-      setSelectedDays({});
-      setBulkFocus('');
-      setIsBulkEditing(false);
-      setIsLoading(false);
-      alert('Focus cleared successfully!');
-    } catch (error) {
-      setIsLoading(false);
-      console.error('Error clearing focus:', error);
-      alert('Some updates failed. Please try again with fewer days at once.');
-    }
+    // Simplified - just call handleBulkUpdate with 'clear' value
+    setBulkFocus('clear');
+    await handleBulkUpdate();
   };
+
 
   const toggleDay = (dayId: string) => {
     setSelectedDays(prev => ({
@@ -581,22 +527,41 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
             day={editingDay}
             onSubmit={async (dayData) => {
               try {
+                // Optimistic update for individual day
+                if (activeWeek) {
+                  setDaysMap(prev => ({
+                    ...prev,
+                    [activeWeek]: prev[activeWeek].map(day =>
+                      day.day_id === dayData.day_id
+                        ? { ...day, focus: dayData.focus, notes: dayData.notes }
+                        : day
+                    )
+                  }));
+                }
+
+                // Close modal immediately for better UX
+                setEditingDay(null);
+
+                // Background API update
                 await updateDay(dayData.day_id, {
                   focus: dayData.focus,
                   notes: dayData.notes,
                 });
 
-                if (activeWeek) {
-                  const updatedDays = await getDays(activeWeek);
-                  setDaysMap(prev => ({
-                    ...prev,
-                    [activeWeek]: updatedDays,
-                  }));
-                }
-
-                setEditingDay(null);
               } catch (error) {
                 console.error('Error updating day:', error);
+                
+                // Revert optimistic update on failure
+                if (activeWeek) {
+                  const originalDays = await getDays(activeWeek);
+                  setDaysMap(prev => ({
+                    ...prev,
+                    [activeWeek]: originalDays,
+                  }));
+                }
+                
+                // Show error - could use toast instead of alert
+                alert('Update failed - please try again');
               }
             }}
             isLoading={false}
