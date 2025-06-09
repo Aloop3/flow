@@ -61,7 +61,7 @@ const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
   );
 };
 
-// Extract the content part of InlineSetRow (without the <tr> wrapper)
+// Simplified content component with uncontrolled inputs
 const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   exerciseId,
   setNumber,
@@ -72,35 +72,36 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   readOnly = false,
   onSetUpdated,
 }) => {
-  // Copy all the logic from InlineSetRow.tsx but render only the <td> elements
   const [isEditing, setIsEditing] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notesExpanded, setNotesExpanded] = React.useState(false);
   
-  // Local state for form data
-  const [formData, setFormData] = React.useState<{
+  // Single state for display values
+  const [displayData, setDisplayData] = React.useState<{
     reps: number;
     weight: number;
     rpe: number | undefined;
     notes: string;
   }>({
-    reps: existingData?.reps ?? plannedReps,
-    weight: existingData?.weight ?? plannedWeight,
-    rpe: existingData?.rpe ?? undefined,
+    reps: existingData?.reps ?? previousSetData?.reps ?? plannedReps,
+    weight: existingData?.weight ?? previousSetData?.weight ?? plannedWeight,
+    rpe: existingData?.rpe ?? previousSetData?.rpe ?? undefined,
     notes: existingData?.notes ?? '',
   });
 
-  // Refs for auto-focus management
+  // Refs for uncontrolled inputs
   const repsRef = React.useRef<HTMLInputElement>(null);
   const weightRef = React.useRef<HTMLInputElement>(null);
   const rpeRef = React.useRef<HTMLInputElement>(null);
   const notesRef = React.useRef<HTMLTextAreaElement>(null);
 
+  const isCompleted = existingData?.completed ?? false;
+
   // Auto-populate from previous set when creating new set
   React.useEffect(() => {
     if (!existingData && previousSetData) {
-      setFormData({
+      setDisplayData({
         reps: previousSetData.reps,
         weight: previousSetData.weight,
         rpe: previousSetData.rpe,
@@ -109,52 +110,133 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     }
   }, [existingData, previousSetData]);
 
-  const isCompleted = existingData?.completed ?? false;
-
-  // Copy all the handler functions from InlineSetRow.tsx
-  const handleInputChange = (field: keyof typeof formData, value: string | number | undefined) => {
-    // Handle empty string inputs for numeric fields
-    if (field === 'reps' || field === 'weight') {
-      if (value === '' || value === null) {
-        setFormData(prev => ({
-          ...prev,
-          [field]: field === 'reps' ? 1 : 0, // reps defaults to 1, weight to 0
-        }));
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          [field]: Number(value),
-        }));
-      }
-    } else if (field === 'rpe') {
-      if (value === '' || value === null) {
-        setFormData(prev => ({
-          ...prev,
-          rpe: undefined,
-        }));
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          rpe: Number(value),
-        }));
-      }
-    } else if (field === 'notes') {
-      setFormData(prev => ({
-        ...prev,
-        notes: String(value || ''),
-      }));
+  // Update component state when existingData changes from parent
+  React.useEffect(() => {
+    if (existingData) {
+      setDisplayData({
+        reps: existingData.reps,
+        weight: existingData.weight,
+        rpe: existingData.rpe,
+        notes: existingData.notes || '',
+      });
     }
+  }, [existingData]);
+
+  // Mobile-first: commit on field blur (when tapping to next field)
+  const handleInputBlur = () => {
+    // Small delay to allow focus to move to next field before committing
+    setTimeout(() => {
+      // Only commit if focus has moved away from all input fields in this row
+      const activeElement = document.activeElement;
+      const isStillInInputs = (
+        activeElement === repsRef.current ||
+        activeElement === weightRef.current ||
+        activeElement === rpeRef.current
+      );
+      
+      if (!isStillInInputs && isEditing) {
+        commitEditingValues();
+      }
+    }, 100);
+  };
+
+  const parseNumber = (value: string, fallback: number, min?: number, max?: number): number => {
+    if (!value || value.trim() === '') return fallback;
+    const num = parseFloat(value);
+    if (isNaN(num)) return fallback;
+    if (min !== undefined && num < min) return min;
+    if (max !== undefined && num > max) return max;
+    return num;
+  };
+
+  const commitEditingValues = async () => {
+    if (!isEditing) return;
+
+    const newData = {
+      reps: parseNumber(repsRef.current?.value || '', displayData.reps, 1),
+      weight: parseNumber(weightRef.current?.value || '', displayData.weight, 0),
+      rpe: rpeRef.current?.value?.trim() 
+        ? parseNumber(rpeRef.current.value, displayData.rpe || 0, 0, 10) 
+        : undefined,
+      notes: displayData.notes, // Notes handled separately
+    };
+
+    setDisplayData(newData);
+    setIsEditing(false);
     setError(null);
+
+    // Persist changes immediately to backend for better mobile UX and sorting
+    try {
+      await import('../services/api').then(({ trackExerciseSet }) =>
+        trackExerciseSet(exerciseId, setNumber, {
+          reps: newData.reps,
+          weight: newData.weight,
+          rpe: newData.rpe || undefined,
+          completed: existingData?.completed || false,
+          notes: newData.notes || undefined,
+        })
+      );
+      
+      // Force refresh of parent component data
+      onSetUpdated();
+      
+      // Additional debug logging to verify the save
+      console.log(`Set ${setNumber} updated:`, {
+        reps: newData.reps,
+        weight: newData.weight,
+        rpe: newData.rpe,
+        completed: existingData?.completed || false
+      });
+      
+    } catch (err) {
+      console.error('Error persisting set changes:', err);
+      setError('Failed to save changes. Please try again.');
+    }
+  };
+
+  const handleCellClick = (field: 'reps' | 'weight' | 'rpe') => {
+    if (readOnly || isSaving) return;
+    
+    setIsEditing(true);
+    setError(null);
+    
+    // Set input values and focus after render
+    setTimeout(() => {
+      if (field === 'reps' && repsRef.current) {
+        repsRef.current.value = String(displayData.reps);
+        repsRef.current.focus();
+        repsRef.current.select();
+      }
+      if (field === 'weight' && weightRef.current) {
+        weightRef.current.value = String(displayData.weight);
+        weightRef.current.focus();
+        weightRef.current.select();
+      }
+      if (field === 'rpe' && rpeRef.current) {
+        rpeRef.current.value = displayData.rpe ? String(displayData.rpe) : '';
+        rpeRef.current.focus();
+        rpeRef.current.select();
+      }
+    }, 0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      commitEditingValues();
+    }
+    if (e.key === 'Escape') {
+      setIsEditing(false);
+    }
   };
 
   const validateData = () => {
-    if (formData.reps <= 0) {
+    if (displayData.reps <= 0) {
       throw new Error('Reps must be greater than zero');
     }
-    if (formData.weight < 0) {
+    if (displayData.weight < 0) {
       throw new Error('Weight cannot be negative');
     }
-    if (formData.rpe !== undefined && (formData.rpe < 0 || formData.rpe > 10)) {
+    if (displayData.rpe !== undefined && (displayData.rpe < 0 || displayData.rpe > 10)) {
       throw new Error('RPE must be between 0 and 10');
     }
   };
@@ -170,11 +252,11 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         // Mark as incomplete
         await import('../services/api').then(({ trackExerciseSet }) =>
           trackExerciseSet(exerciseId, setNumber, {
-            reps: formData.reps,
-            weight: formData.weight,
-            rpe: formData.rpe || undefined,
+            reps: displayData.reps,
+            weight: displayData.weight,
+            rpe: displayData.rpe || undefined,
             completed: false,
-            notes: formData.notes || undefined,
+            notes: displayData.notes || undefined,
           })
         );
       } else {
@@ -182,11 +264,11 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         validateData();
         await import('../services/api').then(({ trackExerciseSet }) =>
           trackExerciseSet(exerciseId, setNumber, {
-            reps: formData.reps,
-            weight: formData.weight,
-            rpe: formData.rpe || undefined,
+            reps: displayData.reps,
+            weight: displayData.weight,
+            rpe: displayData.rpe || undefined,
             completed: true,
-            notes: formData.notes || undefined,
+            notes: displayData.notes || undefined,
           })
         );
       }
@@ -200,34 +282,15 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     }
   };
 
-  const handleCellClick = (field: 'reps' | 'weight' | 'rpe') => {
-    if (readOnly) return;
-    setIsEditing(true);
-    
-    // Focus appropriate input after state update
-    setTimeout(() => {
-      if (field === 'reps' && repsRef.current) repsRef.current.focus();
-      if (field === 'weight' && weightRef.current) weightRef.current.focus();
-      if (field === 'rpe' && rpeRef.current) rpeRef.current.focus();
-    }, 0);
-  };
-
-  const handleBlur = async (e: React.FocusEvent) => {
-    const relatedTarget = e.relatedTarget as HTMLElement;
-    const currentRow = e.currentTarget.closest('tr');
-    const targetInSameRow = relatedTarget && currentRow?.contains(relatedTarget);
-    
-    if (targetInSameRow) {
-      return;
-    }
-
-    setIsEditing(false);
-  };
-
   const toggleNotes = () => {
     setNotesExpanded(!notesExpanded);
     if (!notesExpanded && notesRef.current) {
-      setTimeout(() => notesRef.current?.focus(), 0);
+      setTimeout(() => {
+        if (notesRef.current) {
+          notesRef.current.value = displayData.notes;
+          notesRef.current.focus();
+        }
+      }, 0);
     }
   };
 
@@ -251,18 +314,16 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         {isEditing ? (
           <input
             ref={weightRef}
-            type="number"
-            value={formData.weight}
-            onChange={(e) => handleInputChange('weight', Number(e.target.value) || 0)}
-            onBlur={handleBlur}
+            type="text"
+            onKeyDown={handleKeyDown}
+            onBlur={handleInputBlur}
             className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            min="0"
-            step="0.5"
             disabled={isSaving}
+            placeholder={`${plannedWeight} (planned)`}
           />
         ) : (
           <div className="px-2 py-1 text-sm cursor-text hover:bg-gray-100 rounded">
-            {formData.weight}
+            {displayData.weight}
           </div>
         )}
       </td>
@@ -272,17 +333,16 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         {isEditing ? (
           <input
             ref={repsRef}
-            type="number"
-            value={formData.reps}
-            onChange={(e) => handleInputChange('reps', Number(e.target.value) || 0)}
-            onBlur={handleBlur}
+            type="text"
+            onKeyDown={handleKeyDown}
+            onBlur={handleInputBlur}
             className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            min="1"
             disabled={isSaving}
+            placeholder={`${plannedReps} (planned)`}
           />
         ) : (
           <div className="px-2 py-1 text-sm cursor-text hover:bg-gray-100 rounded">
-            {formData.reps}
+            {displayData.reps}
           </div>
         )}
       </td>
@@ -292,20 +352,16 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         {isEditing ? (
           <input
             ref={rpeRef}
-            type="number"
-            value={formData.rpe || ''}
-            onChange={(e) => handleInputChange('rpe', Number(e.target.value) || undefined)}
-            onBlur={handleBlur}
+            type="text"
+            onKeyDown={handleKeyDown}
+            onBlur={handleInputBlur}
             className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            min="0"
-            max="10"
-            step="0.5"
-            placeholder="0-10"
+            placeholder="Enter RPE"
             disabled={isSaving}
           />
         ) : (
           <div className="px-2 py-1 text-sm cursor-text hover:bg-gray-100 rounded">
-            {formData.rpe || '-'}
+            {displayData.rpe || '-'}
           </div>
         )}
       </td>
@@ -315,11 +371,11 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         <button
           onClick={toggleNotes}
           className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-            formData.notes 
+            displayData.notes 
               ? 'bg-blue-100 text-blue-600' 
               : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
           }`}
-          title={formData.notes ? 'View notes' : 'Add notes'}
+          title={displayData.notes ? 'View notes' : 'Add notes'}
           disabled={readOnly}
         >
           📝
@@ -328,15 +384,26 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
           <div className="absolute z-10 mt-1 p-2 bg-white border border-gray-300 rounded-lg shadow-lg min-w-48">
             <textarea
               ref={notesRef}
-              value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-              onBlur={handleBlur}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setNotesExpanded(false);
+              }}
               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
               rows={3}
               placeholder="Notes for this set..."
               disabled={readOnly || isSaving}
             />
             <div className="flex justify-end mt-2 space-x-2">
+              <button
+                onClick={() => {
+                  if (notesRef.current) {
+                    setDisplayData(prev => ({ ...prev, notes: notesRef.current?.value || '' }));
+                  }
+                  setNotesExpanded(false);
+                }}
+                className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
+              >
+                Save
+              </button>
               <button
                 onClick={() => setNotesExpanded(false)}
                 className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800"
