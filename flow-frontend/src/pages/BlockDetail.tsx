@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FocusTag from '../components/FocusTag';
 import { getBlock, getWeeks, getDays, updateDay } from '../services/api';
@@ -27,7 +27,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const [bulkFocus, setBulkFocus] = useState<string>('');
   const [isBulkEditing, setIsBulkEditing] = useState(false);
   const [applyToAllWeeks, setApplyToAllWeeks] = useState(true);
-  const navigate = useNavigate();
+  const [showFullDescription, setShowFullDescription] = useState(false);
 
   useEffect(() => {
     const fetchBlockData = async () => {
@@ -217,14 +217,6 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     await handleBulkUpdate();
   };
 
-
-  const toggleDay = (dayId: string) => {
-    setSelectedDays(prev => ({
-      ...prev,
-      [dayId]: !prev[dayId]
-    }));
-  };
-
   return (
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
@@ -236,23 +228,21 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
               <div className="h-9 bg-gray-200 rounded w-24 animate-pulse"></div>
             </div>
 
-            {/* Block Info Card Skeleton */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-4 animate-pulse"></div>
+            {/* Horizontal Block Info Card Skeleton */}
+            <div className="bg-white shadow rounded-lg p-4">
+              {/* Description skeleton */}
+              <div className="mb-3">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-1 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+              </div>
               
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <div className="h-3 bg-gray-200 rounded w-16 mb-2 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+              {/* Horizontal layout skeleton */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-6">
+                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
                 </div>
-                <div>
-                  <div className="h-3 bg-gray-200 rounded w-16 mb-2 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
-                </div>
-                <div>
-                  <div className="h-3 bg-gray-200 rounded w-12 mb-2 animate-pulse"></div>
-                  <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
-                </div>
+                <div className="h-5 bg-gray-200 rounded w-12 animate-pulse"></div>
               </div>
             </div>
 
@@ -278,21 +268,38 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                   <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                    <div key={i} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="h-5 bg-gray-200 rounded w-12 animate-pulse"></div>
-                        <div className="h-5 bg-gray-200 rounded w-16 animate-pulse"></div>
-                      </div>
-                      <div className="h-3 bg-gray-200 rounded w-20 mb-2 animate-pulse"></div>
-                      <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
-                      <div className="mt-4 flex justify-between">
-                        <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
-                        <div className="h-8 bg-gray-200 rounded w-24 animate-pulse"></div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-hidden border border-gray-200 rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Focus</th>
+                        <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 bg-white">
+                      {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                        <tr key={i} className="animate-pulse">
+                          <td className="px-3 py-2">
+                            <div className="h-4 bg-gray-200 rounded w-12"></div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="h-4 bg-gray-200 rounded w-20"></div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="h-5 bg-gray-200 rounded w-16"></div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex justify-center space-x-1">
+                              <div className="h-6 bg-gray-200 rounded w-12"></div>
+                              <div className="h-6 bg-gray-200 rounded w-16"></div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -309,32 +316,49 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
               </Link>
             </div>
 
-            <div className="bg-white shadow rounded-lg p-6">
-              <p className="mb-4 text-gray-600">{block.description}</p>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Start Date</h3>
-                  <p className="mt-1 text-sm text-gray-900">{formatDate(block.start_date)}</p>
+            <div className="bg-white shadow rounded-lg p-4">
+              {/* Description with expand/collapse */}
+              <div className="mb-3">
+                {block.description && (
+                  <>
+                    <p className="text-gray-600 text-sm">
+                      {showFullDescription || block.description.length <= 100
+                        ? block.description
+                        : `${block.description.substring(0, 100)}...`}
+                    </p>
+                    {block.description.length > 100 && (
+                      <button
+                        onClick={() => setShowFullDescription(!showFullDescription)}
+                        className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                      >
+                        {showFullDescription ? 'Show less' : 'Show more'}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+              
+              {/* Horizontal date and status layout */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-6">
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Start:</span>
+                    <span className="ml-1 text-sm text-gray-900">{formatDate(block.start_date)}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">End:</span>
+                    <span className="ml-1 text-sm text-gray-900">{formatDate(block.end_date)}</span>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">End Date</h3>
-                  <p className="mt-1 text-sm text-gray-900">{formatDate(block.end_date)}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                  <p className="mt-1 text-sm">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      block.status === 'active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : block.status === 'completed'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {block.status.charAt(0).toUpperCase() + block.status.slice(1)}
-                    </span>
-                  </p>
-                </div>
+                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                  block.status === 'active' 
+                    ? 'bg-green-100 text-green-800' 
+                    : block.status === 'completed'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {block.status.charAt(0).toUpperCase() + block.status.slice(1)}
+                </span>
               </div>
             </div>
 
@@ -444,55 +468,127 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {[...daysMap[activeWeek]]
-                        .sort((a, b) => a.day_number - b.day_number)
-                        .map((day) => (
-                          <div
-                            key={day.day_id}
-                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
-                              isBulkEditing && selectedDays[day.day_id] ? 'ring-2 ring-blue-500' : ''
-                            }`}
-                            onClick={isBulkEditing ? () => toggleDay(day.day_id) : undefined}
-                            style={isBulkEditing ? { cursor: 'pointer' } : undefined}
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <h3 className="text-lg font-medium text-gray-900">Day {day.day_number}</h3>
-                              {day.focus && <FocusTag focus={day.focus} />}
-                            </div>
-                            <p className="text-sm text-gray-500 mb-2">
-                              {formatDate(day.date, {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </p>
-                            {day.notes && <p className="mt-1 text-sm text-gray-500">{day.notes}</p>}
-
-                            {!isBulkEditing && (
-                              <div className="mt-4 flex justify-between">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingDay(day);
+                    <div className="overflow-hidden border border-gray-200 rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {isBulkEditing && (
+                              <th className="px-3 py-2 text-left">
+                                <input
+                                  type="checkbox"
+                                  onChange={(e) => {
+                                    if (e.target.checked && activeWeek) {
+                                      const allDayIds = daysMap[activeWeek].reduce((acc: { [key: string]: boolean }, day: any) => {
+                                        acc[day.day_id] = true;
+                                        return acc;
+                                      }, {});
+                                      setSelectedDays(allDayIds);
+                                    } else {
+                                      setSelectedDays({});
+                                    }
                                   }}
-                                  className="text-sm text-blue-600 hover:text-blue-800"
-                                >
-                                  {day.focus ? 'Edit Focus' : 'Set Focus'}
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/days/${day.day_id}?blockId=${blockId}`);
-                                  }}
-                                  className="px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
-                                >
-                                  View Exercises
-                                </button>
-                              </div>
+                                  checked={
+                                    !!(activeWeek &&
+                                    daysMap[activeWeek]?.length > 0 && 
+                                    daysMap[activeWeek].every((day: any) => selectedDays[day.day_id]))
+                                  }
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                              </th>
                             )}
-                          </div>
-                        ))}
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Focus</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                          {activeWeek && daysMap[activeWeek] ? [...daysMap[activeWeek]]
+                            .sort((a, b) => a.day_number - b.day_number)
+                            .map((day) => (
+                              <tr
+                                key={day.day_id}
+                                className={`hover:bg-gray-50 ${
+                                  isBulkEditing && selectedDays[day.day_id] ? 'bg-blue-50' : ''
+                                }`}
+                                onClick={isBulkEditing ? () => {
+                                  setSelectedDays(prev => ({
+                                    ...prev,
+                                    [day.day_id]: !prev[day.day_id]
+                                  }));
+                                } : undefined}
+                                style={isBulkEditing ? { cursor: 'pointer' } : undefined}
+                              >
+                                {isBulkEditing && (
+                                  <td className="px-3 py-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedDays[day.day_id] || false}
+                                      onChange={() => {
+                                        setSelectedDays(prev => ({
+                                          ...prev,
+                                          [day.day_id]: !prev[day.day_id]
+                                        }));
+                                      }}
+                                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                  </td>
+                                )}
+                                <td className="px-3 py-2 font-medium text-gray-900">
+                                  Day {day.day_number}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600">
+                                  {formatDate(day.date, {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {day.focus ? (
+                                    <FocusTag focus={day.focus} size="sm" />
+                                  ) : (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingDay(day);
+                                      }}
+                                      className="text-blue-600 text-xs border border-blue-200 px-2 py-0.5 rounded hover:bg-blue-50"
+                                      disabled={isBulkEditing}
+                                    >
+                                      Set Focus
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {!isBulkEditing && (
+                                    <div className="flex justify-center space-x-1">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingDay(day);
+                                        }}
+                                        className="text-blue-600 text-xs px-2 py-1 border border-blue-200 rounded hover:bg-blue-50"
+                                      >
+                                        Focus
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // You'll need to add navigation logic here
+                                          window.location.href = `/days/${day.day_id}?blockId=${blockId}`;
+                                        }}
+                                        className="bg-blue-600 text-white text-xs px-2 py-1 rounded hover:bg-blue-700"
+                                      >
+                                        Workout
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            )) : []}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}
