@@ -51,6 +51,32 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   const { getDisplayUnit } = useWeightUnit();
   const displayUnit = getDisplayUnit(exercise.exercise_type);
 
+  // Weight conversion utility functions (matching backend logic)
+  const convertKgToLbs = (kg: number): number => {
+    const lbs = kg * 2.20462;
+    return Math.round(lbs * 2) / 2; // Round to nearest 0.5 lb
+  };
+
+
+  const getDisplayWeight = (storageWeight: number, exerciseType: string): number => {
+    const targetUnit = getDisplayUnit(exerciseType);
+    
+    // Storage is always in kg, convert to display unit if needed
+    if (targetUnit === 'lb' && storageWeight > 0) {
+      return convertKgToLbs(storageWeight);
+    }
+    
+    return storageWeight; // Already in kg, no conversion needed
+  };
+
+  // Convert sets data for display
+  const convertSetDataForDisplay = (setData: ExerciseSetData): ExerciseSetData => {
+    return {
+      ...setData,
+      weight: setData.weight > 0 ? getDisplayWeight(setData.weight, exerciseState.exercise_type) : setData.weight
+    };
+  };
+
   // Update exercise state when prop changes
   useEffect(() => {
     setExerciseState(exercise);
@@ -92,7 +118,8 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     if (currentSetNumber === 1) {
       return undefined; // First set has no previous
     }
-    return setsDataMap[currentSetNumber - 1];
+    const previousSetData = setsDataMap[currentSetNumber - 1];
+    return previousSetData ? convertSetDataForDisplay(previousSetData) : undefined;
   };
 
   // Handle drag end for set reordering
@@ -194,6 +221,10 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   // Determine if content should be shown (force expanded OR user expanded)
   const shouldShowContent = forceExpanded || isExpanded;
 
+  // console.log('🔍 STATE SYNC DEBUG:');
+  // console.log('🔍 exercise.sets_data:', exercise.sets_data?.map(s => ({ set: s.set_number, weight: s.weight })));
+  // console.log('🔍 exerciseState.sets_data:', exerciseState.sets_data?.map(s => ({ set: s.set_number, weight: s.weight })));
+
   return (
     <div className="space-y-4">
       {/* Conditionally render header - only show when NOT force expanded */}
@@ -213,7 +244,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
               )}
             </div>
             <p className="text-sm text-gray-600">
-              {exerciseState.sets} sets × {exerciseState.reps} reps @ {exerciseState.weight}{displayUnit}
+              {exerciseState.sets} sets × {exerciseState.reps} reps @ {getDisplayWeight(exerciseState.weight, exerciseState.exercise_type)}{displayUnit}
               {exerciseState.rpe && ` @ RPE ${exerciseState.rpe}`}
             </p>
           </div>
@@ -297,7 +328,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
                         key={setNumber}
                         exerciseId={exerciseState.exercise_id}
                         setNumber={setNumber}
-                        existingData={setsDataMap[setNumber]}
+                        existingData={setsDataMap[setNumber] ? convertSetDataForDisplay(setsDataMap[setNumber]) : undefined}
                         previousSetData={getPreviousSetData(setNumber)}
                         plannedReps={exerciseState.reps}
                         plannedWeight={exerciseState.weight}
