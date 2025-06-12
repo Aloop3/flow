@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FocusTag from '../components/FocusTag';
-import { getBlock, getWeeks, getDays, updateDay } from '../services/api';
+import { getBlock, getWeeks, getDays, updateDay, updateBlock } from '../services/api';
 import type { Block, Week, Day } from '../services/api';
 import Modal from '../components/Modal';
 import DayForm from '../components/DayForm';
 import FormButton from '../components/FormButton';
 import { formatDate } from '../utils/dateUtils';
+import { toast } from 'react-toastify';
 
 
 interface BlockDetailProps {
@@ -28,6 +29,10 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const [isBulkEditing, setIsBulkEditing] = useState(false);
   const [applyToAllWeeks, setApplyToAllWeeks] = useState(true);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const [descriptionContent, setDescriptionContent] = useState('');
+
 
   useEffect(() => {
     const fetchBlockData = async () => {
@@ -115,6 +120,13 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
     fetchBlockData();
   }, [blockId]);
+
+
+  useEffect(() => {
+    if (block) {
+      setDescriptionContent(block.description || '');
+    }
+  }, [block]);
 
   const handleBulkUpdate = async () => {
     try {
@@ -217,6 +229,54 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     await handleBulkUpdate();
   };
 
+  const descriptionEditableRef = useRef<HTMLDivElement>(null);
+
+  const handleDescriptionClick = () => {
+    setIsEditingDescription(true);
+    setShowFullDescription(true);
+    descriptionEditableRef.current?.focus();
+  };
+
+  const handleDescriptionBlur = async () => {
+    if (!block || descriptionContent === (block.description || '')) {
+      setIsEditingDescription(false);
+      return;
+    }
+
+    setIsSavingDescription(true);
+    try {
+      await updateBlock(block.block_id, { description: descriptionContent.trim() });
+      // Update only the description field to avoid breaking other data
+      setBlock(prev => prev ? { ...prev, description: descriptionContent.trim() } : null);
+      toast.success('Description saved successfully!');
+    } catch (error) {
+      console.error('Error saving description:', error);
+      toast.error('Failed to save description');
+      // Revert to original content on error
+      setDescriptionContent(block.description || '');
+    } finally {
+      setIsEditingDescription(false);
+      setIsSavingDescription(false);
+    }
+  };
+
+  const handleDescriptionKeyDown = (e: React.KeyboardEvent) => {
+    // Save on Ctrl+Enter (multi-line content)
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      (e.target as HTMLElement).blur();
+    }
+    // Cancel on Escape
+    if (e.key === 'Escape') {
+      setDescriptionContent(block?.description || '');
+      setIsEditingDescription(false);
+    }
+  };
+
+  const handleDescriptionChange = (e: React.FormEvent<HTMLDivElement>) => {
+    setDescriptionContent(e.currentTarget.textContent || '');
+  };
+
   return (
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
@@ -317,28 +377,68 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
             </div>
 
             <div className="bg-white shadow rounded-lg p-4">
-              {/* Description with expand/collapse */}
+              {/* DESCRIPTION SECTION - EDITABLE */}
               <div className="mb-3">
-                {block.description && (
-                  <>
-                    <p className="text-gray-600 text-sm">
-                      {showFullDescription || block.description.length <= 100
-                        ? block.description
-                        : `${block.description.substring(0, 100)}...`}
-                    </p>
-                    {block.description.length > 100 && (
+                {descriptionContent || isEditingDescription ? (
+                  <div className="relative">
+                    <div
+                      ref={descriptionEditableRef}
+                      contentEditable
+                      suppressContentEditableWarning={true}
+                      onFocus={handleDescriptionClick}
+                      onBlur={handleDescriptionBlur}
+                      onKeyDown={handleDescriptionKeyDown}
+                      onInput={handleDescriptionChange}
+                      className={`
+                        min-h-[2rem] p-2 rounded border-2 transition-all duration-200 outline-none
+                        text-gray-600 text-sm leading-relaxed
+                        ${isEditingDescription 
+                          ? 'border-blue-300 bg-blue-50 shadow-sm' 
+                          : 'border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text'
+                        }
+                        ${isSavingDescription ? 'opacity-50' : ''}
+                      `}
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: isEditingDescription ? 'none' : (showFullDescription ? 'none' : '3rem'),
+                        overflow: isEditingDescription ? 'visible' : (showFullDescription ? 'visible' : 'hidden')
+                      }}
+                    >
+                    {descriptionContent}
+                  </div>
+
+                    
+                    {isSavingDescription && (
+                      <div className="absolute right-2 top-2">
+                        <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                      </div>
+                    )}
+                    
+                    {/* Show more/less button - only when not editing and content is long */}
+                    {!isEditingDescription && !isSavingDescription && descriptionContent.length > 100 && (
                       <button
                         onClick={() => setShowFullDescription(!showFullDescription)}
-                        className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                        className="text-xs text-blue-600 hover:text-blue-800 mt-1 block"
                       >
                         {showFullDescription ? 'Show less' : 'Show more'}
                       </button>
                     )}
-                  </>
+                    
+                    {/* Editing help text */}
+                    {isEditingDescription}
+                  </div>
+                ) : (
+                  <div 
+                    onClick={handleDescriptionClick}
+                    className="p-2 rounded border-2 border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text min-h-[2rem] text-gray-400 italic text-sm"
+                  >
+                    Click to add block description...
+                  </div>
                 )}
               </div>
               
-              {/* Horizontal date and status layout */}
+              {/* Horizontal date and status layout - UNCHANGED */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-6">
                   <div>

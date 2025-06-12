@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import WorkoutForm from '../components/WorkoutForm';
@@ -9,6 +9,8 @@ import { formatDate } from '../utils/dateUtils';
 import FocusTag from '../components/FocusTag';
 import { toast } from 'react-toastify';
 import ExerciseList from '../components/ExerciseList';
+import { updateDay } from '../services/api';
+
 
 interface DayDetailProps {
   user: any;
@@ -31,6 +33,11 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [athleteId, setAthleteId] = useState<string | undefined>(undefined);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [notesContent, setNotesContent] = useState('');
+  const [isEditingFocus, setIsEditingFocus] = useState(false);
+  const [isSavingFocus, setIsSavingFocus] = useState(false);
 
   useEffect(() => {
     if (!dayId) return;
@@ -85,6 +92,19 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
 
     fetchDayData();
   }, [dayId, user.user_id, user.role, blockId]);
+
+  useEffect(() => {
+    if (day) {
+      setNotesContent(day.notes || '');
+    }
+  }, [day]);
+
+  useEffect(() => {
+    if (contentEditableRef.current && !isEditingNotes) {
+      contentEditableRef.current.textContent = notesContent;
+    }
+  }, [notesContent, isEditingNotes]);
+
 
   const handleWorkoutSaved = async () => {
     if (!user || !dayId) {
@@ -194,6 +214,88 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     }
   };
 
+  const handleNotesClick = () => {
+    setIsEditingNotes(true);
+    contentEditableRef.current?.focus();
+  };
+
+  const handleNotesBlur = async () => {
+    if (!day || notesContent === (day.notes || '')) {
+      setIsEditingNotes(false);
+      return;
+    }
+
+    setIsSavingNotes(true);
+    try {
+      await updateDay(day.day_id, { notes: notesContent.trim() });
+      // Update only the notes field to avoid breaking date parsing
+      setDay(prev => prev ? { ...prev, notes: notesContent.trim() } : null);
+      toast.success('Notes saved successfully!');
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      toast.error('Failed to save notes');
+      // Revert to original content on error
+      setNotesContent(day.notes || '');
+    } finally {
+      setIsEditingNotes(false);
+      setIsSavingNotes(false);
+    }
+  };
+
+  const handleNotesKeyDown = (e: React.KeyboardEvent) => {
+    // Save on Enter key (optional UX enhancement)
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      (e.target as HTMLElement).blur();
+    }
+    // Cancel on Escape
+    if (e.key === 'Escape') {
+      setNotesContent(day?.notes || '');
+      setIsEditingNotes(false);
+    }
+  };
+
+  const handleNotesChange = (e: React.FormEvent<HTMLDivElement>) => {
+    setNotesContent(e.currentTarget.textContent || '');
+  };
+
+  const contentEditableRef = useRef<HTMLDivElement>(null);
+
+  // Focus editing handlers
+  const focusOptions = [
+    { value: '', label: 'No focus' },
+    { value: 'squat', label: 'Squat' },
+    { value: 'bench', label: 'Bench' },
+    { value: 'deadlift', label: 'Deadlift' },
+    { value: 'cardio', label: 'Cardio' },
+    { value: 'rest', label: 'Rest' }
+  ];
+
+  const handleFocusClick = () => {
+    setIsEditingFocus(true);
+  };
+
+  const handleFocusChange = async (newFocus: string) => {
+    if (!day || newFocus === (day.focus || '')) {
+      setIsEditingFocus(false);
+      return;
+    }
+
+    setIsSavingFocus(true);
+    try {
+      await updateDay(day.day_id, { focus: newFocus || null });
+      // Update only the focus field
+      setDay(prev => prev ? { ...prev, focus: newFocus || null } : null);
+      toast.success('Focus updated successfully!');
+    } catch (error) {
+      console.error('Error saving focus:', error);
+      toast.error('Failed to update focus');
+    } finally {
+      setIsEditingFocus(false);
+      setIsSavingFocus(false);
+    }
+  };
+
   return (
     <Layout user={user} signOut={signOut}>
       {isLoading ? (
@@ -213,29 +315,120 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
           </div>
 
           <div className="bg-white shadow rounded-lg p-6">
-            {day.focus ? (
+            {day.focus || isEditingFocus ? (
               <div className="mb-4">
                 <h2 className="text-sm font-medium text-gray-500">Focus</h2>
-                <div className="mt-1">
-                  <FocusTag focus={day.focus} size="lg" />
+                <div className="mt-1 relative">
+                  {isEditingFocus ? (
+                    <div className="relative">
+                      <div className="bg-white border border-gray-300 rounded-md shadow-lg py-1 z-10 absolute top-0 left-0 min-w-[120px]">
+                        {focusOptions.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => handleFocusChange(option.value)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2"
+                            disabled={isSavingFocus}
+                          >
+                            {option.value ? (
+                              <FocusTag focus={option.value} size="sm" />
+                            ) : (
+                              <span className="text-gray-500 italic text-sm">No focus</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Invisible overlay to capture blur */}
+                      <div 
+                        className="fixed inset-0 z-0" 
+                        onClick={() => setIsEditingFocus(false)}
+                      />
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={handleFocusClick}
+                      className={`
+                        inline-block cursor-pointer p-1 rounded transition-all duration-200
+                        hover:bg-gray-100 
+                        ${isSavingFocus ? 'opacity-50' : ''}
+                      `}
+                    >
+                      <FocusTag focus={day.focus || ''} size="lg" />
+                      {isSavingFocus && (
+                        <div className="inline-block ml-2">
+                          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="mb-4">
                 <h2 className="text-sm font-medium text-gray-500">Focus</h2>
-                <p className="mt-1 text-gray-400 italic">No focus set</p>
+                <div 
+                  onClick={handleFocusClick}
+                  className="mt-1 inline-block cursor-pointer p-1 rounded transition-all duration-200 hover:bg-gray-100"
+                >
+                  <span className="text-gray-400 italic text-sm px-3 py-1.5 border border-gray-200 rounded-full">
+                    Click to set focus...
+                  </span>
+                </div>
               </div>
             )}
 
-            {day.notes ? (
+            {notesContent || isEditingNotes ? (
               <div>
                 <h2 className="text-sm font-medium text-gray-500">Notes</h2>
-                <p className="mt-1">{day.notes}</p>
+                <div className="mt-1 relative">
+                  <div
+                    ref={contentEditableRef}
+                    contentEditable
+                    suppressContentEditableWarning={true}
+                    onFocus={handleNotesClick}
+                    onBlur={handleNotesBlur}
+                    onKeyDown={handleNotesKeyDown}
+                    onInput={handleNotesChange}
+                    className={`
+                      min-h-[1.5rem] p-2 rounded border-2 transition-all duration-200 outline-none
+                      ${isEditingNotes 
+                        ? 'border-blue-300 bg-blue-50 shadow-sm' 
+                        : 'border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text'
+                      }
+                      ${isSavingNotes ? 'opacity-50' : ''}
+                    `}
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {notesContent}
+                  </div>
+                  
+                  {isSavingNotes && (
+                    <div className="absolute right-2 top-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    </div>
+                  )}
+                  
+                  {!isEditingNotes && !day.notes && (
+                    <div 
+                      onClick={handleNotesClick}
+                      className="absolute inset-0 flex items-center text-gray-400 italic cursor-text p-2"
+                    >
+                      Click to add notes...
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div>
                 <h2 className="text-sm font-medium text-gray-500">Notes</h2>
-                <p className="mt-1 text-gray-400 italic">No notes</p>
+                <div 
+                  onClick={handleNotesClick}
+                  className="mt-1 p-2 rounded border-2 border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text min-h-[1.5rem] text-gray-400 italic"
+                >
+                  Click to add notes...
+                </div>
               </div>
             )}
           </div>
