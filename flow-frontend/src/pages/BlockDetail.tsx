@@ -361,30 +361,43 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const handleDescriptionClick = () => {
     setIsEditingDescription(true);
     setShowFullDescription(true);
-    descriptionEditableRef.current?.focus();
+    requestAnimationFrame(() => {
+      if (descriptionEditableRef.current) {
+        descriptionEditableRef.current.textContent = descriptionContent;
+        descriptionEditableRef.current.focus();
+      }
+    });
   };
 
   const handleDescriptionBlur = async () => {
-    if (!block || descriptionContent === (block.description || '')) {
+    if (!descriptionEditableRef.current) return;
+
+    // grab whatever the user typed
+    const newText = descriptionEditableRef.current.textContent?.trim() || '';
+
+    // prime your React state so your comparisons & API call see it
+    setDescriptionContent(newText);
+
+    // if nothing changed, just exit edit mode
+    if (!block || newText === (block.description || '')) {
       setIsEditingDescription(false);
       return;
-    }
+    };
 
     setIsSavingDescription(true);
     try {
-      await updateBlock(block.block_id, { description: descriptionContent.trim() });
-      // Update only the description field to avoid breaking other data
-      setBlock(prev => prev ? { ...prev, description: descriptionContent.trim() } : null);
+      await updateBlock(block.block_id, { description: newText });
+      setBlock(prev => prev ? { ...prev, description: newText } : null);
       toast.success('Description saved successfully!');
     } catch (error) {
       console.error('Error saving description:', error);
       toast.error('Failed to save description');
-      // Revert to original content on error
+      // revert to server copy
       setDescriptionContent(block.description || '');
     } finally {
       setIsEditingDescription(false);
       setIsSavingDescription(false);
-    }
+    };
   };
 
   const handleDescriptionKeyDown = (e: React.KeyboardEvent) => {
@@ -398,10 +411,6 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       setDescriptionContent(block?.description || '');
       setIsEditingDescription(false);
     }
-  };
-
-  const handleDescriptionChange = (e: React.FormEvent<HTMLDivElement>) => {
-    setDescriptionContent(e.currentTarget.textContent || '');
   };
 
   return (
@@ -515,7 +524,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                       onFocus={handleDescriptionClick}
                       onBlur={handleDescriptionBlur}
                       onKeyDown={handleDescriptionKeyDown}
-                      onInput={handleDescriptionChange}
+
                       className={`
                         min-h-[2rem] p-2 rounded border-2 transition-all duration-200 outline-none
                         text-gray-600 text-sm leading-relaxed
@@ -532,7 +541,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                         overflow: isEditingDescription ? 'visible' : (showFullDescription ? 'visible' : 'hidden')
                       }}
                     >
-                      {descriptionContent}
+                      { !isEditingDescription && descriptionContent }
                     </div>
 
                     {isSavingDescription && (
@@ -540,9 +549,8 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                         <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                       </div>
                     )}
-                    
-                    {/* Show more/less button - only when not editing and content is long */}
-                    {!isEditingDescription && !isSavingDescription && descriptionContent.length > 100 && (
+
+                    {!isEditingDescription && descriptionContent.length > 100 && (
                       <button
                         onClick={() => setShowFullDescription(!showFullDescription)}
                         className="text-xs text-blue-600 hover:text-blue-800 mt-1 block"

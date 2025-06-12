@@ -216,31 +216,37 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
 
   const handleNotesClick = () => {
     setIsEditingNotes(true);
-    contentEditableRef.current?.focus();
-  };
+    requestAnimationFrame(() => {
+      if (contentEditableRef.current) {
+        contentEditableRef.current.textContent = notesContent;
+        contentEditableRef.current.focus();
+      }
+    });
+  }
 
   const handleNotesBlur = async () => {
-    if (!day || notesContent === (day.notes || '')) {
+    if (!contentEditableRef.current) return;
+    const newText = contentEditableRef.current.textContent?.trim() || '';
+    setNotesContent(newText);
+
+    if (!day || newText === (day.notes || '')) {
       setIsEditingNotes(false);
       return;
     }
 
     setIsSavingNotes(true);
     try {
-      await updateDay(day.day_id, { notes: notesContent.trim() });
-      // Update only the notes field to avoid breaking date parsing
-      setDay(prev => prev ? { ...prev, notes: notesContent.trim() } : null);
+      await updateDay(day.day_id, { notes: newText });
+      setDay(d => d ? { ...d, notes: newText } : null);
       toast.success('Notes saved successfully!');
-    } catch (error) {
-      console.error('Error saving notes:', error);
+    } catch {
       toast.error('Failed to save notes');
-      // Revert to original content on error
       setNotesContent(day.notes || '');
     } finally {
       setIsEditingNotes(false);
       setIsSavingNotes(false);
     }
-  };
+  }
 
   const handleNotesKeyDown = (e: React.KeyboardEvent) => {
     // Save on Enter key (optional UX enhancement)
@@ -401,7 +407,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                       wordBreak: 'break-word'
                     }}
                   >
-                    {notesContent}
+                    { !isEditingNotes && notesContent }
                   </div>
                   
                   {isSavingNotes && (
