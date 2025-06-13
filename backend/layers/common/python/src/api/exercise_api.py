@@ -353,7 +353,7 @@ def track_set(event, context):
         reps = body.get("reps")
         weight = body.get("weight")
         rpe = body.get("rpe")
-        completed = body.get("completed", True)
+        completed = body.get("completed", False)
         notes = body.get("notes")
 
         # Validate required fields
