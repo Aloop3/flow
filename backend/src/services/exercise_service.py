@@ -200,7 +200,7 @@ class ExerciseService:
         reps: int,
         weight: float,
         rpe: Optional[Union[int, float]] = None,
-        completed: bool = True,
+        completed: bool = False,
         notes: Optional[str] = None,
     ) -> Optional[Exercise]:
         """Track a specific set within an exercise"""
