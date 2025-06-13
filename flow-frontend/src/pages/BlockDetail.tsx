@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FocusTag from '../components/FocusTag';
@@ -29,13 +30,91 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const [editingDay, setEditingDay] = useState<any>(null);
   const [selectedDays, setSelectedDays] = useState<{ [key: string]: boolean }>({});
   const [bulkFocus, setBulkFocus] = useState<string>('');
+  const [editingFocusDayId, setEditingFocusDayId] = useState<string | null>(null);
+  const [isSavingFocus, setIsSavingFocus] = useState(false);
   const [isBulkEditing, setIsBulkEditing] = useState(false);
   const [applyToAllWeeks, setApplyToAllWeeks] = useState(true);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isSavingDescription, setIsSavingDescription] = useState(false);
   const [descriptionContent, setDescriptionContent] = useState('');
+  const focusOptions = [
+    { value: '', label: 'No focus' },
+    { value: 'squat', label: 'Squat' },
+    { value: 'bench', label: 'Bench' },
+    { value: 'deadlift', label: 'Deadlift' },
+    { value: 'cardio', label: 'Cardio' },
+    { value: 'rest', label: 'Rest' },
+  ];
 
+  const focusTagRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
+  
+  const FocusDropdownPortal = ({ 
+    isOpen, 
+    onClose, 
+    onSelect, 
+    triggerRef,
+    options, 
+    isSaving 
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    onSelect: (value: string) => void;
+    triggerRef: React.RefObject<HTMLDivElement>;
+    options: Array<{ value: string; label: string }>;
+    isSaving: boolean;
+  }) => {
+    const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+
+    useEffect(() => {
+      if (isOpen && triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setPosition({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX
+        });
+      } else {
+        setPosition(null);
+      }
+    }, [isOpen, triggerRef]);
+
+    if (!isOpen || !position) return null;
+
+    return createPortal(
+      <>
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={onClose}
+        />
+        
+        {/* Dropdown */}
+        <div 
+          className="absolute z-50 bg-white border border-gray-300 rounded-md shadow-xl py-1 min-w-[120px]"
+          style={{
+            top: position.top,
+            left: position.left
+          }}
+        >
+          {options.map(option => (
+            <button
+              key={option.value}
+              onClick={() => onSelect(option.value)}
+              disabled={isSaving}
+              className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2 disabled:opacity-50"
+            >
+              {option.value ? (
+                <FocusTag focus={option.value} size="sm" />
+              ) : (
+                <span className="text-gray-500 italic text-sm">No focus</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </>,
+      document.body
+    );
+  };
 
   const loadWeekData = async (weekId: string, retryCount = 0): Promise<boolean> => {
     if (loadedWeeks.has(weekId) || weekLoadingStates[weekId]) {
@@ -84,6 +163,36 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       setWeekLoadingStates(prev => ({ ...prev, [weekId]: false }));
     }
   };
+
+  function handleFocusClick(dayId: string) {
+    setEditingFocusDayId(dayId);
+  }
+
+  async function handleFocusChange(dayId: string, newFocus: string) {
+    // Similar logic to DayDetail
+    if (newFocus === daysMap[activeWeek!]
+        .find(d => d.day_id === dayId)?.focus) {
+      setEditingFocusDayId(null);
+      return;
+    }
+
+    setIsSavingFocus(true);
+    try {
+      await updateDay(dayId, { focus: newFocus || null });
+      setDaysMap(m => ({
+        ...m,
+        [activeWeek!]: m[activeWeek!]!.map(d =>
+          d.day_id === dayId ? { ...d, focus: newFocus || null } : d
+        )
+      }));
+      toast.success('Focus updated successfully!');
+    } catch {
+      toast.error('Failed to update focus');
+    } finally {
+      setIsSavingFocus(false);
+      setEditingFocusDayId(null);
+    }
+  }
 
   // Initial data loading - only load first week
   useEffect(() => {
@@ -195,7 +304,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
         <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
       </div>
 
-      <div className="overflow-hidden border border-gray-200 rounded-lg">
+      <div className="overflow-visible border border-gray-200 rounded-lg">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
@@ -443,7 +552,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
             </div>
 
             {/* Week Tabs Skeleton */}
-            <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="bg-white shadow rounded-lg overflow-visible">
               <div className="border-b border-gray-200">
                 <nav className="flex">
                   {[1, 2, 3, 4].map((i) => (
@@ -464,7 +573,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                   <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
                 </div>
 
-                <div className="overflow-hidden border border-gray-200 rounded-lg">
+                <div className="overflow-visible border border-gray-200 rounded-lg">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
@@ -721,7 +830,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                           )}
                         </div>
 
-                        <div className="overflow-hidden border border-gray-200 rounded-lg">
+                        <div className="overflow-visible border border-gray-200 rounded-lg">
                           <table className="w-full text-sm">
                             <thead className="bg-gray-50">
                               <tr>
@@ -798,33 +907,35 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                       })}
                                     </td>
                                     <td className="px-3 py-2">
-                                      {day.focus ? (
-                                        <FocusTag focus={day.focus} size="sm" />
-                                      ) : (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setEditingDay(day);
-                                          }}
-                                          className="text-blue-600 text-xs border border-blue-200 px-2 py-0.5 rounded hover:bg-blue-50"
-                                          disabled={isBulkEditing}
+                                      <div className="relative inline-block">
+                                        <div
+                                          ref={editingFocusDayId === day.day_id ? focusTagRef : null}
+                                          onClick={() => handleFocusClick(day.day_id)}
+                                          className={`
+                                            inline-block cursor-pointer p-1 rounded transition-all duration-200
+                                            hover:bg-gray-100
+                                            ${isSavingFocus ? 'opacity-50' : ''}
+                                          `}
                                         >
-                                          Set Focus
-                                        </button>
-                                      )}
+                                          <FocusTag focus={day.focus || ''} size="sm" />
+                                          {isSavingFocus && editingFocusDayId === day.day_id && (
+                                            <span className="inline-block ml-1 animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                                          )}
+                                        </div>
+                                        
+                                        <FocusDropdownPortal
+                                          isOpen={editingFocusDayId === day.day_id}
+                                          onClose={() => setEditingFocusDayId(null)}
+                                          onSelect={(value) => handleFocusChange(day.day_id, value)}
+                                          triggerRef={focusTagRef}
+                                          options={focusOptions}
+                                          isSaving={isSavingFocus}
+                                        />
+                                      </div>
                                     </td>
                                     <td className="px-3 py-2 text-center">
                                       {!isBulkEditing && (
                                         <div className="flex justify-center space-x-1">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setEditingDay(day);
-                                            }}
-                                            className="text-blue-600 text-xs px-2 py-1 border border-blue-200 rounded hover:bg-blue-50"
-                                          >
-                                            Focus
-                                          </button>
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
