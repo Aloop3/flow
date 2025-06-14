@@ -259,10 +259,10 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
         
         <div className="space-y-4">
           {currentSets.map((set, index) => (
-            <div key={set.id} className="flex items-center space-x-4 p-2 bg-gray-50 rounded">
-              <div className="font-medium min-w-10">Set {index + 1}</div>
+            <div key={set.id} className="flex items-center space-x-2 sm:space-x-4 p-2 bg-gray-50 rounded">
+              <div className="font-medium min-w-8 text-sm">Set {index + 1}</div>
               
-              <div>
+              <div className="flex-shrink-0">
                 <label className="block text-xs text-gray-500">Weight ({displayUnit})</label>
                 <input
                   type="text"
@@ -276,12 +276,12 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
                     }
                   }}
                   onFocus={(e) => e.target.select()}
-                  className="w-20 p-1 border rounded text-center"
+                  className="w-16 sm:w-20 p-1 border rounded text-center text-sm"
                   placeholder="0"
                 />
               </div>
               
-              <div>
+              <div className="flex-shrink-0">
                 <label className="block text-xs text-gray-500">Reps</label>
                 <input
                   type="text"
@@ -295,11 +295,11 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
                     }
                   }}
                   onFocus={(e) => e.target.select()}
-                  className="w-16 p-1 border rounded text-center"
+                  className="w-12 sm:w-16 p-1 border rounded text-center text-sm"
                 />
               </div>
               
-              <div>
+              <div className="flex-shrink-0">
                 <label className="block text-xs text-gray-500">RPE</label>
                 <input
                   type="text"
@@ -313,16 +313,19 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
                     }
                   }}
                   onFocus={(e) => e.target.select()}
-                  className="w-16 p-1 border rounded text-center"
+                  className="w-12 sm:w-16 p-1 border rounded text-center text-sm"
                 />
               </div>
               
               <button
                 onClick={() => handleRemoveSet(set.id)}
-                className="text-red-500 hover:text-red-700 ml-auto"
+                className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 disabled={currentSets.length <= 1}
+                title="Remove set"
               >
-                Remove
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
               </button>
             </div>
           ))}
@@ -371,18 +374,21 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
           <h3 className="text-md font-medium mb-2">Exercises</h3>
           <ul className="divide-y">
             {exercises.map((exercise, index) => (
-              <li key={index} className="py-3 flex justify-between items-start">
-                <div>
-                  <p className="font-medium mb-1">{exercise.exerciseType}</p>
+              <li key={index} className="py-3 flex items-start space-x-2 sm:space-x-4">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium mb-1 text-sm">{exercise.exerciseType}</p>
                   {formatExerciseDisplay(exercise).split('\n').map((line, i) => (
-                    <p key={i} className="text-sm text-gray-600">{line}</p>
+                    <p key={i} className="text-xs text-gray-600 break-words">{line}</p>
                   ))}
                 </div>
                 <button
                   onClick={() => handleRemoveExercise(index)}
-                  className="text-red-500 hover:text-red-700 mt-1"
+                  className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 flex-shrink-0 mt-0.5"
+                  title="Remove exercise"
                 >
-                  Remove
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                 </button>
               </li>
             ))}
