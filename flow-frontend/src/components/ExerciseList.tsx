@@ -64,8 +64,16 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
   };
 
   const handleComplete = () => {
+    // Preserve scroll position during workout refresh
+    const scrollY = window.scrollY;
+    
+    // Call the parent refresh function
     onExerciseComplete();
-    // Keep exercise expanded after completion
+    
+    // Restore scroll position after React re-render completes
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollY);
+    });
   };
 
   const handleAddExercise = async () => {
@@ -73,6 +81,10 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
     
     try {
       setError(null);
+      
+      // Preserve scroll position
+      const scrollY = window.scrollY;
+      
       // Create exercise with default values
       await createExercise({
         workout_id: workoutId,
@@ -89,6 +101,11 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
       setIsAddingExercise(false);
       setSelectedExerciseType('');
       onExerciseComplete(); // This refreshes the workout data
+      
+      // Restore scroll position
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY);
+      });
     } catch (err: any) {
       setError('Failed to add exercise. Please try again.');
       console.error('Error adding exercise:', err);
@@ -100,6 +117,9 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
       setIsDeleting(exerciseId);
       setError(null);
       
+      // MOBILE SCROLL FIX: Preserve scroll position
+      const scrollY = window.scrollY;
+      
       await deleteExercise(exerciseId);
       
       // Collapse if this exercise was expanded
@@ -109,6 +129,11 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
       
       // Refresh the workout data
       onExerciseComplete();
+      
+      // Restore scroll position
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY);
+      });
     } catch (err: any) {
       setError('Failed to remove exercise. Please try again.');
       console.error('Error removing exercise:', err);
