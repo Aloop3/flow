@@ -3,12 +3,14 @@ import ExerciseSelector from './ExerciseSelector';
 import FormButton from './FormButton';
 import { createWorkout } from '../services/api';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { useWeightUnit } from '../contexts/UserContext';
 
-// Define a single set configuration
+// Define a single set configuration with optional weight
 interface SetConfig {
   id: string; // Unique identifier
   reps: number;
   rpe: number;
+  weight?: number; // Optional weight field for planning
 }
 
 // Define the exercise with sets
@@ -31,6 +33,9 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>();
   
+  // Add weight unit context
+  const { getDisplayUnit } = useWeightUnit();
+  
   useEffect(() => {
     const getUserId = async () => {
       try {
@@ -51,32 +56,41 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
   // State for exercise configuration
   const [isConfiguring, setIsConfiguring] = useState(false);
   
-  // State for set management
+  // State for set management with enhanced default including weight
   const [currentSets, setCurrentSets] = useState<SetConfig[]>([
-    { id: '1', reps: 5, rpe: 7 }
+    { id: '1', reps: 5, rpe: 7, weight: 0 }
   ]);
 
   // Generate a unique ID for sets
   const generateSetId = () => {
-    return Math.random().toString(36).substr(2, 9);
+    return Math.random().toString(36).substring(2, 11);
   };
 
   const handleAddExercise = () => {
     if (!selectedExercise) return;
     
-    // Reset current sets to a default single set
-    setCurrentSets([{ id: '1', reps: 5, rpe: 7 }]);
+    // Reset current sets to a default single set with weight
+    setCurrentSets([{ 
+      id: '1', 
+      reps: 5, 
+      rpe: 7, 
+      weight: 0 
+    }]);
     
     // Start configuring this exercise
     setIsConfiguring(true);
   };
 
   const handleAddSet = () => {
-    // Add a new set with default values
+    // Get the last set's values to use as defaults for the new set
+    const lastSet = currentSets[currentSets.length - 1];
+
+    // Add a new set with default values including weight
     const newSet: SetConfig = {
       id: generateSetId(),
-      reps: 5,
-      rpe: 7
+      reps: lastSet.reps,
+      rpe: lastSet.rpe,
+      weight: lastSet.weight,
     };
     
     setCurrentSets([...currentSets, newSet]);
@@ -116,24 +130,29 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
     setExercises(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Format exercise for display
+  // Enhanced format exercise for display with improved weight formatting
   const formatExerciseDisplay = (exercise: ExerciseConfig) => {
-    // Check if all sets have same reps and RPE
+    const displayUnit = getDisplayUnit(exercise.exerciseType);
+    
+    // Check if all sets have same configuration
     const allSameReps = exercise.sets.every(set => set.reps === exercise.sets[0].reps);
     const allSameRPE = exercise.sets.every(set => set.rpe === exercise.sets[0].rpe);
+    const allSameWeight = exercise.sets.every(set => (set.weight || 0) === (exercise.sets[0].weight || 0));
     
-    // For uniform sets
-    if (allSameReps && allSameRPE) {
-      return `${exercise.sets.length} sets × ${exercise.sets[0].reps} reps @ RPE ${exercise.sets[0].rpe}`;
+    // For uniform sets - Format: "120kg - 3 sets × 5 reps @ RPE 7" or "3 sets × 5 reps @ RPE 7" if no weight
+    if (allSameReps && allSameRPE && allSameWeight) {
+      const weight = exercise.sets[0].weight || 0;
+      const weightPrefix = weight > 0 ? `${weight}${displayUnit} - ` : '';
+      const repsText = allSameReps ? `${exercise.sets[0].reps} reps` : 'varied reps';
+      return `${weightPrefix}${exercise.sets.length} sets × ${repsText} @ RPE ${exercise.sets[0].rpe}`;
     }
     
     // For varied sets, group similar ones together
-    // First, create a unique key for each set configuration
     const groups: Record<string, number[]> = {};
     
     exercise.sets.forEach((set, index) => {
       const setIndex = index + 1; // 1-based index for display
-      const key = `${set.reps}_${set.rpe}`; // Create key from reps and RPE
+      const key = `${set.reps}_${set.rpe}_${set.weight || 0}`; // Include weight in key
       
       if (!groups[key]) {
         groups[key] = [];
@@ -144,7 +163,8 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
     
     // Now format the groups
     const setDescriptions = Object.entries(groups).map(([key, indices]) => {
-      const [reps, rpe] = key.split('_');
+      const [reps, rpe, weight] = key.split('_');
+      const weightNum = parseFloat(weight);
       
       // Format the set numbers (e.g., "Set 1" or "Sets 2-4")
       let setLabel: string;
@@ -163,7 +183,9 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
         }
       }
       
-      return `${setLabel}: ${reps} reps @ RPE ${rpe}`;
+      // Format: "120kg - Set 1: 5 reps @ RPE 7" or "Set 1: 5 reps @ RPE 7" if no weight
+      const weightPrefix = weightNum > 0 ? `${weightNum}${displayUnit} - ` : '';
+      return `${weightPrefix}${setLabel}: ${reps} reps @ RPE ${rpe}`;
     });
     
     // Join the set descriptions with line breaks for better readability
@@ -188,27 +210,27 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
           exerciseType: exercise.exerciseType,
           sets: exercise.sets.length,
           reps: exercise.sets[0].reps, // Default reps from first set
-          weight: 0, // Set to 0 as per RPE-based requirements
+          weight: exercise.sets[0].weight || 0, // Use planned weight or default to 0
           rpe: exercise.sets[0].rpe, // Default RPE from first set
           notes: '',
           // Transform sets data to match the backend model
           sets_data: exercise.sets.map((set, index) => ({
             set_number: index + 1,
             reps: set.reps,
-            weight: 0, // Weight is 0 for RPE-based training
+            weight: set.weight || 0, // Include planned weight
             rpe: set.rpe,
             completed: false
           }))
         };
         
-        console.log('Formatted exercise:', exerciseData);
+        console.log('Formatted exercise with weights:', exerciseData);
         return exerciseData;
       });
       
       console.log('Saving workout for day:', dayId);
       console.log('Formatted exercises to save:', formattedExercises);
       
-      // Create workout with properly formatted data
+      // Create workout with properly formatted data including weights
       const workout = await createWorkout(dayId, formattedExercises);
       
       if (workout && workout.workout_id) {
@@ -223,6 +245,115 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Enhanced set configuration UI with weight fields
+  const renderSetConfiguration = () => {
+    if (!isConfiguring) return null;
+    
+    const displayUnit = getDisplayUnit(selectedExercise);
+    
+    return (
+      <div className="border rounded p-4 bg-white">
+        <h3 className="font-medium mb-3">Configure {selectedExercise}</h3>
+        
+        <div className="space-y-4">
+          {currentSets.map((set, index) => (
+            <div key={set.id} className="flex items-center space-x-4 p-2 bg-gray-50 rounded">
+              <div className="font-medium min-w-10">Set {index + 1}</div>
+              
+              <div>
+                <label className="block text-xs text-gray-500">Weight ({displayUnit})</label>
+                <input
+                  type="text"
+                  defaultValue={set.weight || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || value === '0') {
+                      handleUpdateSet(set.id, 'weight', 0);
+                    } else {
+                      handleUpdateSet(set.id, 'weight', Math.max(0, parseFloat(value) || 0));
+                    }
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-20 p-1 border rounded text-center"
+                  placeholder="0"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs text-gray-500">Reps</label>
+                <input
+                  type="text"
+                  defaultValue={set.reps}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      handleUpdateSet(set.id, 'reps', 1);
+                    } else {
+                      handleUpdateSet(set.id, 'reps', Math.max(1, parseInt(value) || 1));
+                    }
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-16 p-1 border rounded text-center"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs text-gray-500">RPE</label>
+                <input
+                  type="text"
+                  defaultValue={set.rpe}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      handleUpdateSet(set.id, 'rpe', 1);
+                    } else {
+                      handleUpdateSet(set.id, 'rpe', Math.min(10, Math.max(1, parseFloat(value) || 1)));
+                    }
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-16 p-1 border rounded text-center"
+                />
+              </div>
+              
+              <button
+                onClick={() => handleRemoveSet(set.id)}
+                className="text-red-500 hover:text-red-700 ml-auto"
+                disabled={currentSets.length <= 1}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          
+          <button
+            onClick={handleAddSet}
+            className="flex items-center text-blue-600 hover:text-blue-800"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Set
+          </button>
+          
+          <div className="flex justify-end space-x-2 pt-4 border-t mt-4">
+            <button
+              onClick={handleCancelExercise}
+              className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveExercise}
+              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Add Exercise
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -259,85 +390,18 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
         </div>
       )}
       
-      {isConfiguring ? (
-        <div className="border rounded p-4 bg-white">
-          <h3 className="font-medium mb-3">Configure {selectedExercise}</h3>
-          
-          <div className="space-y-4">
-            {currentSets.map((set, index) => (
-              <div key={set.id} className="flex items-center space-x-4 p-2 bg-gray-50 rounded">
-                <div className="font-medium min-w-10">Set {index + 1}</div>
-                
-                <div>
-                  <label className="block text-xs text-gray-500">Reps</label>
-                  <input
-                    type="number"
-                    value={set.reps}
-                    onChange={(e) => handleUpdateSet(set.id, 'reps', Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-16 p-1 border rounded"
-                    min="1"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs text-gray-500">RPE</label>
-                  <input
-                    type="number"
-                    value={set.rpe}
-                    onChange={(e) => handleUpdateSet(set.id, 'rpe', Math.min(10, Math.max(1, parseFloat(e.target.value) || 1)))}
-                    className="w-16 p-1 border rounded"
-                    min="1"
-                    max="10"
-                    step="0.5"
-                  />
-                </div>
-                
-                <button
-                  onClick={() => handleRemoveSet(set.id)}
-                  className="text-red-500 hover:text-red-700 ml-auto"
-                  disabled={currentSets.length <= 1}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            
-            <button
-              onClick={handleAddSet}
-              className="flex items-center text-blue-600 hover:text-blue-800"
-            >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add Set
-            </button>
-            
-            <div className="flex justify-end space-x-2 pt-4 border-t mt-4">
-              <button
-                onClick={handleCancelExercise}
-                className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveExercise}
-                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Add Exercise
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
+      {/* Enhanced Set Configuration UI */}
+      {renderSetConfiguration()}
+      
+      {/* Exercise selector and action buttons - only show when not configuring */}
+      {!isConfiguring && (
         <>
-          {/* Exercise selector */}
           <ExerciseSelector 
             onSelect={setSelectedExercise} 
             selectedExercise={selectedExercise}
             userId={userIdForExercises}
           />
           
-          {/* Add exercise button */}
           <div className="flex justify-between">
             <FormButton
               onClick={handleAddExercise}
