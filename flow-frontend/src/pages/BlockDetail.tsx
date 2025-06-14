@@ -327,8 +327,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                   <div className="h-5 bg-gray-200 rounded w-16"></div>
                 </td>
                 <td className="px-3 py-2">
-                  <div className="flex justify-center space-x-1">
-                    <div className="h-6 bg-gray-200 rounded w-12"></div>
+                  <div className="flex justify-center">
                     <div className="h-6 bg-gray-200 rounded w-16"></div>
                   </div>
                 </td>
@@ -667,8 +666,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                             <div className="h-5 bg-gray-200 rounded w-16"></div>
                           </td>
                           <td className="px-3 py-2">
-                            <div className="flex justify-center space-x-1">
-                              <div className="h-6 bg-gray-200 rounded w-12"></div>
+                            <div className="flex justify-center">
                               <div className="h-6 bg-gray-200 rounded w-16"></div>
                             </div>
                           </td>
