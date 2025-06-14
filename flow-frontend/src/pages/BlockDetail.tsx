@@ -380,22 +380,82 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       
       // Collect all updates needed
       const updates: { dayId: string; weekId: string }[] = [];
+      
       if (applyToAllWeeks) {
-        const dayNumbers = selectedItems.map(item => item.dayNumber);
-        Object.entries(daysMap).forEach(([weekId, days]) => {
-          days.forEach(day => {
-            if (dayNumbers.includes(day.day_number)) {
-              updates.push({ dayId: day.day_id, weekId });
+        console.log(`🔄 Bulk update: fetching all ${weeks.length} weeks for day numbers: ${selectedItems.map(i => i.dayNumber).join(', ')}`);
+        
+        // Show loading state since we're fetching potentially many weeks
+        const originalBulkEditing = isBulkEditing;
+        setIsBulkEditing(false); // Hide controls during loading
+        
+        try {
+          const dayNumbers = selectedItems.map(item => item.dayNumber);
+          
+          // Fetch day data for all weeks that aren't already loaded
+          const weekFetchPromises = weeks.map(async (week) => {
+            if (daysMap[week.week_id]) {
+              // Week already loaded, use existing data
+              return { weekId: week.week_id, days: daysMap[week.week_id] };
+            } else {
+              // Week not loaded, fetch it
+              console.log(`📡 Fetching days for week ${week.week_number} (${week.week_id})`);
+              try {
+                const daysData = await getDays(week.week_id);
+                const sortedDays = Array.isArray(daysData)
+                  ? [...daysData].sort((a, b) => a.day_number - b.day_number)
+                  : [];
+                return { weekId: week.week_id, days: sortedDays };
+              } catch (error) {
+                console.error(`❌ Failed to fetch week ${week.week_number}:`, error);
+                return { weekId: week.week_id, days: [] };
+              }
             }
           });
-        });
+          
+          // Wait for all week data to be fetched
+          const allWeeksData = await Promise.all(weekFetchPromises);
+          
+          // Update daysMap with newly fetched weeks (for caching)
+          const newDaysMap = { ...daysMap };
+          allWeeksData.forEach(({ weekId, days }) => {
+            if (days.length > 0 && !newDaysMap[weekId]) {
+              newDaysMap[weekId] = days;
+              setLoadedWeeks(prev => new Set([...prev, weekId]));
+            }
+          });
+          setDaysMap(newDaysMap);
+          
+          // Now collect updates from ALL weeks
+          allWeeksData.forEach(({ weekId, days }) => {
+            days.forEach(day => {
+              if (dayNumbers.includes(day.day_number)) {
+                updates.push({ dayId: day.day_id, weekId });
+              }
+            });
+          });
+          
+          console.log(`✅ Collected ${updates.length} updates across ${allWeeksData.length} weeks`);
+          
+        } catch (error) {
+          console.error('❌ Failed to fetch week data for bulk update:', error);
+          toast.error('Failed to load all weeks for bulk update');
+          setIsBulkEditing(originalBulkEditing);
+          return;
+        }
+        
+        // Restore bulk editing controls
+        setIsBulkEditing(originalBulkEditing);
+        
       } else {
+        // Single week - use existing logic
         selectedItems.forEach(item => {
           updates.push({ dayId: item.dayId, weekId: activeWeek! });
         });
       }
 
-      // Update UI immediately
+      console.log(`🎯 Processing ${updates.length} bulk updates`);
+
+      // Update UI immediately for all affected weeks (now we have all the data)
       setDaysMap(prev => {
         const newDaysMap = { ...prev };
         updates.forEach(({ dayId, weekId }) => {
@@ -419,8 +479,8 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       const updatePromises = updates.map(async ({ dayId }, index) => {
         try {
           // Stagger requests to prevent rate limiting
-          if (index > 0 && index % 3 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 300));
+          if (index > 0 && index % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
           await updateDay(dayId, { focus: newFocusValue });
           return { dayId, success: true };
@@ -430,32 +490,43 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
         }
       });
 
-      // Wait for all updates and handle failures silently
+      // Wait for all updates and handle failures
       const results = await Promise.all(updatePromises);
       const failedUpdates = results.filter(r => !r.success);
       
       if (failedUpdates.length > 0) {
-        console.warn(`${failedUpdates.length} focus updates failed:`, failedUpdates);
-        // Optionally: Show a toast notification instead of alert
-        // toast.error(`${failedUpdates.length} updates failed - changes reverted`);
+        console.warn(`${failedUpdates.length}/${updates.length} focus updates failed`);
+        toast.error(`${failedUpdates.length} updates failed - please refresh affected weeks`);
         
-        // Revert failed updates in UI
-        setDaysMap(prev => {
-          const revertedDaysMap = { ...prev };
-          failedUpdates.forEach(({ dayId }) => {
-            const update = updates.find(u => u.dayId === dayId);
-            if (update && revertedDaysMap[update.weekId]) {
-              // Revert to original focus value (would need to store original state)
-              // For now, refetch only failed day's week data
-            }
+        // For failed updates, invalidate affected weeks to force fresh data
+        const failedWeekIds = new Set(
+          failedUpdates
+            .map(failed => updates.find(u => u.dayId === failed.dayId)?.weekId)
+            .filter((weekId): weekId is string => weekId !== undefined)
+        );
+        
+        if (failedWeekIds.size > 0) {
+          console.log(`🔄 Invalidating failed weeks: ${Array.from(failedWeekIds).join(', ')}`);
+          setLoadedWeeks(prev => {
+            const newLoadedWeeks = new Set(prev);
+            failedWeekIds.forEach(weekId => newLoadedWeeks.delete(weekId));
+            return newLoadedWeeks;
           });
-          return revertedDaysMap;
-        });
+          
+          // Force reload current week if it failed
+          if (activeWeek && failedWeekIds.has(activeWeek)) {
+            await loadWeekData(activeWeek);
+          }
+        }
+      } else {
+        toast.success(`Focus updated for ${updates.length} days across ${applyToAllWeeks ? weeks.length : 1} week${applyToAllWeeks && weeks.length > 1 ? 's' : ''}!`);
       }
+
+      console.log(`✅ Bulk update complete: ${updates.length - failedUpdates.length}/${updates.length} successful`);
 
     } catch (error) {
       console.error('Bulk focus update error:', error);
-      // Could revert all changes and refetch if needed
+      toast.error('Bulk update failed - please try again');
     }
   };
 
