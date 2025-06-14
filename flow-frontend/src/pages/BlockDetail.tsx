@@ -836,65 +836,81 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                               Bulk Edit Focus
                             </FormButton>
                           ) : (
-                            <div className="flex flex-wrap items-center gap-3">
-                              <select
-                                value={bulkFocus}
-                                onChange={(e) => setBulkFocus(e.target.value)}
-                                className="text-sm border-gray-300 rounded-md"
-                              >
-                                <option value="">Select Focus</option>
-                                <option value="squat">Squat</option>
-                                <option value="bench">Bench</option>
-                                <option value="deadlift">Deadlift</option>
-                                <option value="cardio">Cardio</option>
-                                <option value="rest">Rest</option>
-                              </select>
+                            <div className="space-y-3 sm:space-y-0">
+                              {/* Mobile: Stacked layout, Desktop: Grid layout */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                                {/* Focus Selection */}
+                                <div className="flex flex-col">
+                                  <label className="text-xs font-medium text-gray-600 mb-1 sm:hidden">
+                                    Focus Type
+                                  </label>
+                                  <select
+                                    value={bulkFocus}
+                                    onChange={(e) => setBulkFocus(e.target.value)}
+                                    className="text-sm border-gray-300 rounded-md w-full"
+                                  >
+                                    <option value="">Select Focus</option>
+                                    <option value="squat">Squat</option>
+                                    <option value="bench">Bench</option>
+                                    <option value="deadlift">Deadlift</option>
+                                    <option value="cardio">Cardio</option>
+                                    <option value="rest">Rest</option>
+                                  </select>
+                                </div>
 
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id="applyToAllWeeks"
-                                  checked={applyToAllWeeks}
-                                  onChange={(e) => setApplyToAllWeeks(e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                />
-                                <label
-                                  htmlFor="applyToAllWeeks"
-                                  className="ml-2 text-sm text-gray-700"
-                                >
-                                  Apply to all weeks
-                                </label>
+                                {/* Apply to All Weeks Checkbox */}
+                                <div className="flex items-center justify-start">
+                                  <input
+                                    type="checkbox"
+                                    id="applyToAllWeeks"
+                                    checked={applyToAllWeeks}
+                                    onChange={(e) => setApplyToAllWeeks(e.target.checked)}
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded flex-shrink-0"
+                                  />
+                                  <label
+                                    htmlFor="applyToAllWeeks"
+                                    className="ml-2 text-sm text-gray-700 select-none"
+                                  >
+                                    Apply to all weeks
+                                  </label>
+                                </div>
+
+                                {/* Action Buttons - Mobile: Full width row, Desktop: Inline */}
+                                <div className="col-span-1 sm:col-span-2 lg:col-span-2 flex flex-col sm:flex-row gap-2">
+                                  <FormButton
+                                    onClick={handleBulkUpdate}
+                                    disabled={!bulkFocus || Object.values(selectedDays).filter(Boolean).length === 0}
+                                    variant="primary"
+                                    size="md"
+                                    className="flex-1"
+                                  >
+                                    Apply Focus
+                                  </FormButton>
+
+                                  <FormButton
+                                    onClick={handleClearFocus}
+                                    disabled={Object.values(selectedDays).filter(Boolean).length === 0}
+                                    variant="secondary"
+                                    size="md"
+                                    className="flex-1"
+                                  >
+                                    Clear Focus
+                                  </FormButton>
+
+                                  <FormButton
+                                    onClick={() => {
+                                      setIsBulkEditing(false);
+                                      setSelectedDays({});
+                                      setBulkFocus('');
+                                    }}
+                                    variant="secondary"
+                                    size="md"
+                                    className="flex-1"
+                                  >
+                                    Cancel
+                                  </FormButton>
+                                </div>
                               </div>
-
-                              <FormButton
-                                onClick={handleBulkUpdate}
-                                disabled={!bulkFocus || Object.values(selectedDays).filter(Boolean).length === 0}
-                                variant="primary"
-                                size="md"
-                              >
-                                Apply Focus
-                              </FormButton>
-
-                              <FormButton
-                                onClick={handleClearFocus}
-                                disabled={Object.values(selectedDays).filter(Boolean).length === 0}
-                                variant="secondary"
-                                size="md"
-                              >
-                                Clear Focus
-                              </FormButton>
-
-                              <FormButton
-                                onClick={() => {
-                                  setIsBulkEditing(false);
-                                  setSelectedDays({});
-                                  setBulkFocus('');
-                                }}
-                                variant="secondary"
-                                size="md"
-                              >
-                                Cancel
-                              </FormButton>
                             </div>
                           )}
                         </div>
@@ -908,6 +924,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                     <input
                                       type="checkbox"
                                       onChange={(e) => {
+                                        e.stopPropagation(); // Prevent any parent handlers
                                         if (e.target.checked && activeWeek) {
                                           const allDayIds = daysMap[activeWeek].reduce((acc: { [key: string]: boolean }, day: any) => {
                                             acc[day.day_id] = true;
@@ -918,12 +935,15 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                           setSelectedDays({});
                                         }
                                       }}
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Additional click protection
+                                      }}
                                       checked={
                                         !!(activeWeek &&
                                         daysMap[activeWeek]?.length > 0 && 
                                         daysMap[activeWeek].every((day: any) => selectedDays[day.day_id]))
                                       }
-                                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 touch-manipulation cursor-pointer"
                                     />
                                   </th>
                                 )}
@@ -942,7 +962,12 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                     className={`hover:bg-gray-50 ${
                                       isBulkEditing && selectedDays[day.day_id] ? 'bg-blue-50' : ''
                                     }`}
-                                    onClick={isBulkEditing ? () => {
+                                    onClick={isBulkEditing ? (e) => {
+                                      // Prevent row click if clicking on checkbox directly
+                                      const target = e.target as HTMLInputElement;
+                                      if (target.tagName === 'INPUT' && target.type === 'checkbox') {
+                                        return;
+                                      }
                                       setSelectedDays(prev => ({
                                         ...prev,
                                         [day.day_id]: !prev[day.day_id]
@@ -955,13 +980,19 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                         <input
                                           type="checkbox"
                                           checked={selectedDays[day.day_id] || false}
-                                          onChange={() => {
+                                          onChange={(e) => {
+                                            // CRITICAL: Stop event bubbling to prevent row click
+                                            e.stopPropagation();
                                             setSelectedDays(prev => ({
                                               ...prev,
                                               [day.day_id]: !prev[day.day_id]
                                             }));
                                           }}
-                                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                          onClick={(e) => {
+                                            // Additional protection: Stop click propagation
+                                            e.stopPropagation();
+                                          }}
+                                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 touch-manipulation cursor-pointer"
                                         />
                                       </td>
                                     )}
