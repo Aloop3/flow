@@ -40,7 +40,7 @@ const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
       className={`border-b hover:bg-gray-50 ${isDragging ? 'opacity-75 bg-blue-50' : ''}`}
     >
       {/* Drag Handle Column */}
-      <td className="px-2 py-3 text-center w-8">
+      <td className="px-1 py-2 text-center w-6">
         <div
           {...attributes}
           {...listeners}
@@ -49,19 +49,21 @@ const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
           }`}
           title={props.readOnly ? 'Cannot reorder' : 'Drag to reorder'}
         >
-          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="6" r="2"/>
+            <circle cx="12" cy="12" r="2"/>
+            <circle cx="12" cy="18" r="2"/>
           </svg>
         </div>
       </td>
 
-      {/* Inline Set Row Content */}
+      {/* Always-Visible Input Content */}
       <InlineSetRowContent {...props} />
     </tr>
   );
 };
 
-// Simplified content component with uncontrolled inputs
+// Enhanced content component with always-visible inputs
 const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   exerciseId,
   setNumber,
@@ -72,7 +74,6 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   readOnly = false,
   onSetUpdated,
 }) => {
-  const [isEditing, setIsEditing] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notesExpanded, setNotesExpanded] = React.useState(false);
@@ -90,12 +91,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     notes: existingData?.notes ?? '',
   });
 
-  // Refs for uncontrolled inputs
-  const repsRef = React.useRef<HTMLInputElement>(null);
-  const weightRef = React.useRef<HTMLInputElement>(null);
-  const rpeRef = React.useRef<HTMLInputElement>(null);
   const notesRef = React.useRef<HTMLTextAreaElement>(null);
-
   const isCompleted = existingData?.completed ?? false;
 
   // Auto-populate from previous set when creating new set
@@ -122,24 +118,6 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     }
   }, [existingData]);
 
-  // Mobile-first: commit on field blur (when tapping to next field)
-  const handleInputBlur = () => {
-    // Small delay to allow focus to move to next field before committing
-    setTimeout(() => {
-      // Only commit if focus has moved away from all input fields in this row
-      const activeElement = document.activeElement;
-      const isStillInInputs = (
-        activeElement === repsRef.current ||
-        activeElement === weightRef.current ||
-        activeElement === rpeRef.current
-      );
-      
-      if (!isStillInInputs && isEditing) {
-        commitEditingValues();
-      }
-    }, 100);
-  };
-
   const parseNumber = (value: string, fallback: number, min?: number, max?: number): number => {
     if (!value || value.trim() === '') return fallback;
     const num = parseFloat(value);
@@ -149,84 +127,72 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     return num;
   };
 
-  const commitEditingValues = async () => {
-    if (!isEditing) return;
-
-    const newData = {
-      reps: parseNumber(repsRef.current?.value || '', displayData.reps, 1),
-      weight: parseNumber(weightRef.current?.value || '', displayData.weight, 0),
-      rpe: rpeRef.current?.value?.trim() 
-        ? parseNumber(rpeRef.current.value, displayData.rpe || 0, 0, 10) 
-        : undefined,
-      notes: displayData.notes, // Notes handled separately
-    };
-
+  const commitSetData = async (updatedData: Partial<typeof displayData>) => {
+    const newData = { ...displayData, ...updatedData };
     setDisplayData(newData);
-    setIsEditing(false);
     setError(null);
 
-    // Persist changes immediately to backend for better mobile UX and sorting
-    try {
-      await import('../services/api').then(({ trackExerciseSet }) =>
-        trackExerciseSet(exerciseId, setNumber, {
-          reps: newData.reps,
-          weight: newData.weight,
-          rpe: newData.rpe || undefined,
-          completed: existingData?.completed || false,
-          notes: newData.notes || undefined,
-        })
-      );
-      
-      // Force refresh of parent component data
-      onSetUpdated();
-      
-      // Additional debug logging to verify the save
-      console.log(`Set ${setNumber} updated:`, {
-        reps: newData.reps,
-        weight: newData.weight,
-        rpe: newData.rpe,
-        completed: existingData?.completed || false
-      });
-      
-    } catch (err) {
-      console.error('Error persisting set changes:', err);
-      setError('Failed to save changes. Please try again.');
+    // Only save if this set has been interacted with (has existing data or user made changes)
+    if (existingData || Object.keys(updatedData).length > 0) {
+      try {
+        setIsSaving(true);
+        
+        await import('../services/api').then(({ trackExerciseSet }) =>
+          trackExerciseSet(exerciseId, setNumber, {
+            reps: newData.reps,
+            weight: newData.weight,
+            rpe: newData.rpe || undefined,
+            completed: existingData?.completed || false,
+            notes: newData.notes || undefined,
+          })
+        );
+        
+        onSetUpdated();
+        
+      } catch (err) {
+        console.error('Error persisting set changes:', err);
+        setError('Failed to save changes');
+        
+        // Revert value on error
+        setDisplayData(displayData);
+        
+        // Retry after brief delay
+        setTimeout(() => {
+          commitSetData(updatedData);
+        }, 1000);
+        
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
-  const handleCellClick = (field: 'reps' | 'weight' | 'rpe') => {
-    if (readOnly || isSaving) return;
-    
-    setIsEditing(true);
-    setError(null);
-    
-    // Set input values and focus after render
-    setTimeout(() => {
-      if (field === 'reps' && repsRef.current) {
-        repsRef.current.value = String(displayData.reps);
-        repsRef.current.focus();
-        repsRef.current.select();
-      }
-      if (field === 'weight' && weightRef.current) {
-        weightRef.current.value = String(displayData.weight);
-        weightRef.current.focus();
-        weightRef.current.select();
-      }
-      if (field === 'rpe' && rpeRef.current) {
-        rpeRef.current.value = displayData.rpe ? String(displayData.rpe) : '';
-        rpeRef.current.focus();
-        rpeRef.current.select();
-      }
-    }, 0);
+  // Individual field change handlers
+  const handleWeightChange = (value: string) => {
+    const weight = parseNumber(value, displayData.weight, 0);
+    setDisplayData(prev => ({ ...prev, weight }));
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      commitEditingValues();
-    }
-    if (e.key === 'Escape') {
-      setIsEditing(false);
-    }
+  const handleWeightBlur = () => {
+    commitSetData({ weight: displayData.weight });
+  };
+
+  const handleRepsChange = (value: string) => {
+    const reps = parseNumber(value, displayData.reps, 1);
+    setDisplayData(prev => ({ ...prev, reps }));
+  };
+
+  const handleRepsBlur = () => {
+    commitSetData({ reps: displayData.reps });
+  };
+
+  const handleRpeChange = (value: string) => {
+    const rpe = value.trim() ? parseNumber(value, displayData.rpe || 0, 0, 10) : undefined;
+    setDisplayData(prev => ({ ...prev, rpe }));
+  };
+
+  const handleRpeBlur = () => {
+    commitSetData({ rpe: displayData.rpe });
   };
 
   const validateData = () => {
@@ -297,7 +263,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   return (
     <>
       {/* Set Number */}
-      <td className="px-2 py-3 text-center font-medium w-12">
+      <td className="px-2 py-2 text-center font-medium w-16">
         <div className="flex items-center justify-center">
           <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
             isCompleted 
@@ -309,65 +275,50 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         </div>
       </td>
 
-      {/* Weight */}
-      <td className="px-2 py-3 w-20" onClick={() => handleCellClick('weight')}>
-        {isEditing ? (
-          <input
-            ref={weightRef}
-            type="text"
-            onKeyDown={handleKeyDown}
-            onBlur={handleInputBlur}
-            className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            disabled={isSaving}
-            placeholder={`${plannedWeight} (planned)`}
-          />
-        ) : (
-          <div className="px-2 py-1 text-sm cursor-text hover:bg-gray-100 rounded">
-            {displayData.weight}
-          </div>
-        )}
+      {/* Weight - Always visible input */}
+      <td className="px-1 py-2 w-16">
+        <input
+          type="text"
+          value={displayData.weight}
+          onChange={(e) => handleWeightChange(e.target.value)}
+          onBlur={handleWeightBlur}
+          onFocus={(e) => e.target.select()}
+          className="w-12 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
+          disabled={readOnly || isSaving}
+          placeholder={`${plannedWeight}`}
+        />
       </td>
 
-      {/* Reps */}
-      <td className="px-2 py-3 w-16" onClick={() => handleCellClick('reps')}>
-        {isEditing ? (
-          <input
-            ref={repsRef}
-            type="text"
-            onKeyDown={handleKeyDown}
-            onBlur={handleInputBlur}
-            className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            disabled={isSaving}
-            placeholder={`${plannedReps} (planned)`}
-          />
-        ) : (
-          <div className="px-2 py-1 text-sm cursor-text hover:bg-gray-100 rounded">
-            {displayData.reps}
-          </div>
-        )}
+      {/* Reps - Always visible input */}
+      <td className="px-1 py-2 w-12">
+        <input
+          type="text"
+          value={displayData.reps}
+          onChange={(e) => handleRepsChange(e.target.value)}
+          onBlur={handleRepsBlur}
+          onFocus={(e) => e.target.select()}
+          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
+          disabled={readOnly || isSaving}
+          placeholder={`${plannedReps}`}
+        />
       </td>
 
-      {/* RPE */}
-      <td className="px-2 py-3 w-16" onClick={() => handleCellClick('rpe')}>
-        {isEditing ? (
-          <input
-            ref={rpeRef}
-            type="text"
-            onKeyDown={handleKeyDown}
-            onBlur={handleInputBlur}
-            className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            placeholder="Enter RPE"
-            disabled={isSaving}
-          />
-        ) : (
-          <div className="px-2 py-1 text-sm cursor-text hover:bg-gray-100 rounded">
-            {displayData.rpe || '-'}
-          </div>
-        )}
+      {/* RPE - Always visible input */}
+      <td className="px-1 py-2 w-12">
+        <input
+          type="text"
+          value={displayData.rpe || ''}
+          onChange={(e) => handleRpeChange(e.target.value)}
+          onBlur={handleRpeBlur}
+          onFocus={(e) => e.target.select()}
+          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
+          placeholder="RPE"
+          disabled={readOnly || isSaving}
+        />
       </td>
 
       {/* Notes */}
-      <td className="px-2 py-3 w-16">
+      <td className="px-2 py-2 w-16">
         <button
           onClick={toggleNotes}
           className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
@@ -396,7 +347,9 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
               <button
                 onClick={() => {
                   if (notesRef.current) {
-                    setDisplayData(prev => ({ ...prev, notes: notesRef.current?.value || '' }));
+                    const newNotes = notesRef.current.value;
+                    setDisplayData(prev => ({ ...prev, notes: newNotes }));
+                    commitSetData({ notes: newNotes });
                   }
                   setNotesExpanded(false);
                 }}
@@ -416,7 +369,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       </td>
 
       {/* Completion Status */}
-      <td className="px-2 py-3 text-center w-12">
+      <td className="px-1 py-2 text-center w-16">
         {isSaving ? (
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
         ) : (
