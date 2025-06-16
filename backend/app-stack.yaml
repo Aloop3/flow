@@ -477,6 +477,71 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /athletes/{athlete_id}/accept-invitation
             Method: post
+  
+  # Analytics Lambda function
+  AnalyticsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/analytics_lambda/
+      Handler: analytics_lambda.handler
+      Description: Lambda handler for analytics-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-WorkoutsTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-ExercisesTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-BlocksTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-WeeksTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-DaysTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-RelationshipsTable"
+
+      Events:
+        # Analytics API Routes
+        MaxWeightHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/max-weight/{athlete_id}
+            Method: get
+        
+        VolumeCalculation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/volume/{athlete_id}
+            Method: get
+        
+        ExerciseFrequency:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/frequency/{athlete_id}
+            Method: get
+        
+        BlockAnalysis:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/block-analysis/{athlete_id}/{block_id}
+            Method: get
+        
+        BlockComparison:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/block-comparison/{athlete_id}
+            Method: get     
           
   # CognitoPostConfirmationFunction:
   #   Type: AWS::Serverless::Function
