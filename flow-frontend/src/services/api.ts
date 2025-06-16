@@ -110,6 +110,76 @@ export interface ExerciseSetData {
   notes?: string;
 }
 
+// Analytics interfaces
+export interface MaxWeightData {
+  exercise_name: string;
+  exercise_type: string;
+  date: string;
+  max_weight: number;
+  unit: 'kg' | 'lb';
+}
+
+export interface VolumeData {
+  date: string;
+  total_volume: number;
+  exercise_breakdown: {
+    exercise_name: string;
+    volume: number;
+    unit: 'kg' | 'lb';
+  }[];
+}
+
+export interface FrequencyData {
+  exercise_name: string;
+  exercise_type: string;
+  frequency_per_week: number;
+  frequency_per_month: number;
+  total_sessions: number;
+}
+
+export interface BlockAnalysisData {
+  block_id: string;
+  block_title: string;
+  total_volume: number;
+  exercise_breakdown: {
+    exercise_name: string;
+    volume: number;
+    percentage: number;
+    unit: 'kg' | 'lb';
+  }[];
+  date_range: {
+    start_date: string;
+    end_date: string;
+  };
+}
+
+export interface BlockComparisonData {
+  block1: {
+    block_id: string;
+    title: string;
+    total_volume: number;
+    start_date: string;
+    end_date: string;
+  };
+  block2: {
+    block_id: string;
+    title: string;
+    total_volume: number;
+    start_date: string;
+    end_date: string;
+  };
+  comparison: {
+    volume_change_percentage: number;
+    volume_change_absolute: number;
+    exercise_changes: {
+      exercise_name: string;
+      block1_volume: number;
+      block2_volume: number;
+      change_percentage: number;
+    }[];
+  };
+}
+
 // Update Exercise interface
 export interface Exercise {
   sets_data?: ExerciseSetData[];
@@ -1293,5 +1363,212 @@ export const endRelationship = async (relationship_id: string): Promise<any> => 
   } catch (error) {
     console.error('Error ending relationship:', error);
     throw error;
+  }
+};
+
+// Analytics endpoints
+export const getMaxWeightProgression = async (
+  athleteId: string,
+  exerciseType: string = 'squat' // Default to squat, make it required
+): Promise<MaxWeightData[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    
+    // Build query parameters - exercise_type is REQUIRED
+    const params = new URLSearchParams();
+    params.append('exercise_type', exerciseType); // Required by backend
+    
+    const queryString = params.toString();
+    const path = `/analytics/max-weight/${athleteId}?${queryString}`;
+    
+    console.log('Fetching max weight progression for athlete:', athleteId, 'exercise_type:', exerciseType);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path,
+      options: { headers },
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json() as any;
+        console.log('Max weight progression result:', responseData);
+        // Backend returns nested structure - extract the data array
+        const data = (responseData as { data?: any[] }).data || responseData;
+        return Array.isArray(data) ? data as MaxWeightData[] : [];
+      } catch (e) {
+        console.error('Failed to parse max weight progression data:', e);
+        return [];
+      }
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error fetching max weight progression:', error);
+    return [];
+  }
+};
+
+export const getVolumeData = async (
+  athleteId: string,
+  groupBy: 'weekly' | 'monthly' = 'monthly' // Map to backend's time_period
+): Promise<VolumeData[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    
+    const params = new URLSearchParams();
+    // Map frontend groupBy to backend time_period
+    const timePeriod = groupBy === 'weekly' ? 'week' : 'month';
+    params.append('time_period', timePeriod);
+    
+    const queryString = params.toString();
+    const path = `/analytics/volume/${athleteId}?${queryString}`;
+    
+    console.log('Fetching volume data for athlete:', athleteId, 'time_period:', timePeriod);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path,
+      options: { headers },
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json() as any;
+        console.log('Volume data result:', responseData);
+        // Backend returns nested structure - extract the data array
+        const data = (responseData as { data?: any[] }).data || responseData;
+        return Array.isArray(data) ? data as VolumeData[] : [];
+      } catch (e) {
+        console.error('Failed to parse volume data:', e);
+        return [];
+      }
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error fetching volume data:', error);
+    return [];
+  }
+};
+
+export const getFrequencyAnalysis = async (
+  athleteId: string,
+  exerciseType: string = 'squat' // Required by backend, default to squat
+): Promise<FrequencyData[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    
+    const params = new URLSearchParams();
+    params.append('exercise_type', exerciseType); // Required by backend
+    params.append('time_period', 'month'); // Backend expects time_period, not date range
+    
+    const queryString = params.toString();
+    const path = `/analytics/frequency/${athleteId}?${queryString}`;
+    
+    console.log('Fetching frequency analysis for athlete:', athleteId, 'exercise_type:', exerciseType);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path,
+      options: { headers },
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json() as any;
+        console.log('Frequency analysis result:', responseData);
+        // Backend returns single object, convert to array for consistency
+        return [responseData as FrequencyData];
+      } catch (e) {
+        console.error('Failed to parse frequency analysis data:', e);
+        return [];
+      }
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error fetching frequency analysis:', error);
+    return [];
+  }
+};
+
+export const getBlockAnalysis = async (
+  athleteId: string,
+  blockId: string
+): Promise<BlockAnalysisData | null> => {
+  try {
+    const headers = await getAuthHeaders();
+    
+    const path = `/analytics/block-analysis/${athleteId}/${blockId}`;
+    
+    console.log('Fetching block analysis for athlete:', athleteId, 'block:', blockId);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path,
+      options: { headers },
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json() as any;
+        console.log('Block analysis data:', responseData);
+        return responseData as BlockAnalysisData;
+      } catch (e) {
+        console.error('Failed to parse block analysis data:', e);
+        return null;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching block analysis:', error);
+    return null;
+  }
+};
+
+export const getBlockComparison = async (
+  athleteId: string,
+  block1Id: string,
+  block2Id: string
+): Promise<BlockComparisonData | null> => {
+  try {
+    const headers = await getAuthHeaders();
+    
+    const params = new URLSearchParams();
+    params.append('block1_id', block1Id);
+    params.append('block2_id', block2Id);
+    
+    const path = `/analytics/block-comparison/${athleteId}?${params.toString()}`;
+    
+    console.log('Fetching block comparison for athlete:', athleteId, 'blocks:', block1Id, 'vs', block2Id);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path,
+      options: { headers },
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json() as any;
+        console.log('Block comparison data:', responseData);
+        return responseData as BlockComparisonData;
+      } catch (e) {
+        console.error('Failed to parse block comparison data:', e);
+        return null;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching block comparison:', error);
+    return null;
   }
 };

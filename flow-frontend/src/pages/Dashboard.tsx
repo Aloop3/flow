@@ -191,6 +191,43 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                 <p className="text-gray-500">No programs found. Create your first program.</p>
               )}
             </div>
+
+            {/* Analytics Section */}
+            <div className="mt-8">
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Progress Analytics</h2>
+                    <p className="text-sm text-gray-500">Track your strength gains and training insights</p>
+                  </div>
+                  <Link
+                    to="/analytics"
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    View Analytics
+                  </Link>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-gray-50 rounded">
+                    <p className="text-2xl font-bold text-blue-600">{blocks.length}</p>
+                    <p className="text-sm text-gray-600">Total Programs</p>
+                  </div>
+                  <div className="text-center p-4 bg-gray-50 rounded">
+                    <p className="text-2xl font-bold text-green-600">
+                      {blocks.filter(b => b.status === 'completed').length}
+                    </p>
+                    <p className="text-sm text-gray-600">Completed</p>
+                  </div>
+                  <div className="text-center p-4 bg-gray-50 rounded">
+                    <p className="text-2xl font-bold text-orange-600">
+                      {blocks.filter(b => b.status === 'active').length}
+                    </p>
+                    <p className="text-sm text-gray-600">Active</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {user.role === 'coach' && (
                 <div className="mt-8">
                   <div className="flex items-center justify-between mb-4">
