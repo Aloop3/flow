@@ -16,6 +16,7 @@ import DayDetail from './pages/DayDetail';
 import CoachAthleteBlocks from './pages/coach/CoachAthleteBlocks';
 import CoachBlockCreate from './pages/coach/CoachBlockCreate';
 import { UserProvider } from './contexts/UserContext';
+import Analytics from './pages/coach/Analytics';
 
 
 //  AuthenticatedApp component extracted
@@ -140,6 +141,7 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
             <Route path="/profile" element={<Profile user={userData} signOut={handleEnhancedSignOut} />} />
             <Route path="/coach/athletes/:athleteId/blocks" element={<CoachAthleteBlocks user={userData} signOut={handleEnhancedSignOut} />} />
             <Route path="/coach/athletes/:athleteId/blocks/new" element={<CoachBlockCreate user={userData} signOut={handleEnhancedSignOut} />} />
+            <Route path="/analytics" element={<Analytics user={userData} signOut={handleEnhancedSignOut} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <DebugButton />
