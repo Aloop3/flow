@@ -1,10 +1,4 @@
-// Helper function to capitalize exercise names
-  const capitalizeExerciseName = (exerciseType: string): string => {
-    return exerciseType
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { 
@@ -18,6 +12,19 @@ import {
   type Block
 } from '../../services/api';
 import { useWeightUnit } from '../../contexts/UserContext';
+import { 
+  LineChart, 
+  Line, 
+  BarChart, 
+  Bar, 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer 
+} from 'recharts';
 
 interface AnalyticsProps {
   user: any;
@@ -132,7 +139,13 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
     return `${weight}${unit || 'kg'}`;
   };
 
-
+  // Helper function to capitalize exercise names
+  const capitalizeExerciseName = (exerciseType: string): string => {
+    return exerciseType
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   // Loading skeleton component
   const LoadingSkeleton = () => (
@@ -286,6 +299,34 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
               </div>
             </div>
 
+            {/* Recent Progress Summary - Now appears before charts */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Recent Progress Summary
+              </h3>
+              <div className="space-y-2">
+                {['squat', 'bench press', 'deadlift'].map(exerciseType => {
+                  const exerciseData = maxWeightData[exerciseType] || [];
+                  const latestData = exerciseData[exerciseData.length - 1];
+                  const exerciseName = capitalizeExerciseName(exerciseType);
+                  
+                  return latestData ? (
+                    <div key={exerciseType} className="flex justify-between items-center gap-4">
+                      <span className="text-sm text-gray-600 flex-shrink-0">{exerciseName}</span>
+                      <span className="text-sm font-medium text-gray-900 text-right">
+                        {formatWeight(latestData.max_weight, latestData.unit)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div key={exerciseType} className="flex justify-between items-center gap-4">
+                      <span className="text-sm text-gray-400 flex-shrink-0">{exerciseName}</span>
+                      <span className="text-sm text-gray-400 text-right">No data</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Charts Grid - SBD Exercise Analytics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Max Weight Progression Charts - One for each SBD exercise */}
@@ -293,21 +334,58 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                 const exerciseData = maxWeightData[exerciseType] || [];
                 const exerciseName = capitalizeExerciseName(exerciseType);
                 
+                // Format data for Recharts
+                const chartData = exerciseData.map(item => ({
+                  date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  weight: item.max_weight,
+                  fullDate: item.date,
+                  unit: item.unit
+                }));
+                
                 return exerciseData.length > 0 ? (
                   <div key={`max-weight-${exerciseType}`} className="bg-white shadow rounded-lg p-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">
                       {exerciseName} Max Weight Progression
                     </h3>
-                    <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
-                      <div className="text-center">
-                        <p className="text-gray-500 mb-2">Chart Coming Soon</p>
-                        <p className="text-sm text-gray-400">
-                          {exerciseData.length} data points available
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          Latest: {exerciseData.length > 0 ? formatWeight(exerciseData[exerciseData.length - 1].max_weight, exerciseData[exerciseData.length - 1].unit) : 'N/A'}
-                        </p>
-                      </div>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="date" 
+                            tick={{ fontSize: 12 }}
+                            stroke="#6b7280"
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 12 }}
+                            stroke="#6b7280"
+                            label={{ 
+                              value: `Weight (${chartData[0]?.unit || 'kg'})`, 
+                              angle: -90, 
+                              position: 'insideLeft',
+                              style: { textAnchor: 'middle' }
+                            }}
+                          />
+                          <Tooltip 
+                            formatter={(value: any) => [`${value}${chartData[0]?.unit || 'kg'}`, 'Max Weight']}
+                            labelFormatter={(label: string) => `Date: ${label}`}
+                            contentStyle={{ 
+                              backgroundColor: '#fff', 
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '6px',
+                              fontSize: '12px'
+                            }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="weight" 
+                            stroke="#3b82f6" 
+                            strokeWidth={2}
+                            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                            activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                 ) : null;
@@ -317,15 +395,72 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
               {volumeData.length > 0 && (
                 <div className="bg-white shadow rounded-lg p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    Training Volume
+                    Monthly Training Volume
                   </h3>
-                  <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
-                    <div className="text-center">
-                      <p className="text-gray-500 mb-2">Chart Coming Soon</p>
-                      <p className="text-sm text-gray-400">
-                        {volumeData.length} weeks of data
-                      </p>
-                    </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart 
+                        data={(() => {
+                          console.log('Volume data for chart:', volumeData);
+                          // Group by date and sum volumes to handle duplicate dates
+                          const groupedData = volumeData.reduce((acc, item) => {
+                            console.log('Processing volume item:', item);
+                            const dateKey = new Date(item.date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                            // Backend returns 'volume' not 'total_volume'
+                            const volume = (item as any).volume || item.total_volume || 0;
+                            if (acc[dateKey]) {
+                              acc[dateKey].volume += volume;
+                            } else {
+                              acc[dateKey] = {
+                                date: dateKey,
+                                volume: volume,
+                                fullDate: item.date
+                              };
+                            }
+                            return acc;
+                          }, {} as Record<string, any>);
+                          
+                          const result = Object.values(groupedData).sort((a: any, b: any) => 
+                            new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime()
+                          );
+                          console.log('Chart data result:', result);
+                          return result;
+                        })()} 
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis 
+                          dataKey="date" 
+                          tick={{ fontSize: 12 }}
+                          stroke="#6b7280"
+                        />
+                        <YAxis 
+                          tick={{ fontSize: 12 }}
+                          stroke="#6b7280"
+                          label={{ 
+                            value: 'Volume (kg)', 
+                            angle: -90, 
+                            position: 'insideLeft',
+                            style: { textAnchor: 'middle' }
+                          }}
+                        />
+                        <Tooltip 
+                          formatter={(value: any) => [`${value.toLocaleString()}kg`, 'Total Volume']}
+                          labelFormatter={(label: string) => `Period: ${label}`}
+                          contentStyle={{ 
+                            backgroundColor: '#fff', 
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Bar 
+                          dataKey="volume" 
+                          fill="#10b981"
+                          radius={[2, 2, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               )}
@@ -335,50 +470,75 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                 const exerciseData = frequencyData[exerciseType] || [];
                 const exerciseName = capitalizeExerciseName(exerciseType);
                 
+                // Format frequency data with meaningful time labels
+                const chartData = exerciseData.map((item, index) => {
+                  // Create meaningful labels based on the exercise data
+                  const date = new Date();
+                  date.setMonth(date.getMonth() - (exerciseData.length - index - 1));
+                  
+                  return {
+                    month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+                    weekly: parseFloat((item.frequency_per_week || 0).toFixed(1)),
+                    monthly: parseFloat((item.frequency_per_month || 0).toFixed(1)),
+                    sessions: item.total_sessions || 0
+                  };
+                });
+                
                 return exerciseData.length > 0 ? (
                   <div key={`frequency-${exerciseType}`} className="bg-white shadow rounded-lg p-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">
                       {exerciseName} Training Frequency
                     </h3>
-                    <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
-                      <div className="text-center">
-                        <p className="text-gray-500 mb-2">Chart Coming Soon</p>
-                        <p className="text-sm text-gray-400">
-                          {exerciseData.length} frequency metrics tracked
-                        </p>
-                      </div>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="month" 
+                            tick={{ fontSize: 12 }}
+                            stroke="#6b7280"
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 12 }}
+                            stroke="#6b7280"
+                            label={{ 
+                              value: 'Sessions/Week', 
+                              angle: -90, 
+                              position: 'insideLeft',
+                              style: { textAnchor: 'middle' }
+                            }}
+                          />
+                          <Tooltip 
+                            formatter={(value: any, name: string) => {
+                              const labels = {
+                                weekly: 'Sessions/Week',
+                                monthly: 'Sessions/Month', 
+                                sessions: 'Total Sessions'
+                              };
+                              return [value, labels[name as keyof typeof labels] || name];
+                            }}
+                            labelFormatter={(label: string) => `Month: ${label}`}
+                            contentStyle={{ 
+                              backgroundColor: '#fff', 
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '6px',
+                              fontSize: '12px'
+                            }}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="weekly" 
+                            stackId="1"
+                            stroke="#f59e0b" 
+                            fill="#f59e0b"
+                            fillOpacity={0.6}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                 ) : null;
               })}
-
-              {/* Recent Progress Summary - All SBD exercises */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Recent Progress Summary
-                </h3>
-                <div className="space-y-2">
-                  {['squat', 'bench press', 'deadlift'].map(exerciseType => {
-                    const exerciseData = maxWeightData[exerciseType] || [];
-                    const latestData = exerciseData[exerciseData.length - 1];
-                    const exerciseName = capitalizeExerciseName(exerciseType);
-                    
-                    return latestData ? (
-                      <div key={exerciseType} className="flex justify-between items-center gap-4">
-                        <span className="text-sm text-gray-600 flex-shrink-0">{exerciseName}</span>
-                        <span className="text-sm font-medium text-gray-900 text-right">
-                          {formatWeight(latestData.max_weight, latestData.unit)}
-                        </span>
-                      </div>
-                    ) : (
-                      <div key={exerciseType} className="flex justify-between items-center gap-4">
-                        <span className="text-sm text-gray-400 flex-shrink-0">{exerciseName}</span>
-                        <span className="text-sm text-gray-400 text-right">No data</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           </div>
         )}
