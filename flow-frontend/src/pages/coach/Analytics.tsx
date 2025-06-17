@@ -1,4 +1,10 @@
-import { useState, useEffect } from 'react';
+// Helper function to capitalize exercise names
+  const capitalizeExerciseName = (exerciseType: string): string => {
+    return exerciseType
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { 
@@ -20,15 +26,15 @@ interface AnalyticsProps {
 
 const Analytics = ({ user, signOut }: AnalyticsProps) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [maxWeightData, setMaxWeightData] = useState<MaxWeightData[]>([]);
+  const [maxWeightData, setMaxWeightData] = useState<{[key: string]: MaxWeightData[]}>({});
   const [volumeData, setVolumeData] = useState<VolumeData[]>([]);
-  const [frequencyData, setFrequencyData] = useState<FrequencyData[]>([]);
+  const [frequencyData, setFrequencyData] = useState<{[key: string]: FrequencyData[]}>({});
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
   const [athletes, setAthletes] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   
-  const { weightPreference, getDisplayUnit } = useWeightUnit();
+  const { weightPreference } = useWeightUnit();
 
   // Determine current athlete ID (self or selected athlete for coaches)
   const currentAthleteId = selectedAthleteId || user.user_id;
@@ -73,18 +79,38 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
       console.log('Loading analytics data for athlete:', athleteId);
       console.log('Date range:', startDate, 'to', endDate);
 
-      console.log('Testing max weight progression...');
-      try {
-        // Test with default squat exercise type
-        const maxWeight = await getMaxWeightProgression(athleteId, 'squat');
-        console.log('Max weight progression result (squat):', maxWeight);
-        setMaxWeightData(maxWeight);
-      } catch (error) {
-        console.error('Max weight progression error:', error);
-        setMaxWeightData([]);
+      // SBD exercise types - load all three
+      const sbdExercises = ['squat', 'bench press', 'deadlift'];
+      const maxWeightResults: {[key: string]: MaxWeightData[]} = {};
+      const frequencyResults: {[key: string]: FrequencyData[]} = {};
+
+      // Load max weight and frequency data for each SBD exercise
+      for (const exerciseType of sbdExercises) {
+        console.log(`Loading max weight progression for ${exerciseType}...`);
+        try {
+          const maxWeight = await getMaxWeightProgression(athleteId, exerciseType);
+          console.log(`Max weight result (${exerciseType}):`, maxWeight);
+          maxWeightResults[exerciseType] = maxWeight;
+        } catch (error) {
+          console.error(`Max weight error for ${exerciseType}:`, error);
+          maxWeightResults[exerciseType] = [];
+        }
+
+        console.log(`Loading frequency analysis for ${exerciseType}...`);
+        try {
+          const frequency = await getFrequencyAnalysis(athleteId, exerciseType);
+          console.log(`Frequency result (${exerciseType}):`, frequency);
+          frequencyResults[exerciseType] = frequency;
+        } catch (error) {
+          console.error(`Frequency error for ${exerciseType}:`, error);
+          frequencyResults[exerciseType] = [];
+        }
       }
 
-      console.log('Testing volume data...');
+      setMaxWeightData(maxWeightResults);
+      setFrequencyData(frequencyResults);
+
+      console.log('Loading volume data...');
       try {
         // Use monthly grouping (maps to backend's time_period=month)
         const volume = await getVolumeData(athleteId, 'monthly');
@@ -94,28 +120,19 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
         console.error('Volume data error:', error);
         setVolumeData([]);
       }
-
-      console.log('Testing frequency analysis...');
-      try {
-        // Test with default squat exercise type
-        const frequency = await getFrequencyAnalysis(athleteId, 'squat');
-        console.log('Frequency analysis result (squat):', frequency);
-        setFrequencyData(frequency);
-      } catch (error) {
-        console.error('Frequency analysis error:', error);
-        setFrequencyData([]);
-      }
     } catch (err) {
       console.error('Error loading analytics data:', err);
       throw err;
     }
   };
 
-  // Helper function to format weight with user's preferred unit
-  const formatWeight = (weight: number, exerciseType: string) => {
-    const displayUnit = getDisplayUnit(exerciseType);
-    return `${weight}${displayUnit}`;
+  // Helper function to format weight - backend already handles unit conversion
+  const formatWeight = (weight: number, unit?: string) => {
+    // Use the unit from the backend response, fallback to 'kg' for SBD
+    return `${weight}${unit || 'kg'}`;
   };
+
+
 
   // Loading skeleton component
   const LoadingSkeleton = () => (
@@ -171,7 +188,9 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
   );
 
   // Check if we have any data
-  const hasData = maxWeightData.length > 0 || volumeData.length > 0 || frequencyData.length > 0;
+  const hasData = Object.values(maxWeightData).some(data => data.length > 0) || 
+                  volumeData.length > 0 || 
+                  Object.values(frequencyData).some(data => data.length > 0);
 
   return (
     <Layout user={user} signOut={signOut}>
@@ -229,9 +248,9 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
               <div className="text-xs text-yellow-700 space-y-1">
                 <p>User ID: {user.user_id}</p>
                 <p>Current Athlete ID: {currentAthleteId}</p>
-                <p>Max Weight Data: {maxWeightData.length} entries</p>
+                <p>Max Weight Data: {Object.values(maxWeightData).flat().length} total entries</p>
                 <p>Volume Data: {volumeData.length} entries</p>
-                <p>Frequency Data: {frequencyData.length} entries</p>
+                <p>Frequency Data: {Object.values(frequencyData).flat().length} total entries</p>
                 <p>Blocks: {blocks.length} total</p>
                 <p>Check browser console for API responses</p>
               </div>
@@ -267,24 +286,32 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
               </div>
             </div>
 
-            {/* Charts Grid - Placeholder for Phase 3 */}
+            {/* Charts Grid - SBD Exercise Analytics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Max Weight Progression Chart */}
-              {maxWeightData.length > 0 && (
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    Max Weight Progression
-                  </h3>
-                  <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
-                    <div className="text-center">
-                      <p className="text-gray-500 mb-2">Chart Coming Soon</p>
-                      <p className="text-sm text-gray-400">
-                        {maxWeightData.length} data points available
-                      </p>
+              {/* Max Weight Progression Charts - One for each SBD exercise */}
+              {['squat', 'bench press', 'deadlift'].map(exerciseType => {
+                const exerciseData = maxWeightData[exerciseType] || [];
+                const exerciseName = capitalizeExerciseName(exerciseType);
+                
+                return exerciseData.length > 0 ? (
+                  <div key={`max-weight-${exerciseType}`} className="bg-white shadow rounded-lg p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      {exerciseName} Max Weight Progression
+                    </h3>
+                    <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
+                      <div className="text-center">
+                        <p className="text-gray-500 mb-2">Chart Coming Soon</p>
+                        <p className="text-sm text-gray-400">
+                          {exerciseData.length} data points available
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Latest: {exerciseData.length > 0 ? formatWeight(exerciseData[exerciseData.length - 1].max_weight, exerciseData[exerciseData.length - 1].unit) : 'N/A'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                ) : null;
+              })}
 
               {/* Volume Chart */}
               {volumeData.length > 0 && (
@@ -303,40 +330,53 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                 </div>
               )}
 
-              {/* Frequency Analysis */}
-              {frequencyData.length > 0 && (
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    Exercise Frequency
-                  </h3>
-                  <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
-                    <div className="text-center">
-                      <p className="text-gray-500 mb-2">Chart Coming Soon</p>
-                      <p className="text-sm text-gray-400">
-                        {frequencyData.length} exercises tracked
-                      </p>
+              {/* Frequency Analysis - One for each SBD exercise */}
+              {['squat', 'bench press', 'deadlift'].map(exerciseType => {
+                const exerciseData = frequencyData[exerciseType] || [];
+                const exerciseName = capitalizeExerciseName(exerciseType);
+                
+                return exerciseData.length > 0 ? (
+                  <div key={`frequency-${exerciseType}`} className="bg-white shadow rounded-lg p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      {exerciseName} Training Frequency
+                    </h3>
+                    <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
+                      <div className="text-center">
+                        <p className="text-gray-500 mb-2">Chart Coming Soon</p>
+                        <p className="text-sm text-gray-400">
+                          {exerciseData.length} frequency metrics tracked
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                ) : null;
+              })}
 
-              {/* Recent Progress Summary */}
+              {/* Recent Progress Summary - All SBD exercises */}
               <div className="bg-white shadow rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Recent Progress
+                  Recent Progress Summary
                 </h3>
-                <div className="space-y-3">
-                  {maxWeightData.slice(-3).map((data, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">{data.exercise_name}</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {formatWeight(data.max_weight, data.exercise_type)}
-                      </span>
-                    </div>
-                  ))}
-                  {maxWeightData.length === 0 && (
-                    <p className="text-sm text-gray-500">No recent max weights recorded</p>
-                  )}
+                <div className="space-y-2">
+                  {['squat', 'bench press', 'deadlift'].map(exerciseType => {
+                    const exerciseData = maxWeightData[exerciseType] || [];
+                    const latestData = exerciseData[exerciseData.length - 1];
+                    const exerciseName = capitalizeExerciseName(exerciseType);
+                    
+                    return latestData ? (
+                      <div key={exerciseType} className="flex justify-between items-center gap-4">
+                        <span className="text-sm text-gray-600 flex-shrink-0">{exerciseName}</span>
+                        <span className="text-sm font-medium text-gray-900 text-right">
+                          {formatWeight(latestData.max_weight, latestData.unit)}
+                        </span>
+                      </div>
+                    ) : (
+                      <div key={exerciseType} className="flex justify-between items-center gap-4">
+                        <span className="text-sm text-gray-400 flex-shrink-0">{exerciseName}</span>
+                        <span className="text-sm text-gray-400 text-right">No data</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
