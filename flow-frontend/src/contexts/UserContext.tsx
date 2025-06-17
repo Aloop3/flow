@@ -40,11 +40,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, user }) =>
     setWeightPreference(preference);
   };
 
-  const getDisplayUnit = (exerciseType: string): 'kg' | 'lb' => {
+  const getDisplayUnit = (exerciseType?: string): 'kg' | 'lb' => {
     if (weightPreference === 'kg') return 'kg';
     if (weightPreference === 'lb') return 'lb';
     
     // Auto behavior - SBD default to kg, accessories to lb
+    if (!exerciseType) {
+      return 'lb'; // Default for undefined/empty exercise types
+    }
+    
     const bigThree = ['squat', 'bench press', 'deadlift'];
     const isBigThree = bigThree.some(lift => 
       exerciseType.toLowerCase().includes(lift)
@@ -52,6 +56,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, user }) =>
     
     return isBigThree ? 'kg' : 'lb';
   };
+
 
   return (
     <UserContext.Provider value={{

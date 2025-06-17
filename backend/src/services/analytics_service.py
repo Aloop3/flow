@@ -1,5 +1,4 @@
-from typing import List, Dict, Any, Optional, Union
-from src.repositories.workout_repository import WorkoutRepository
+from typing import List, Dict, Any, Union
 from src.repositories.exercise_repository import ExerciseRepository
 from src.repositories.block_repository import BlockRepository
 from src.repositories.week_repository import WeekRepository
@@ -9,53 +8,125 @@ import datetime as dt
 
 class AnalyticsService:
     def __init__(self):
-        self.workout_repository: WorkoutRepository = WorkoutRepository()
         self.exercise_repository: ExerciseRepository = ExerciseRepository()
         self.block_repository: BlockRepository = BlockRepository()
         self.week_repository: WeekRepository = WeekRepository()
         self.day_repository: DayRepository = DayRepository()
 
+    def _calculate_exercise_volume(self, exercise: Dict[str, Any]) -> float:
+        """
+        Calculate total volume for an exercise from sets_data.
+        Volume = sum of (reps × weight) for each completed set.
+
+        :param exercise: Exercise dict with sets_data
+        :return: Total volume for the exercise
+        """
+        sets_data = exercise.get("sets_data", [])
+        if not sets_data:
+            return 0.0
+
+        total_volume = 0.0
+        for set_data in sets_data:
+            if set_data.get("completed", False):
+                reps = set_data.get("reps", 0)
+                weight = set_data.get("weight", 0)
+                try:
+                    volume = float(reps) * float(weight)
+                    total_volume += volume
+                except (ValueError, TypeError):
+                    continue
+
+        return total_volume
+
+    def _is_exercise_analytics_complete(self, exercise: Dict[str, Any]) -> bool:
+        """
+        Check if exercise qualifies for analytics.
+        Must have status='completed' AND at least one completed set in sets_data.
+
+        :param exercise: Exercise dict with sets_data and status
+        :return: True if exercise should count in analytics
+        """
+        # Check exercise status
+        if exercise.get("status") != "completed":
+            return False
+
+        # Check workout status
+        if exercise.get("workout_status") != "completed":
+            return False
+
+        # Check at least one set is completed
+        sets_data = exercise.get("sets_data", [])
+        if not sets_data:
+            return False
+
+        return any(set_data.get("completed", False) for set_data in sets_data)
+
+    def _get_max_weight_from_exercise(self, exercise: Dict[str, Any]) -> float:
+        """
+        Get the maximum weight lifted in an exercise from sets_data.
+
+        :param exercise: Exercise dict with sets_data
+        :return: Maximum weight from completed sets
+        """
+        sets_data = exercise.get("sets_data", [])
+        if not sets_data:
+            return 0.0
+
+        max_weight = 0.0
+        for set_data in sets_data:
+            if set_data.get("completed", False):
+                weight = set_data.get("weight", 0)
+                try:
+                    weight_float = float(weight)
+                    if weight_float > max_weight:
+                        max_weight = weight_float
+                except (ValueError, TypeError):
+                    continue
+
+        return max_weight
+
     def get_max_weight_history(
         self, athlete_id: str, exercise_type: str
     ) -> List[Dict[str, Any]]:
-        """
-        Retrieve the historical maximum weights lifted for a specific exercise type
-
-        :param athlete_id: The ID of the athlete
-        :param exercise_type: The type of exercise (e.g., 'squat', 'bench', 'deadlift')
-        :return: A list of dictionaries containing the historical maximum weights
-        """
         if not athlete_id or not exercise_type:
             return []
 
         try:
-            # Get all exercises of this type for the athlete from workout repository
-            exercises = self.workout_repository.get_exercises_by_type(
-                athlete_id, exercise_type
+            # Use same pattern as calculate_volume
+            exercises = self.exercise_repository.get_exercises_with_workout_context(
+                athlete_id=athlete_id  # Remove exercise_type parameter
             )
 
-            # Filter for completed exercises only
-            completed_exercises = [
+            # Filter by exercise_type AFTER getting all exercises (case-insensitive)
+            exercises_of_type = [
                 exercise
                 for exercise in exercises
-                if exercise.get("status") == "completed"
-                and exercise.get("workout_status") == "completed"
+                if exercise.get("exercise_type", "").lower() == exercise_type.lower()
+            ]
+
+            # Filter for analytics-complete exercises only
+            completed_exercises = [
+                exercise
+                for exercise in exercises_of_type
+                if self._is_exercise_analytics_complete(exercise)
             ]
 
             # Group exercises by date and find the maximum weight for each day
             max_weight_by_date = {}
 
             for exercise in completed_exercises:
-                date = exercise.get("date")
-                weight = exercise.get("weight")
+                date = exercise.get("workout_date")
+                if not date:
+                    continue
 
-                if date and weight is not None:
+                max_weight = self._get_max_weight_from_exercise(exercise)
+                if max_weight > 0:
                     # Update the max weight for this date if it is higher
                     if (
                         date not in max_weight_by_date
-                        or weight > max_weight_by_date[date]
+                        or max_weight > max_weight_by_date[date]
                     ):
-                        max_weight_by_date[date] = weight
+                        max_weight_by_date[date] = max_weight
 
             # Convert dictionary to list of data points
             max_weight_data = [
@@ -77,7 +148,7 @@ class AnalyticsService:
     ) -> List[Dict[str, Union[str, float]]]:
         """
         Calculate training volume over time
-        Volume = sets * reps * weight
+        Volume = sum of (reps × weight) for each completed set
 
         :param athlete_id: The ID of the athlete
         :param time_period: The time period for which to calculate volume (e.g., 'week', 'month', 'year')
@@ -102,44 +173,33 @@ class AnalyticsService:
             else:
                 start_date = "2000-01-01"  # All time
 
-            # Retrieve completed workouts for the specified time period
-            completed_workouts = self.workout_repository.get_completed_workouts_since(
-                athlete_id, start_date
+            # Get all exercises for the athlete since start_date
+            exercises = self.exercise_repository.get_exercises_with_workout_context(
+                athlete_id=athlete_id, start_date=start_date
             )
+
+            # Filter for analytics-complete exercises only
+            completed_exercises = [
+                exercise
+                for exercise in exercises
+                if self._is_exercise_analytics_complete(exercise)
+            ]
 
             # Calculate volume for each day
             volume_data = {}
 
-            for workout in completed_workouts:
-                date = workout.get("date")
+            for exercise in completed_exercises:
+                date = exercise.get("workout_date")
                 if not date:
                     continue
 
-                daily_volume = 0.0
-
-                # Sum up the volume for each exercise in the workout
-                for exercise in workout.get("exercises", []):
-                    # Only count completed exercises
-                    if exercise.get("status") == "completed":
-                        sets = exercise.get("sets")
-                        reps = exercise.get("reps")
-                        weight = exercise.get("weight")
-
-                        if all(val is not None for val in [sets, reps, weight]):
-                            try:
-                                exercise_volume = (
-                                    float(sets) * float(reps) * float(weight)
-                                )
-                                daily_volume += exercise_volume
-                            except (ValueError, TypeError):
-                                # Skip exercises with invalid numeric data
-                                continue
+                exercise_volume = self._calculate_exercise_volume(exercise)
 
                 # Store the total daily volume
                 if date in volume_data:
-                    volume_data[date] += daily_volume
+                    volume_data[date] += exercise_volume
                 else:
-                    volume_data[date] = daily_volume
+                    volume_data[date] = exercise_volume
 
             # Convert to list of dicts for easier consumption by frontend
             result = [
@@ -154,6 +214,85 @@ class AnalyticsService:
         except Exception as e:
             print(f"Error in calculate_volume: {e}")
             return []
+
+    def get_exercise_frequency(
+        self, athlete_id: str, exercise_type: str, time_period: str = "month"
+    ) -> Dict[str, Any]:
+        """
+        Calculate how often a specific exercise is performed over time
+        """
+        if not athlete_id or not exercise_type:
+            return {"error": "Athlete ID and exercise type are required"}
+
+        try:
+            # Get start date based on time period
+            now = dt.datetime.now()
+
+            if time_period == "week":
+                start_date = (now - dt.timedelta(days=7)).isoformat()[:10]
+                period_days = 7
+            elif time_period == "month":
+                start_date = (now - dt.timedelta(days=30)).isoformat()[:10]
+                period_days = 30
+            elif time_period == "year":
+                start_date = (now - dt.timedelta(days=365)).isoformat()[:10]
+                period_days = 365
+            else:
+                start_date = "2000-01-01"
+                period_days = (now - dt.datetime(2000, 1, 1)).days
+
+            # Use same pattern as calculate_volume
+            exercises = self.exercise_repository.get_exercises_with_workout_context(
+                athlete_id=athlete_id,
+                start_date=start_date,  # Remove exercise_type parameter
+            )
+
+            # Filter by exercise_type after getting all exercises (case-insensitive)
+            exercises_of_type = [
+                exercise
+                for exercise in exercises
+                if exercise.get("exercise_type", "").lower() == exercise_type.lower()
+            ]
+
+            # Filter for analytics-complete exercises only
+            completed_exercises = [
+                exercise
+                for exercise in exercises_of_type
+                if self._is_exercise_analytics_complete(exercise)
+            ]
+
+            # Count unique training days and total sets
+            training_dates = set()
+            total_sets = 0
+
+            for exercise in completed_exercises:
+                date = exercise.get("workout_date")
+                if date:
+                    training_dates.add(date)
+
+                # Count completed sets from sets_data
+                sets_data = exercise.get("sets_data", [])
+                completed_sets = sum(
+                    1 for set_data in sets_data if set_data.get("completed", False)
+                )
+                total_sets += completed_sets
+
+            frequency_per_week = (
+                len(training_dates) / (period_days / 7) if period_days > 0 else 0
+            )
+
+            return {
+                "exercise_type": exercise_type,
+                "time_period": time_period,
+                "training_days": len(training_dates),
+                "total_sets": total_sets,
+                "frequency_per_week": round(frequency_per_week, 2),
+                "period_days": period_days,
+            }
+
+        except Exception as e:
+            print(f"Error in get_exercise_frequency: {e}")
+            return {"error": f"Failed to calculate exercise frequency: {str(e)}"}
 
     def calculate_block_volume(self, block_id: str) -> Dict[str, Any]:
         """
@@ -190,27 +329,25 @@ class AnalyticsService:
                     days = self.day_repository.get_days_by_week(week_id)
                     all_days.extend(days)
 
-            # Get all workouts for these days
-            all_workouts = []
+            # Get all exercises for these days
+            all_exercises = []
             for day in all_days:
                 day_id = day.get("day_id")
                 if day_id:
-                    workout_data = self.workout_repository.get_workout_by_day(
-                        athlete_id, day_id
-                    )
-                    if workout_data:
-                        # Add day info to workout for later reference
-                        workout_data["_day_data"] = day
-                        all_workouts.append(workout_data)
+                    exercises = self.exercise_repository.get_exercises_by_day(day_id)
+                    for exercise in exercises:
+                        # Add day and week info to exercise for later reference
+                        exercise["_day_data"] = day
+                        all_exercises.append(exercise)
 
             # Calculate total block volume
             total_volume = 0.0
             exercise_volumes = {}
             weekly_volumes = {}
 
-            for workout in all_workouts:
-                # Find which week this workout belongs to
-                day_data = workout.get("_day_data", {})
+            for exercise in all_exercises:
+                # Find which week this exercise belongs to
+                day_data = exercise.get("_day_data", {})
                 week_id = day_data.get("week_id")
 
                 if week_id:
@@ -218,40 +355,23 @@ class AnalyticsService:
                     if week_id not in weekly_volumes:
                         weekly_volumes[week_id] = 0.0
 
-                    # Only process completed workouts
-                    if workout.get("status") == "completed":
-                        for exercise in workout.get("exercises", []):
-                            # Only count completed exercises
-                            if exercise.get("status") == "completed":
-                                sets = exercise.get("sets")
-                                reps = exercise.get("reps")
-                                weight = exercise.get("weight")
+                    # Only process completed exercises
+                    if exercise.get("status") == "completed":
+                        exercise_volume = self._calculate_exercise_volume(exercise)
 
-                                if all(val is not None for val in [sets, reps, weight]):
-                                    try:
-                                        # Calculate exercise volume
-                                        exercise_volume = (
-                                            float(sets) * float(reps) * float(weight)
-                                        )
+                        if exercise_volume > 0:
+                            # Add to total volume
+                            total_volume += exercise_volume
 
-                                        # Add to total volume
-                                        total_volume += exercise_volume
+                            # Add to weekly volume
+                            weekly_volumes[week_id] += exercise_volume
 
-                                        # Add to weekly volume
-                                        weekly_volumes[week_id] += exercise_volume
-
-                                        # Add to exercise type volume
-                                        exercise_type = exercise.get("exercise_type")
-                                        if exercise_type:
-                                            if exercise_type not in exercise_volumes:
-                                                exercise_volumes[exercise_type] = 0.0
-                                            exercise_volumes[
-                                                exercise_type
-                                            ] += exercise_volume
-
-                                    except (ValueError, TypeError):
-                                        # Skip exercises with invalid numeric data
-                                        continue
+                            # Add to exercise type volume
+                            exercise_type = exercise.get("exercise_type")
+                            if exercise_type:
+                                if exercise_type not in exercise_volumes:
+                                    exercise_volumes[exercise_type] = 0.0
+                                exercise_volumes[exercise_type] += exercise_volume
 
             # Create week details with week numbers
             week_details = {}
@@ -357,84 +477,3 @@ class AnalyticsService:
         except Exception as e:
             print(f"Error in compare_blocks: {e}")
             return {"error": f"Failed to compare blocks: {str(e)}"}
-
-    def get_exercise_frequency(
-        self, athlete_id: str, exercise_type: str, time_period: str = "month"
-    ) -> Dict[str, Any]:
-        """
-        Calculate how often a specific exercise is performed over time
-
-        :param athlete_id: The ID of the athlete
-        :param exercise_type: The type of exercise to analyze
-        :param time_period: The time period for analysis ('week', 'month', 'year')
-        :return: Frequency data for the exercise
-        """
-        if not athlete_id or not exercise_type:
-            return {"error": "Athlete ID and exercise type are required"}
-
-        try:
-            # Get start date based on time period
-            now = dt.datetime.now()
-
-            if time_period == "week":
-                start_date = (now - dt.timedelta(days=7)).isoformat()[:10]
-                period_days = 7
-            elif time_period == "month":
-                start_date = (now - dt.timedelta(days=30)).isoformat()[:10]
-                period_days = 30
-            elif time_period == "year":
-                start_date = (now - dt.timedelta(days=365)).isoformat()[:10]
-                period_days = 365
-            else:
-                start_date = "2000-01-01"
-                period_days = (now - dt.datetime(2000, 1, 1)).days
-
-            # Get all exercises of this type for the athlete
-            exercises = self.workout_repository.get_exercises_by_type(
-                athlete_id, exercise_type
-            )
-
-            # Filter by date range and completed status
-            filtered_exercises = []
-            for exercise in exercises:
-                exercise_date = exercise.get("date")
-                if (
-                    exercise_date
-                    and exercise_date >= start_date
-                    and exercise.get("status") == "completed"
-                    and exercise.get("workout_status") == "completed"
-                ):
-                    filtered_exercises.append(exercise)
-
-            # Count unique training days
-            training_dates = set()
-            total_sets = 0
-
-            for exercise in filtered_exercises:
-                date = exercise.get("date")
-                if date:
-                    training_dates.add(date)
-
-                sets = exercise.get("sets")
-                if sets is not None:
-                    try:
-                        total_sets += int(sets)
-                    except (ValueError, TypeError):
-                        continue
-
-            frequency_per_week = (
-                len(training_dates) / (period_days / 7) if period_days > 0 else 0
-            )
-
-            return {
-                "exercise_type": exercise_type,
-                "time_period": time_period,
-                "training_days": len(training_dates),
-                "total_sets": total_sets,
-                "frequency_per_week": round(frequency_per_week, 2),
-                "period_days": period_days,
-            }
-
-        except Exception as e:
-            print(f"Error in get_exercise_frequency: {e}")
-            return {"error": f"Failed to calculate exercise frequency: {str(e)}"}
