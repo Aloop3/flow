@@ -11,7 +11,6 @@ import {
   type FrequencyData,
   type Block
 } from '../../services/api';
-import { useWeightUnit } from '../../contexts/UserContext';
 import { 
   LineChart, 
   Line, 
@@ -40,8 +39,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
   const [athletes, setAthletes] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  
-  const { weightPreference } = useWeightUnit();
 
   // Determine current athlete ID (self or selected athlete for coaches)
   const currentAthleteId = selectedAthleteId || user.user_id;
@@ -289,20 +286,12 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                   </p>
                 </div>
               )}
-
-              {/* Weight Preference */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-500">Weight Display</h3>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {weightPreference === 'auto' ? 'Auto (kg/lb)' : weightPreference.toUpperCase()}
-                </p>
-              </div>
             </div>
 
-            {/* Recent Progress Summary - Now appears before charts */}
+            {/* 1RM - Now appears before charts */}
             <div className="bg-white shadow rounded-lg p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Recent Progress Summary
+                1RM
               </h3>
               <div className="space-y-2">
                 {['squat', 'bench press', 'deadlift'].map(exerciseType => {
