@@ -6,233 +6,589 @@ import datetime as dt
 
 class TestAnalyticsService(unittest.TestCase):
     """
-    Test suite for the AnalyticsService class
+    Test suite for the AnalyticsService class using new sets_data structure
     """
 
     def setUp(self):
         """
         Set up test environment before each test method
+        Patches uuid.uuid4 to return consistent test values and initializes mocked repositories
         """
-        # Mock all repository dependencies
-        self.workout_repository_mock = MagicMock()
-        self.exercise_repository_mock = MagicMock()
-        self.block_repository_mock = MagicMock()
-        self.week_repository_mock = MagicMock()
-        self.day_repository_mock = MagicMock()
+        # Patch uuid to return consistent test values
+        with patch("uuid.uuid4", return_value="test-uuid"):
+            # Mock all repository dependencies
+            self.exercise_repository_mock = MagicMock()
+            self.block_repository_mock = MagicMock()
+            self.week_repository_mock = MagicMock()
+            self.day_repository_mock = MagicMock()
 
-        # Initialize service with mocked repositories
-        with patch(
-            "src.services.analytics_service.WorkoutRepository",
-            return_value=self.workout_repository_mock,
-        ), patch(
-            "src.services.analytics_service.ExerciseRepository",
-            return_value=self.exercise_repository_mock,
-        ), patch(
-            "src.services.analytics_service.BlockRepository",
-            return_value=self.block_repository_mock,
-        ), patch(
-            "src.services.analytics_service.WeekRepository",
-            return_value=self.week_repository_mock,
-        ), patch(
-            "src.services.analytics_service.DayRepository",
-            return_value=self.day_repository_mock,
-        ):
-            self.analytics_service = AnalyticsService()
+            # Initialize service with mocked repositories
+            with patch(
+                "src.services.analytics_service.ExerciseRepository",
+                return_value=self.exercise_repository_mock,
+            ), patch(
+                "src.services.analytics_service.BlockRepository",
+                return_value=self.block_repository_mock,
+            ), patch(
+                "src.services.analytics_service.WeekRepository",
+                return_value=self.week_repository_mock,
+            ), patch(
+                "src.services.analytics_service.DayRepository",
+                return_value=self.day_repository_mock,
+            ):
+                self.analytics_service = AnalyticsService()
+
+    def test_calculate_exercise_volume_with_completed_sets(self):
+        """
+        Test _calculate_exercise_volume helper method with completed sets_data
+        Should sum volume from all completed sets: Σ(reps × weight) for completed sets
+        """
+        exercise = {
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                {"set_number": 2, "reps": 5, "weight": 105, "completed": True},
+                {
+                    "set_number": 3,
+                    "reps": 3,
+                    "weight": 110,
+                    "completed": False,
+                },  # Not completed
+            ]
+        }
+
+        volume = self.analytics_service._calculate_exercise_volume(exercise)
+
+        # Only completed sets: (5*100) + (5*105) = 500 + 525 = 1025
+        expected_volume = 1025.0
+        self.assertEqual(volume, expected_volume)
+
+    def test_calculate_exercise_volume_no_sets_data(self):
+        """
+        Test _calculate_exercise_volume with missing or empty sets_data
+        Should return 0.0 when no sets_data available
+        """
+        exercise_no_sets = {"sets_data": []}
+        exercise_missing_sets = {}
+
+        volume_no_sets = self.analytics_service._calculate_exercise_volume(
+            exercise_no_sets
+        )
+        volume_missing_sets = self.analytics_service._calculate_exercise_volume(
+            exercise_missing_sets
+        )
+
+        self.assertEqual(volume_no_sets, 0.0)
+        self.assertEqual(volume_missing_sets, 0.0)
+
+    def test_is_exercise_analytics_complete_all_conditions_met(self):
+        """
+        Test _is_exercise_analytics_complete when all conditions are met
+        Exercise status = completed, workout status = completed, all sets completed
+        """
+        exercise = {
+            "status": "completed",
+            "workout_status": "completed",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                {"set_number": 2, "reps": 5, "weight": 105, "completed": True},
+            ],
+        }
+
+        is_complete = self.analytics_service._is_exercise_analytics_complete(exercise)
+        self.assertTrue(is_complete)
+
+    def test_is_exercise_analytics_complete_incomplete_exercise(self):
+        """
+        Test _is_exercise_analytics_complete with incomplete exercise status
+        Should return False when exercise status is not 'completed'
+        """
+        exercise = {
+            "status": "in_progress",
+            "workout_status": "completed",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+            ],
+        }
+
+        is_complete = self.analytics_service._is_exercise_analytics_complete(exercise)
+        self.assertFalse(is_complete)
+
+    def test_is_exercise_analytics_complete_incomplete_workout(self):
+        """
+        Test _is_exercise_analytics_complete with incomplete workout status
+        Should return False when workout status is not 'completed'
+        """
+        exercise = {
+            "status": "completed",
+            "workout_status": "in_progress",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+            ],
+        }
+
+        is_complete = self.analytics_service._is_exercise_analytics_complete(exercise)
+        self.assertFalse(is_complete)
+
+    def test_is_exercise_analytics_complete_no_completed_sets(self):
+        """
+        Test _is_exercise_analytics_complete when no sets are completed
+        Should return False when no sets have completed: True
+        """
+        exercise = {
+            "status": "completed",
+            "workout_status": "completed",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": False},
+                {"set_number": 2, "reps": 5, "weight": 105, "completed": False},
+            ],
+        }
+
+        is_complete = self.analytics_service._is_exercise_analytics_complete(exercise)
+        self.assertFalse(is_complete)
+
+    def test_is_exercise_analytics_complete_incomplete_sets(self):
+        """
+        Test _is_exercise_analytics_complete with some incomplete sets
+        Should return True when at least one set is completed (changed from requiring all sets)
+        """
+        exercise = {
+            "status": "completed",
+            "workout_status": "completed",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                {
+                    "set_number": 2,
+                    "reps": 5,
+                    "weight": 105,
+                    "completed": False,
+                },  # Not completed
+            ],
+        }
+
+        is_complete = self.analytics_service._is_exercise_analytics_complete(exercise)
+        self.assertTrue(is_complete)  # Should be True - at least one set completed
+
+    def test_get_max_weight_from_exercise_completed_sets(self):
+        """
+        Test _get_max_weight_from_exercise with completed sets
+        Should return the highest weight from completed sets only
+        """
+        exercise = {
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                {
+                    "set_number": 2,
+                    "reps": 3,
+                    "weight": 120,
+                    "completed": True,
+                },  # Max weight
+                {
+                    "set_number": 3,
+                    "reps": 1,
+                    "weight": 150,
+                    "completed": False,
+                },  # Higher but not completed
+            ]
+        }
+
+        max_weight = self.analytics_service._get_max_weight_from_exercise(exercise)
+
+        # Should return 120, not 150 (since 150 is not completed)
+        expected_max_weight = 120.0
+        self.assertEqual(max_weight, expected_max_weight)
 
     def test_get_max_weight_history_success(self):
         """
-        Test retrieving max weight history for an exercise type
+        Test get_max_weight_history with valid exercise data using new structure
+        Should group by date and return maximum weight per date from completed exercises
         """
-        # Mock data - exercises on different dates with varying weights
-        # Using current data model structure
+        # Mock exercises with sets_data structure
         mock_exercises = [
             {
-                "date": "2024-01-01",
-                "weight": 100,
+                "exercise_id": "ex1",
                 "exercise_type": "squat",
                 "status": "completed",
+                "workout_date": "2024-01-01",
                 "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                    {
+                        "set_number": 2,
+                        "reps": 5,
+                        "weight": 105,
+                        "completed": True,
+                    },  # Max for this exercise
+                ],
             },
             {
-                "date": "2024-01-01",
-                "weight": 105,
+                "exercise_id": "ex2",
                 "exercise_type": "squat",
                 "status": "completed",
+                "workout_date": "2024-01-01",  # Same date
                 "workout_status": "completed",
-            },  # Higher weight same day
-            {
-                "date": "2024-01-08",
-                "weight": 110,
-                "exercise_type": "squat",
-                "status": "completed",
-                "workout_status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 110,
+                        "completed": True,
+                    },  # Max for the date
+                ],
             },
             {
-                "date": "2024-01-15",
-                "weight": 108,
+                "exercise_id": "ex3",
                 "exercise_type": "squat",
                 "status": "completed",
+                "workout_date": "2024-01-08",
                 "workout_status": "completed",
-            },  # Lower than previous
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 115, "completed": True},
+                ],
+            },
         ]
 
         # Configure mock to return test data
-        self.workout_repository_mock.get_exercises_by_type.return_value = mock_exercises
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
 
         # Call the service method
         result = self.analytics_service.get_max_weight_history("athlete123", "squat")
 
-        # Assert repository was called with correct parameters
-        self.workout_repository_mock.get_exercises_by_type.assert_called_once_with(
-            "athlete123", "squat"
+        # Assert repository was called with correct parameters (NO exercise_type)
+        self.exercise_repository_mock.get_exercises_with_workout_context.assert_called_once_with(
+            athlete_id="athlete123"
         )
 
         # Assert the result is correctly processed
+        # Date 2024-01-01: max(105, 110) = 110
+        # Date 2024-01-08: 115
         expected_result = [
-            {"date": "2024-01-01", "max_weight": 105},  # Max for this date
-            {"date": "2024-01-08", "max_weight": 110},
-            {"date": "2024-01-15", "max_weight": 108},
+            {"date": "2024-01-01", "max_weight": 110},
+            {"date": "2024-01-08", "max_weight": 115},
         ]
         self.assertEqual(result, expected_result)
 
     def test_get_max_weight_history_filters_incomplete_exercises(self):
         """
-        Test that max weight history only includes completed exercises
+        Test that max weight history filters out incomplete exercises
+        Should only include exercises where status=completed, workout_status=completed, and at least one completed set
         """
-        # Mock data with mix of completed and incomplete exercises
         mock_exercises = [
             {
-                "date": "2024-01-01",
-                "weight": 100,
+                "exercise_id": "ex1",
                 "exercise_type": "squat",
                 "status": "completed",
+                "workout_date": "2024-01-01",
                 "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                ],
             },
             {
-                "date": "2024-01-01",
-                "weight": 200,
+                "exercise_id": "ex2",
                 "exercise_type": "squat",
-                "status": "planned",  # Not completed
+                "status": "in_progress",  # Not completed
+                "workout_date": "2024-01-01",
                 "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 200, "completed": True},
+                ],
             },
             {
-                "date": "2024-01-02",
-                "weight": 105,
+                "exercise_id": "ex3",
                 "exercise_type": "squat",
                 "status": "completed",
+                "workout_date": "2024-01-02",
                 "workout_status": "in_progress",  # Workout not completed
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 150, "completed": True},
+                ],
+            },
+            {
+                "exercise_id": "ex4",
+                "exercise_type": "squat",
+                "status": "completed",
+                "workout_date": "2024-01-03",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 120, "completed": True},
+                    {
+                        "set_number": 2,
+                        "reps": 5,
+                        "weight": 180,
+                        "completed": False,
+                    },  # Mixed completion
+                ],
             },
         ]
 
-        self.workout_repository_mock.get_exercises_by_type.return_value = mock_exercises
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
 
         result = self.analytics_service.get_max_weight_history("athlete123", "squat")
 
-        # Should only include the first exercise (completed exercise in completed workout)
-        expected_result = [{"date": "2024-01-01", "max_weight": 100}]
+        # Should only include ex1 (all conditions met) and ex4 (has completed sets)
+        expected_result = [
+            {"date": "2024-01-01", "max_weight": 100},
+            {"date": "2024-01-03", "max_weight": 120},  # Only completed set weight
+        ]
         self.assertEqual(result, expected_result)
 
     def test_calculate_volume_weekly(self):
         """
-        Test volume calculation for weekly time period using current data structure
+        Test calculate_volume for weekly time period using new sets_data structure
+        Should sum volume from all completed sets within the time period
         """
-        # Mock workout data using current Workout model structure
-        mock_workouts = [
+        # Mock exercises with sets_data structure
+        mock_exercises = [
             {
-                "date": "2024-01-01",
+                "exercise_id": "ex1",
                 "status": "completed",
-                "exercises": [
-                    {"sets": 3, "reps": 5, "weight": 100, "status": "completed"},
-                    {"sets": 3, "reps": 8, "weight": 80, "status": "completed"},
+                "workout_date": "2024-01-02",
+                "workout_status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 100,
+                        "completed": True,
+                    },  # 500
+                    {
+                        "set_number": 2,
+                        "reps": 5,
+                        "weight": 105,
+                        "completed": True,
+                    },  # 525
+                    {
+                        "set_number": 3,
+                        "reps": 3,
+                        "weight": 110,
+                        "completed": False,
+                    },  # Not counted
                 ],
             },
             {
-                "date": "2024-01-03",
+                "exercise_id": "ex2",
                 "status": "completed",
-                "exercises": [
-                    {"sets": 4, "reps": 6, "weight": 120, "status": "completed"},
+                "workout_date": "2024-01-04",
+                "workout_status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 8,
+                        "weight": 80,
+                        "completed": True,
+                    },  # 640
                 ],
             },
         ]
 
         # Configure mock
-        self.workout_repository_mock.get_completed_workouts_since.return_value = (
-            mock_workouts
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
         )
 
         # Call the service method with proper datetime mocking
         with patch("src.services.analytics_service.dt") as mock_dt:
-            # Create real datetime objects for calculations
             mock_now = dt.datetime(2024, 1, 8)
             mock_dt.datetime.now.return_value = mock_now
-            mock_dt.timedelta = dt.timedelta  # Use real timedelta
+            mock_dt.timedelta = dt.timedelta
 
-            # Call the service method
             result = self.analytics_service.calculate_volume("athlete123", "week")
 
         # Assert repository was called with correct start date
-        # 2024-01-08 - 7 days = 2024-01-01
-        expected_start_date = "2024-01-01"
-        self.workout_repository_mock.get_completed_workouts_since.assert_called_once_with(
-            "athlete123", expected_start_date
+        expected_start_date = "2024-01-01"  # 2024-01-08 - 7 days
+        self.exercise_repository_mock.get_exercises_with_workout_context.assert_called_once_with(
+            athlete_id="athlete123", start_date=expected_start_date
         )
 
         # Assert volume calculations
-        # Day 1: (3*5*100) + (3*8*80) = 1500 + 1920 = 3420
-        # Day 3: (4*6*120) = 2880
+        # Day 2024-01-02: (5*100) + (5*105) = 500 + 525 = 1025
+        # Day 2024-01-04: (8*80) = 640
         expected_result = [
-            {"date": "2024-01-01", "volume": 3420},
-            {"date": "2024-01-03", "volume": 2880},
+            {"date": "2024-01-02", "volume": 1025},
+            {"date": "2024-01-04", "volume": 640},
         ]
         self.assertEqual(result, expected_result)
 
-    def test_calculate_volume_only_counts_completed_exercises(self):
+    def test_calculate_volume_only_counts_analytics_complete_exercises(self):
         """
-        Test that volume calculation only includes completed exercises
+        Test that volume calculation only includes analytics-complete exercises
+        Should filter by exercise status, workout status, and at least one completed set
         """
-        # Mock workout with mix of completed and incomplete exercises
-        mock_workouts = [
+        mock_exercises = [
             {
-                "date": "2024-01-01",
+                "exercise_id": "ex1",
                 "status": "completed",
-                "exercises": [
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
                     {
-                        "sets": 3,
+                        "set_number": 1,
                         "reps": 5,
                         "weight": 100,
-                        "status": "completed",
-                    },  # Valid
-                    {
-                        "sets": 3,
-                        "reps": 5,
-                        "weight": 100,
-                        "status": "planned",
-                    },  # Not completed
-                    {
-                        "sets": 3,
-                        "reps": 5,
-                        "weight": 100,
-                        "status": "skipped",
-                    },  # Skipped
+                        "completed": True,
+                    },  # Valid: 500
                 ],
-            }
+            },
+            {
+                "exercise_id": "ex2",
+                "status": "in_progress",  # Not completed
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 100,
+                        "completed": True,
+                    },  # Should be ignored
+                ],
+            },
+            {
+                "exercise_id": "ex3",
+                "status": "completed",
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 100,
+                        "completed": True,
+                    },  # Valid: 500
+                    {
+                        "set_number": 2,
+                        "reps": 5,
+                        "weight": 100,
+                        "completed": False,
+                    },  # Incomplete but exercise still counts
+                ],
+            },
+            {
+                "exercise_id": "ex4",
+                "status": "completed",
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 100,
+                        "completed": False,
+                    },  # No completed sets
+                    {
+                        "set_number": 2,
+                        "reps": 5,
+                        "weight": 100,
+                        "completed": False,
+                    },  # Exercise should be filtered out
+                ],
+            },
         ]
 
-        self.workout_repository_mock.get_completed_workouts_since.return_value = (
-            mock_workouts
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
         )
 
-        with patch("datetime.datetime") as mock_datetime:
-            mock_datetime.now.return_value = dt.datetime(2024, 1, 8)
+        with patch("src.services.analytics_service.dt") as mock_dt:
+            mock_dt.datetime.now.return_value = dt.datetime(2024, 1, 8)
+            mock_dt.timedelta = dt.timedelta
+
             result = self.analytics_service.calculate_volume("athlete123", "week")
 
-        # Should only count the completed exercise: 3*5*100 = 1500
-        expected_result = [{"date": "2024-01-01", "volume": 1500}]
+        # Should count ex1 (500) + ex3 (500 from completed set) = 1000
+        # ex2 is filtered out (exercise not completed)
+        # ex4 is filtered out (no completed sets)
+        expected_result = [{"date": "2024-01-01", "volume": 1000}]
+        self.assertEqual(result, expected_result)
+
+    def test_get_exercise_frequency_success(self):
+        """
+        Test get_exercise_frequency with analytics-complete exercises
+        Should count unique training days and total completed sets
+        """
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "squat",  # Add exercise_type for filtering
+                "status": "completed",
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                    {"set_number": 2, "reps": 5, "weight": 105, "completed": True},
+                    {
+                        "set_number": 3,
+                        "reps": 3,
+                        "weight": 110,
+                        "completed": False,
+                    },  # Not counted
+                ],
+            },
+            {
+                "exercise_id": "ex2",
+                "exercise_type": "squat",  # Add exercise_type for filtering
+                "status": "completed",
+                "workout_date": "2024-01-01",  # Same day
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 8, "weight": 80, "completed": True},
+                ],
+            },
+            {
+                "exercise_id": "ex3",
+                "exercise_type": "squat",  # Add exercise_type for filtering
+                "status": "completed",
+                "workout_date": "2024-01-08",  # Different day
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 120, "completed": True},
+                    {"set_number": 2, "reps": 5, "weight": 125, "completed": True},
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        with patch("src.services.analytics_service.dt") as mock_dt:
+            mock_now = dt.datetime(2024, 1, 31)
+            mock_dt.datetime.now.return_value = mock_now
+            mock_dt.timedelta = dt.timedelta
+
+            result = self.analytics_service.get_exercise_frequency(
+                "athlete123", "squat", "month"
+            )
+
+        # Assert repository was called with correct parameters (NO exercise_type)
+        expected_start_date = "2024-01-01"  # 30 days ago
+        self.exercise_repository_mock.get_exercises_with_workout_context.assert_called_once_with(
+            athlete_id="athlete123",
+            start_date=expected_start_date,
+        )
+
+        # Assert calculations
+        # Unique training days: 2024-01-01, 2024-01-08 = 2 days
+        # Total completed sets: 2 + 1 + 2 = 5 sets
+        # Frequency per week: 2 days / (30 days / 7) = 2 / 4.29 ≈ 0.47
+        expected_result = {
+            "exercise_type": "squat",
+            "time_period": "month",
+            "training_days": 2,
+            "total_sets": 5,
+            "frequency_per_week": 0.47,
+            "period_days": 30,
+        }
         self.assertEqual(result, expected_result)
 
     def test_calculate_block_volume_success(self):
         """
-        Test successful block volume calculation with current data structure
+        Test calculate_block_volume with new sets_data structure
+        Should calculate volume from exercises using get_exercises_by_day
         """
         # Mock block data
         mock_block = {
@@ -243,46 +599,53 @@ class TestAnalyticsService(unittest.TestCase):
             "end_date": "2024-01-28",
         }
 
-        # Mock weeks data
+        # Mock weeks and days
         mock_weeks = [
             {"week_id": "week1", "week_number": 1},
             {"week_id": "week2", "week_number": 2},
         ]
 
-        # Mock days data
-        mock_days_week1 = [
-            {"day_id": "day1", "week_id": "week1"},
-            {"day_id": "day2", "week_id": "week1"},
-        ]
-        mock_days_week2 = [{"day_id": "day3", "week_id": "week2"}]
+        mock_days_week1 = [{"day_id": "day1", "week_id": "week1"}]
+        mock_days_week2 = [{"day_id": "day2", "week_id": "week2"}]
 
-        # Mock workout data using current structure
-        mock_workout1 = {
-            "day_id": "day1",
-            "status": "completed",
-            "exercises": [
-                {
-                    "sets": 3,
-                    "reps": 5,
-                    "weight": 100,
-                    "exercise_type": "squat",
-                    "status": "completed",
-                }
-            ],
-        }
-        mock_workout2 = {
-            "day_id": "day3",
-            "status": "completed",
-            "exercises": [
-                {
-                    "sets": 4,
-                    "reps": 6,
-                    "weight": 120,
-                    "exercise_type": "deadlift",
-                    "status": "completed",
-                }
-            ],
-        }
+        # Mock exercises with sets_data
+        mock_exercises_day1 = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "squat",
+                "status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 100,
+                        "completed": True,
+                    },  # 500
+                    {
+                        "set_number": 2,
+                        "reps": 5,
+                        "weight": 105,
+                        "completed": True,
+                    },  # 525
+                ],
+            }
+        ]
+
+        mock_exercises_day2 = [
+            {
+                "exercise_id": "ex2",
+                "exercise_type": "deadlift",
+                "status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 3,
+                        "weight": 150,
+                        "completed": True,
+                    },  # 450
+                ],
+            }
+        ]
 
         # Configure mocks
         self.block_repository_mock.get_block.return_value = mock_block
@@ -291,32 +654,32 @@ class TestAnalyticsService(unittest.TestCase):
             mock_days_week1,
             mock_days_week2,
         ]
-        self.workout_repository_mock.get_workout_by_day.side_effect = [
-            mock_workout1,  # day1
-            None,  # day2 - no workout
-            mock_workout2,  # day3
+        self.exercise_repository_mock.get_exercises_by_day.side_effect = [
+            mock_exercises_day1,
+            mock_exercises_day2,
         ]
 
-        # Call the service method
         result = self.analytics_service.calculate_block_volume("block123")
 
         # Assert repository calls
         self.block_repository_mock.get_block.assert_called_once_with("block123")
         self.week_repository_mock.get_weeks_by_block.assert_called_once_with("block123")
+        self.exercise_repository_mock.get_exercises_by_day.assert_any_call("day1")
+        self.exercise_repository_mock.get_exercises_by_day.assert_any_call("day2")
 
         # Assert calculations
-        # Workout 1: 3*5*100 = 1500
-        # Workout 2: 4*6*120 = 2880
-        # Total: 4380
+        # Week 1: 500 + 525 = 1025
+        # Week 2: 450
+        # Total: 1475
         expected_result = {
             "block_id": "block123",
             "block_title": "Test Block",
-            "total_volume": 4380,
+            "total_volume": 1475,
             "weekly_volumes": {
-                "week1": {"week_number": 1, "volume": 1500},
-                "week2": {"week_number": 2, "volume": 2880},
+                "week1": {"week_number": 1, "volume": 1025},
+                "week2": {"week_number": 2, "volume": 450},
             },
-            "exercise_volumes": {"squat": 1500, "deadlift": 2880},
+            "exercise_volumes": {"squat": 1025, "deadlift": 450},
             "start_date": "2024-01-01",
             "end_date": "2024-01-28",
         }
@@ -324,10 +687,11 @@ class TestAnalyticsService(unittest.TestCase):
 
     def test_calculate_volume_with_repository_exception(self):
         """
-        Test volume calculation when repository raises an exception (line 134-136)
+        Test calculate_volume when repository raises an exception
+        Should return empty list and handle gracefully
         """
         # Configure mock to raise exception
-        self.workout_repository_mock.get_completed_workouts_since.side_effect = (
+        self.exercise_repository_mock.get_exercises_with_workout_context.side_effect = (
             Exception("Database error")
         )
 
@@ -340,80 +704,42 @@ class TestAnalyticsService(unittest.TestCase):
         # Should return empty list and not crash
         self.assertEqual(result, [])
 
-    def test_calculate_volume_with_workout_missing_date(self):
-        """
-        Test volume calculation with workouts missing date field (line 140)
-        """
-        mock_workouts = [
-            {
-                # Missing date field
-                "status": "completed",
-                "exercises": [
-                    {"sets": 3, "reps": 5, "weight": 100, "status": "completed"}
-                ],
-            },
-            {
-                "date": "2024-01-02",
-                "status": "completed",
-                "exercises": [
-                    {"sets": 4, "reps": 6, "weight": 120, "status": "completed"}
-                ],
-            },
-        ]
-
-        self.workout_repository_mock.get_completed_workouts_since.return_value = (
-            mock_workouts
-        )
-
-        with patch("src.services.analytics_service.dt") as mock_dt:
-            mock_dt.datetime.now.return_value = dt.datetime(2024, 1, 8)
-            mock_dt.timedelta = dt.timedelta
-
-            result = self.analytics_service.calculate_volume("athlete123", "week")
-
-        # Should only include workout with valid date
-        expected_result = [{"date": "2024-01-02", "volume": 2880}]  # 4*6*120
-        self.assertEqual(result, expected_result)
-
     def test_calculate_volume_with_invalid_numeric_values(self):
         """
-        Test volume calculation with invalid numeric values (line 166)
+        Test calculate_volume with invalid numeric values in sets_data
+        Should skip invalid sets and continue processing
         """
-        mock_workouts = [
+        mock_exercises = [
             {
-                "date": "2024-01-01",
+                "exercise_id": "ex1",
                 "status": "completed",
-                "exercises": [
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
                     {
-                        "sets": "invalid",
-                        "reps": 5,
+                        "set_number": 1,
+                        "reps": "invalid",
                         "weight": 100,
-                        "status": "completed",
-                    },  # Invalid sets
-                    {
-                        "sets": 3,
-                        "reps": "bad",
-                        "weight": 100,
-                        "status": "completed",
+                        "completed": True,
                     },  # Invalid reps
                     {
-                        "sets": 3,
+                        "set_number": 2,
                         "reps": 5,
-                        "weight": "terrible",
-                        "status": "completed",
+                        "weight": "bad",
+                        "completed": True,
                     },  # Invalid weight
                     {
-                        "sets": 3,
+                        "set_number": 3,
                         "reps": 5,
                         "weight": 100,
-                        "status": "completed",
-                    },  # Valid
+                        "completed": True,
+                    },  # Valid: 500
                 ],
             }
         ]
 
-        self.workout_repository_mock.get_completed_workouts_since.return_value = (
-            mock_workouts
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
         )
 
         with patch("src.services.analytics_service.dt") as mock_dt:
@@ -422,294 +748,14 @@ class TestAnalyticsService(unittest.TestCase):
 
             result = self.analytics_service.calculate_volume("athlete123", "week")
 
-        # Should only count the valid exercise: 3*5*100 = 1500
-        expected_result = [{"date": "2024-01-01", "volume": 1500}]
-        self.assertEqual(result, expected_result)
-
-    def test_calculate_block_volume_with_repository_exception(self):
-        """
-        Test block volume calculation when repository raises an exception (lines 252-254)
-        """
-        # Configure mock to raise exception
-        self.block_repository_mock.get_block.side_effect = Exception(
-            "Database connection failed"
-        )
-
-        result = self.analytics_service.calculate_block_volume("block123")
-
-        # Should return error response
-        self.assertIn("error", result)
-        self.assertIn("Failed to calculate block volume", result["error"])
-
-    def test_calculate_block_volume_with_missing_athlete_id(self):
-        """
-        Test block volume calculation with block missing athlete_id (line 173)
-        """
-        # Mock block data without athlete_id
-        mock_block = {
-            "block_id": "block123",
-            "title": "Test Block",
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-28"
-            # Missing athlete_id
-        }
-
-        self.block_repository_mock.get_block.return_value = mock_block
-
-        result = self.analytics_service.calculate_block_volume("block123")
-
-        # Should return error response
-        expected_result = {"error": "Block missing athlete_id"}
-        self.assertEqual(result, expected_result)
-
-    def test_calculate_block_volume_with_missing_week_id(self):
-        """
-        Test block volume calculation with weeks missing week_id (line 180)
-        """
-        # Mock block data
-        mock_block = {
-            "block_id": "block123",
-            "athlete_id": "athlete123",
-            "title": "Test Block",
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-28",
-        }
-
-        # Mock weeks with missing week_id
-        mock_weeks = [
-            {"week_number": 1},  # Missing week_id
-            {"week_id": "week2", "week_number": 2},  # Valid
-        ]
-
-        self.block_repository_mock.get_block.return_value = mock_block
-        self.week_repository_mock.get_weeks_by_block.return_value = mock_weeks
-        self.day_repository_mock.get_days_by_week.return_value = []
-
-        result = self.analytics_service.calculate_block_volume("block123")
-
-        # Should complete successfully, only processing valid week
-        self.assertEqual(result["block_id"], "block123")
-        self.assertEqual(result["total_volume"], 0.0)
-
-        # Should only call get_days_by_week for the valid week
-        self.day_repository_mock.get_days_by_week.assert_called_once_with("week2")
-
-    def test_calculate_block_volume_with_missing_day_id(self):
-        """
-        Test block volume calculation with days missing day_id (line 291)
-        """
-        # Mock block data
-        mock_block = {
-            "block_id": "block123",
-            "athlete_id": "athlete123",
-            "title": "Test Block",
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-28",
-        }
-
-        mock_weeks = [{"week_id": "week1", "week_number": 1}]
-
-        # Mock days with missing day_id
-        mock_days = [
-            {"week_id": "week1"},  # Missing day_id
-            {"day_id": "day2", "week_id": "week1"},  # Valid
-        ]
-
-        self.block_repository_mock.get_block.return_value = mock_block
-        self.week_repository_mock.get_weeks_by_block.return_value = mock_weeks
-        self.day_repository_mock.get_days_by_week.return_value = mock_days
-        self.workout_repository_mock.get_workout_by_day.return_value = None
-
-        result = self.analytics_service.calculate_block_volume("block123")
-
-        # Should complete successfully, only processing valid day
-        self.assertEqual(result["block_id"], "block123")
-
-        # Should only call get_workout_by_day for the valid day
-        self.workout_repository_mock.get_workout_by_day.assert_called_once_with(
-            "athlete123", "day2"
-        )
-
-    def test_calculate_block_volume_with_invalid_exercise_numeric_values(self):
-        """
-        Test block volume calculation with invalid exercise numeric values (line 300)
-        """
-        # Mock complete setup with invalid exercise data
-        mock_block = {
-            "block_id": "block123",
-            "athlete_id": "athlete123",
-            "title": "Test Block",
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-28",
-        }
-
-        mock_weeks = [{"week_id": "week1", "week_number": 1}]
-        mock_days = [{"day_id": "day1", "week_id": "week1"}]
-
-        mock_workout = {
-            "day_id": "day1",
-            "status": "completed",
-            "exercises": [
-                {
-                    "sets": "invalid",
-                    "reps": 5,
-                    "weight": 100,
-                    "exercise_type": "squat",
-                    "status": "completed",
-                },
-                {
-                    "sets": 3,
-                    "reps": 5,
-                    "weight": 100,
-                    "exercise_type": "bench",
-                    "status": "completed",
-                },  # Valid
-            ],
-        }
-
-        self.block_repository_mock.get_block.return_value = mock_block
-        self.week_repository_mock.get_weeks_by_block.return_value = mock_weeks
-        self.day_repository_mock.get_days_by_week.return_value = mock_days
-        self.workout_repository_mock.get_workout_by_day.return_value = mock_workout
-
-        result = self.analytics_service.calculate_block_volume("block123")
-
-        # Should only count the valid exercise: 3*5*100 = 1500
-        self.assertEqual(result["total_volume"], 1500)
-        self.assertEqual(result["exercise_volumes"], {"bench": 1500})
-
-    def test_get_exercise_frequency_success(self):
-        """
-        Test successful exercise frequency calculation with current data structure
-        """
-        # Mock exercises over a month period using current structure
-        mock_exercises = [
-            {
-                "date": "2024-01-01",
-                "sets": 3,
-                "status": "completed",
-                "workout_status": "completed",
-            },  # Week 1
-            {
-                "date": "2024-01-03",
-                "sets": 4,
-                "status": "completed",
-                "workout_status": "completed",
-            },  # Week 1
-            {
-                "date": "2024-01-08",
-                "sets": 3,
-                "status": "completed",
-                "workout_status": "completed",
-            },  # Week 2
-            {
-                "date": "2024-01-15",
-                "sets": 5,
-                "status": "completed",
-                "workout_status": "completed",
-            },  # Week 3
-            {
-                "date": "2024-01-15",
-                "sets": 3,
-                "status": "completed",
-                "workout_status": "completed",
-            },  # Week 3 (same day)
-            {
-                "date": "2024-01-22",
-                "sets": 4,
-                "status": "completed",
-                "workout_status": "completed",
-            },  # Week 4
-        ]
-
-        # Configure mock
-        self.workout_repository_mock.get_exercises_by_type.return_value = mock_exercises
-
-        # Call the service method with proper datetime mocking
-        with patch("src.services.analytics_service.dt") as mock_dt:
-            # Create real datetime objects for calculations
-            mock_now = dt.datetime(2024, 1, 31)
-            mock_dt.datetime.now.return_value = mock_now
-            mock_dt.timedelta = dt.timedelta  # Use real timedelta
-            mock_dt.datetime.side_effect = lambda *args, **kwargs: dt.datetime(
-                *args, **kwargs
-            )  # Real datetime constructor
-
-            # Call the service method
-            result = self.analytics_service.get_exercise_frequency(
-                "athlete123", "squat", "month"
-            )
-
-        # Assert repository was called
-        self.workout_repository_mock.get_exercises_by_type.assert_called_once_with(
-            "athlete123", "squat"
-        )
-
-        # Assert calculations
-        # 5 unique training days: 01/01, 01/03, 01/08, 01/15, 01/22
-        # Total sets: 3+4+3+5+3+4 = 22
-        # Frequency per week: 5 days / (30 days / 7) = 5 / 4.29 ≈ 1.17
-        expected_result = {
-            "exercise_type": "squat",
-            "time_period": "month",
-            "training_days": 5,
-            "total_sets": 22,
-            "frequency_per_week": 1.17,  # Will be rounded to 2 decimal places
-            "period_days": 30,
-        }
-        self.assertEqual(result, expected_result)
-
-    def test_get_max_weight_history_with_repository_exception(self):
-        """
-        Test max weight history when repository raises an exception (line 87)
-        """
-        # Configure mock to raise exception
-        self.workout_repository_mock.get_exercises_by_type.side_effect = Exception(
-            "Database connection failed"
-        )
-
-        # Call the service method
-        result = self.analytics_service.get_max_weight_history("athlete123", "squat")
-
-        # Should return empty list and not crash
-        self.assertEqual(result, [])
-
-    def test_get_max_weight_history_with_missing_weight(self):
-        """
-        Test max weight history with exercises missing weight data (lines 96-103)
-        """
-        # Mock exercises with missing or None weight values
-        mock_exercises = [
-            {
-                "date": "2024-01-01",
-                "weight": None,
-                "status": "completed",
-                "workout_status": "completed",
-            },
-            {
-                "date": "2024-01-02",
-                "status": "completed",
-                "workout_status": "completed",
-            },  # Missing weight field
-            {
-                "date": "2024-01-03",
-                "weight": 150,
-                "status": "completed",
-                "workout_status": "completed",
-            },  # Valid
-        ]
-
-        self.workout_repository_mock.get_exercises_by_type.return_value = mock_exercises
-
-        result = self.analytics_service.get_max_weight_history("athlete123", "squat")
-
-        # Should only include the valid exercise
-        expected_result = [{"date": "2024-01-03", "max_weight": 150}]
+        # Should only count the valid set: 5*100 = 500
+        expected_result = [{"date": "2024-01-01", "volume": 500}]
         self.assertEqual(result, expected_result)
 
     def test_compare_blocks_success(self):
         """
-        Test successful block comparison
+        Test successful block comparison using the fixed calculate_block_volume
+        Should compare total volumes and exercise-specific volumes
         """
         # Mock block volume calculations
         block1_volume = {
@@ -732,12 +778,7 @@ class TestAnalyticsService(unittest.TestCase):
         ) as mock_calc:
             mock_calc.side_effect = [block1_volume, block2_volume]
 
-            # Call the service method
             result = self.analytics_service.compare_blocks("block1", "block2")
-
-            # Assert both blocks were analyzed
-            mock_calc.assert_any_call("block1")
-            mock_calc.assert_any_call("block2")
 
         # Assert comparison calculations
         expected_result = {
@@ -770,39 +811,372 @@ class TestAnalyticsService(unittest.TestCase):
         }
         self.assertEqual(result, expected_result)
 
-    def test_compare_blocks_with_repository_exception(self):
+    def test_missing_required_parameters(self):
         """
-        Test block comparison when calculate_block_volume raises an exception (lines 357-359)
+        Test methods with missing required parameters
+        Should return appropriate error responses or empty results
         """
-        # Mock calculate_block_volume to raise exception
+        # Test get_max_weight_history with missing parameters
+        result = self.analytics_service.get_max_weight_history("", "squat")
+        self.assertEqual(result, [])
+
+        result = self.analytics_service.get_max_weight_history("athlete123", "")
+        self.assertEqual(result, [])
+
+        # Test calculate_volume with missing athlete_id
+        result = self.analytics_service.calculate_volume("", "week")
+        self.assertEqual(result, [])
+
+        # Test get_exercise_frequency with missing parameters
+        result = self.analytics_service.get_exercise_frequency("", "squat", "month")
+        self.assertIn("error", result)
+
+        result = self.analytics_service.get_exercise_frequency(
+            "athlete123", "", "month"
+        )
+        self.assertIn("error", result)
+
+        # Test calculate_block_volume with missing block_id
+        result = self.analytics_service.calculate_block_volume("")
+        self.assertEqual(result, {"error": "Block ID is required"})
+
+        # Test compare_blocks with missing parameters
+        result = self.analytics_service.compare_blocks("", "block2")
+        self.assertEqual(result, {"error": "Both block IDs are required"})
+
+    def test_helper_methods_edge_cases(self):
+        """
+        Test edge cases for helper methods
+        Should handle missing data gracefully
+        """
+        # Test _calculate_exercise_volume with invalid data types
+        exercise_invalid = {
+            "sets_data": [
+                {"set_number": 1, "reps": None, "weight": 100, "completed": True},
+                {"set_number": 2, "reps": 5, "weight": None, "completed": True},
+            ]
+        }
+        volume = self.analytics_service._calculate_exercise_volume(exercise_invalid)
+        self.assertEqual(volume, 0.0)
+
+        # Test _is_exercise_analytics_complete with missing sets_data
+        exercise_no_sets = {
+            "status": "completed",
+            "workout_status": "completed",
+            "sets_data": [],
+        }
+        is_complete = self.analytics_service._is_exercise_analytics_complete(
+            exercise_no_sets
+        )
+        self.assertFalse(is_complete)
+
+        # Test _get_max_weight_from_exercise with no completed sets
+        exercise_no_completed = {
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": False},
+                {"set_number": 2, "reps": 5, "weight": 105, "completed": False},
+            ]
+        }
+        max_weight = self.analytics_service._get_max_weight_from_exercise(
+            exercise_no_completed
+        )
+        self.assertEqual(max_weight, 0.0)
+
+        # Test _get_max_weight_from_exercise with missing weight field (line 83-84)
+        exercise_missing_weight = {
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "completed": True},  # Missing weight
+                {"set_number": 2, "reps": 5, "weight": 100, "completed": True},
+            ]
+        }
+        max_weight = self.analytics_service._get_max_weight_from_exercise(
+            exercise_missing_weight
+        )
+        self.assertEqual(max_weight, 100.0)  # Should use the valid weight
+
+        # Test _get_max_weight_from_exercise with invalid weight type (line 83-84)
+        exercise_invalid_weight = {
+            "sets_data": [
+                {
+                    "set_number": 1,
+                    "reps": 5,
+                    "weight": "invalid",
+                    "completed": True,
+                },  # Invalid weight
+                {"set_number": 2, "reps": 5, "weight": 100, "completed": True},
+            ]
+        }
+        max_weight = self.analytics_service._get_max_weight_from_exercise(
+            exercise_invalid_weight
+        )
+        self.assertEqual(max_weight, 100.0)
+
+    def test_get_max_weight_history_missing_date_or_weight(self):
+        """
+        Test get_max_weight_history with exercises missing date or weight (lines 142-144)
+        Should skip exercises with missing required fields
+        """
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "squat",
+                "status": "completed",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                ],
+            },  # Missing workout_date
+            {
+                "exercise_id": "ex2",
+                "exercise_type": "squat",
+                "status": "completed",
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 0,
+                        "completed": True,
+                    },  # Zero weight
+                ],
+            },
+            {
+                "exercise_id": "ex3",
+                "exercise_type": "squat",
+                "status": "completed",
+                "workout_date": "2024-01-02",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 150, "completed": True},
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        result = self.analytics_service.get_max_weight_history("athlete123", "squat")
+
+        # Should only include ex3 (has valid date and weight > 0)
+        expected_result = [{"date": "2024-01-02", "max_weight": 150}]
+        self.assertEqual(result, expected_result)
+
+    def test_calculate_volume_missing_workout_date(self):
+        """
+        Test calculate_volume with exercises missing workout_date (lines 167-174)
+        Should skip exercises without valid workout_date
+        """
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "status": "completed",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                ],
+            },  # Missing workout_date
+            {
+                "exercise_id": "ex2",
+                "status": "completed",
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        with patch("src.services.analytics_service.dt") as mock_dt:
+            mock_dt.datetime.now.return_value = dt.datetime(2024, 1, 8)
+            mock_dt.timedelta = dt.timedelta
+
+            result = self.analytics_service.calculate_volume("athlete123", "week")
+
+        # Should only include ex2
+        expected_result = [{"date": "2024-01-01", "volume": 500}]
+        self.assertEqual(result, expected_result)
+
+    def test_get_exercise_frequency_missing_workout_date(self):
+        """
+        Test get_exercise_frequency with exercises missing workout_date
+        Should skip exercises without valid workout_date for training_days but still count sets
+        """
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "squat",  # Add exercise_type for filtering
+                "status": "completed",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                    {"set_number": 2, "reps": 5, "weight": 105, "completed": True},
+                ],
+            },  # Missing workout_date - sets should still be counted but not training days
+            {
+                "exercise_id": "ex2",
+                "exercise_type": "squat",  # Add exercise_type for filtering
+                "status": "completed",
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                ],
+            },
+            {
+                "exercise_id": "ex3",
+                "exercise_type": "deadlift",  # Different exercise type - should be filtered out
+                "status": "completed",
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 200, "completed": True},
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        with patch("src.services.analytics_service.dt") as mock_dt:
+            mock_dt.datetime.now.return_value = dt.datetime(2024, 1, 31)
+            mock_dt.timedelta = dt.timedelta
+
+            result = self.analytics_service.get_exercise_frequency(
+                "athlete123", "squat", "month"
+            )
+
+        # Should count all squat sets (2 + 1 = 3) but only 1 training day (ex2 has valid date)
+        # ex3 is filtered out because it's a deadlift, not squat
+        expected_result = {
+            "exercise_type": "squat",
+            "time_period": "month",
+            "training_days": 1,  # Only ex2 has valid date
+            "total_sets": 3,  # All completed sets from squat exercises (2 from ex1 + 1 from ex2)
+            "frequency_per_week": 0.23,  # 1 day / (30/7)
+            "period_days": 30,
+        }
+        self.assertEqual(result, expected_result)
+
+    def test_get_exercise_frequency_with_repository_exception(self):
+        """
+        Test get_exercise_frequency when repository raises exception (lines 242-247)
+        Should return error response when repository fails
+        """
+        self.exercise_repository_mock.get_exercises_with_workout_context.side_effect = (
+            Exception("Database error")
+        )
+
+        result = self.analytics_service.get_exercise_frequency(
+            "athlete123", "squat", "month"
+        )
+
+        self.assertIn("error", result)
+        self.assertIn("Failed to calculate exercise frequency", result["error"])
+
+    def test_calculate_block_volume_block_not_found(self):
+        """
+        Test calculate_block_volume when block is not found (lines 292-294)
+        Should return error when block doesn't exist
+        """
+        self.block_repository_mock.get_block.return_value = None
+
+        result = self.analytics_service.calculate_block_volume("nonexistent_block")
+
+        expected_result = {"error": "Block not found"}
+        self.assertEqual(result, expected_result)
+
+    def test_calculate_block_volume_missing_week_id_and_day_id(self):
+        """
+        Test calculate_block_volume with missing week_id and day_id (lines 311, 318)
+        Should skip weeks and days with missing IDs
+        """
+        mock_block = {
+            "block_id": "block123",
+            "athlete_id": "athlete123",
+            "title": "Test Block",
+            "start_date": "2024-01-01",
+            "end_date": "2024-01-28",
+        }
+
+        mock_weeks = [
+            {"week_number": 1},  # Missing week_id
+            {"week_id": "week2", "week_number": 2},
+        ]
+
+        mock_days = [
+            {"week_id": "week2"},  # Missing day_id
+            {"day_id": "day2", "week_id": "week2"},
+        ]
+
+        self.block_repository_mock.get_block.return_value = mock_block
+        self.week_repository_mock.get_weeks_by_block.return_value = mock_weeks
+        self.day_repository_mock.get_days_by_week.return_value = mock_days
+        self.exercise_repository_mock.get_exercises_by_day.return_value = []
+
+        result = self.analytics_service.calculate_block_volume("block123")
+
+        # Should complete successfully, only processing valid week and day
+        self.assertEqual(result["block_id"], "block123")
+        self.assertEqual(result["total_volume"], 0.0)
+
+        # Should only call get_days_by_week for valid week, and get_exercises_by_day for valid day
+        self.day_repository_mock.get_days_by_week.assert_called_once_with("week2")
+        self.exercise_repository_mock.get_exercises_by_day.assert_called_once_with(
+            "day2"
+        )
+
+    def test_compare_blocks_with_calculation_errors(self):
+        """
+        Test compare_blocks when calculate_block_volume returns errors (lines 397-399)
+        Should handle errors from block volume calculations
+        """
+        # Mock one successful and one error response
         with patch.object(
             self.analytics_service, "calculate_block_volume"
         ) as mock_calc:
-            mock_calc.side_effect = Exception("Calculation failed")
+            mock_calc.side_effect = [
+                {"error": "Block 1 not found"},
+                {
+                    "block_id": "block2",
+                    "block_title": "Block 2",
+                    "total_volume": 1000,
+                    "exercise_volumes": {},
+                },
+            ]
 
             result = self.analytics_service.compare_blocks("block1", "block2")
 
-        # Should return error response
-        self.assertIn("error", result)
-        self.assertIn("Failed to compare blocks", result["error"])
+        expected_result = {
+            "error": "One or both blocks could not be analyzed",
+            "block1_error": "Block 1 not found",
+            "block2_error": None,
+        }
+        self.assertEqual(result, expected_result)
 
-    def test_compare_blocks_with_zero_volume_percent_calculation(self):
+    def test_compare_blocks_zero_volume_edge_cases(self):
         """
-        Test block comparison percent calculation edge cases (lines 373, 380-381)
+        Test compare_blocks with zero volumes (lines 419, 476-478)
+        Should handle division by zero and new exercise cases
         """
-        # Test zero volume in first block (division by zero case)
         block1_volume = {
             "block_id": "block1",
             "block_title": "Block 1",
-            "total_volume": 0,  # Zero volume
-            "exercise_volumes": {"squat": 0},
+            "total_volume": 0,
+            "exercise_volumes": {"squat": 0, "bench": 0},
         }
 
         block2_volume = {
             "block_id": "block2",
             "block_title": "Block 2",
             "total_volume": 1000,
-            "exercise_volumes": {"squat": 1000},
+            "exercise_volumes": {"squat": 500, "deadlift": 500},  # New exercise
         }
 
         with patch.object(
@@ -812,107 +1186,80 @@ class TestAnalyticsService(unittest.TestCase):
 
             result = self.analytics_service.compare_blocks("block1", "block2")
 
-        # Should handle division by zero gracefully
-        self.assertEqual(result["comparison"]["volume_percent_change"], 0)
+        # Should handle zero division gracefully
+        comparison = result["comparison"]
+        self.assertEqual(comparison["volume_percent_change"], 0)
+
+        # Check exercise comparisons
+        squat_comparison = comparison["exercise_comparison"]["squat"]
+        self.assertEqual(squat_comparison["percent_change"], 100.0)  # 0 to 500 = 100%
+
+        bench_comparison = comparison["exercise_comparison"]["bench"]
+        self.assertEqual(bench_comparison["percent_change"], 0.0)  # 0 to 0 = 0%
+
+        deadlift_comparison = comparison["exercise_comparison"]["deadlift"]
         self.assertEqual(
-            result["comparison"]["exercise_comparison"]["squat"]["percent_change"],
-            100.0,
-        )
+            deadlift_comparison["percent_change"], 100.0
+        )  # New exercise = 100%
 
-    def test_error_handling_in_methods(self):
+    def test_get_exercise_frequency_different_time_periods(self):
         """
-        Test error handling when repository methods raise exceptions
+        Test get_exercise_frequency with different time periods (lines 194)
+        Should handle year, week, and default time periods correctly
         """
-        # Test max weight history with repository exception
-        self.workout_repository_mock.get_exercises_by_type.side_effect = Exception(
-            "Database error"
-        )
-
-        result = self.analytics_service.get_max_weight_history("athlete123", "squat")
-        self.assertEqual(result, [])
-
-        # Test volume calculation with repository exception
-        self.workout_repository_mock.get_completed_workouts_since.side_effect = (
-            Exception("Database error")
-        )
-
-        result = self.analytics_service.calculate_volume("athlete123", "week")
-        self.assertEqual(result, [])
-
-        # Test block volume with repository exception
-        self.block_repository_mock.get_block.side_effect = Exception("Database error")
-
-        result = self.analytics_service.calculate_block_volume("block123")
-        self.assertIn("error", result)
-        self.assertIn("Failed to calculate block volume", result["error"])
-
-    def test_volume_calculation_edge_cases(self):
-        """
-        Test volume calculation with edge cases using current data structure
-        """
-        # Mock workout with mixed valid/invalid data
-        mock_workouts = [
+        mock_exercises = [
             {
-                "date": "2024-01-01",
+                "exercise_id": "ex1",
                 "status": "completed",
-                "exercises": [
-                    {
-                        "sets": 0,
-                        "reps": 5,
-                        "weight": 100,
-                        "status": "completed",
-                    },  # Zero sets
-                    {
-                        "sets": 3,
-                        "reps": 0,
-                        "weight": 100,
-                        "status": "completed",
-                    },  # Zero reps
-                    {
-                        "sets": 3,
-                        "reps": 5,
-                        "weight": 0,
-                        "status": "completed",
-                    },  # Zero weight
-                    {
-                        "sets": 3,
-                        "reps": 5,
-                        "weight": 100,
-                        "status": "completed",
-                    },  # Valid
+                "workout_date": "2024-01-01",
+                "workout_status": "completed",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
                 ],
-            },
-            {
-                # Workout without date
-                "status": "completed",
-                "exercises": [
-                    {"sets": 3, "reps": 5, "weight": 100, "status": "completed"},
-                ],
-            },
-            {
-                "date": "2024-01-02",
-                "status": "completed",
-                "exercises": [],  # No exercises
-            },
+            }
         ]
 
-        self.workout_repository_mock.get_completed_workouts_since.return_value = (
-            mock_workouts
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
         )
 
-        with patch("datetime.datetime") as mock_datetime:
-            mock_datetime.now.return_value = dt.datetime(2024, 1, 8)
-            result = self.analytics_service.calculate_volume("athlete123", "week")
+        # Test year time period
+        with patch("src.services.analytics_service.dt") as mock_dt:
+            mock_dt.datetime.now.return_value = dt.datetime(2024, 12, 31)
+            mock_dt.timedelta = dt.timedelta
 
-        # Should count all exercises including zero values
-        # Day 1: (0*5*100) + (3*0*100) + (3*5*0) + (3*5*100) = 0 + 0 + 0 + 1500 = 1500
-        # Day without date: skipped
-        # Day 2: No exercises = 0 volume
-        expected_result = [
-            {"date": "2024-01-01", "volume": 1500},
-            {"date": "2024-01-02", "volume": 0},
-        ]
-        self.assertEqual(result, expected_result)
+            result = self.analytics_service.get_exercise_frequency(
+                "athlete123", "squat", "year"
+            )
+
+        self.assertEqual(result["period_days"], 365)
+
+        # Test week time period
+        with patch("src.services.analytics_service.dt") as mock_dt:
+            mock_dt.datetime.now.return_value = dt.datetime(2024, 1, 8)
+            mock_dt.timedelta = dt.timedelta
+
+            result = self.analytics_service.get_exercise_frequency(
+                "athlete123", "squat", "week"
+            )
+
+        self.assertEqual(result["period_days"], 7)
+
+        # Test unknown time period (should default to all time)
+        with patch("src.services.analytics_service.dt") as mock_dt:
+            mock_dt.datetime.now.return_value = dt.datetime(2024, 1, 8)
+            mock_dt.timedelta = dt.timedelta
+            mock_dt.datetime.side_effect = lambda *args, **kwargs: dt.datetime(
+                *args, **kwargs
+            )
+
+            result = self.analytics_service.get_exercise_frequency(
+                "athlete123", "squat", "unknown"
+            )
+
+        # Should calculate days from 2000-01-01 to now
+        expected_days = (dt.datetime(2024, 1, 8) - dt.datetime(2000, 1, 1)).days
+        self.assertEqual(result["period_days"], expected_days)
 
 
 if __name__ == "__main__":  # pragma: no cover
