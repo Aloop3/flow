@@ -140,3 +140,52 @@ class ExerciseRepository(BaseRepository):
                 batch.delete_item(Key={"exercise_id": exercise["exercise_id"]})
 
         return len(exercises)
+
+    def get_exercises_with_workout_context(
+        self,
+        athlete_id: str,
+        exercise_type: Optional[str] = None,
+        start_date: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get exercises with workout context for analytics.
+        Returns exercises with workout date and status included.
+
+        :param athlete_id: The athlete's ID
+        :param exercise_type: Optional filter by exercise type
+        :param start_date: Optional filter for exercises since date (YYYY-MM-DD)
+        :return: List of exercises with workout context
+        """
+        from src.repositories.workout_repository import WorkoutRepository
+
+        # Get all workouts for the athlete
+        workout_repo = WorkoutRepository()
+        workouts = workout_repo.get_workouts_by_athlete(athlete_id)
+
+        # Filter workouts by date if specified
+        if start_date:
+            workouts = [w for w in workouts if w.get("date", "") >= start_date]
+
+        exercises_with_context = []
+
+        for workout in workouts:
+            workout_id = workout.get("workout_id")
+            if not workout_id:
+                continue
+
+            # Get exercises for this workout
+            exercises = self.get_exercises_by_workout(workout_id)
+
+            for exercise in exercises:
+                # Filter by exercise type if specified
+                if exercise_type and exercise.get("exercise_type") != exercise_type:
+                    continue
+
+                # Add workout context to exercise
+                exercise_with_context = {**exercise}
+                exercise_with_context["workout_date"] = workout.get("date")
+                exercise_with_context["workout_status"] = workout.get("status")
+
+                exercises_with_context.append(exercise_with_context)
+
+        return exercises_with_context
