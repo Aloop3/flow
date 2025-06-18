@@ -160,11 +160,30 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
       // Update local state immediately for better UX
       setExerciseState((prev) => ({ ...prev, sets: newSetCount }));
 
-      // Create placeholder set
+      // Get previous set data to copy values (same logic as getPreviousSetData)
+      const previousSetData = newSetCount > 1 ? setsDataMap[newSetCount - 1] : undefined;
+      
+      let setValuesToUse;
+      if (previousSetData) {
+        // Convert previous set to display format first (handles kg/lb conversion)
+        const displayPreviousSet = convertSetDataForDisplay(previousSetData);
+        setValuesToUse = {
+          reps: displayPreviousSet.reps,
+          weight: displayPreviousSet.weight, // This is now in correct display unit
+          rpe: displayPreviousSet.rpe,
+        };
+      } else {
+        // Fallback to planned values if no previous set exists
+        setValuesToUse = {
+          reps: exerciseState.reps,
+          weight: exerciseState.weight, // exerciseState.weight is already in display units
+          rpe: exerciseState.rpe,
+        };
+      }
+
+      // Create placeholder set with previous set values (not planned values)
       await trackExerciseSet(exerciseState.exercise_id, newSetCount, {
-        reps: exerciseState.reps,
-        weight: exerciseState.weight,
-        ...(exerciseState.rpe !== undefined && { rpe: exerciseState.rpe }),
+        ...setValuesToUse,
         completed: false,
       });
 
@@ -177,6 +196,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
       setIsSubmitting(false);
     }
   };
+
 
   const removeSet = async (setNumber: number) => {
     if (readOnly || exerciseState.sets <= 1) return;
