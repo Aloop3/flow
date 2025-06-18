@@ -75,9 +75,19 @@ def get_exercise_default_unit(exercise_type, user_preference="auto"):
     else:
         exercise_name = str(exercise_type)
 
-    # Auto behavior: Big 3 → kg, accessories → lb
+    # Auto behavior: Equipment-first hierarchy, then Big 3 → kg, accessories → lb
     exercise_lower = exercise_name.lower()
 
+    # Check for equipment type (dumbbell/machine → lb)
+    equipment_keywords = ["dumbbell", "machine", "cable"]
+    is_equipment_based = any(
+        keyword in exercise_lower for keyword in equipment_keywords
+    )
+
+    if is_equipment_based:
+        return "lb"
+
+    # Check for Big 3 movements (barbell variants → kg)
     big_three_keywords = ["squat", "bench press", "deadlift"]
     is_big_three = any(keyword in exercise_lower for keyword in big_three_keywords)
 
