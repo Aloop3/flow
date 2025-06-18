@@ -61,7 +61,7 @@ class BaseRepository:
         :param update_expression: A DynamoDB update expression defining the update.
         :param expression_values: A dictionary mapping expression attribute names to values.
         :param expression_attribute_names:
-        :return: The response containing the updated attributes.
+        :return: The response containing the updated attributes with decimal conversion applied.
         """
         try:
             # Convert all float values in expression_values to Decimal
@@ -77,7 +77,8 @@ class BaseRepository:
             if expression_attribute_names:
                 update_args["ExpressionAttributeNames"] = expression_attribute_names
             response = self.table.update_item(**update_args)
-            return response.get("Attributes", {})
+            attributes = response.get("Attributes", {})
+            return convert_decimals_to_floats(attributes)
         except Exception as e:
             print(f"Error updating item: {e}")
             raise
