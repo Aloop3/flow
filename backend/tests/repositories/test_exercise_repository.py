@@ -1,4 +1,5 @@
 import unittest
+from decimal import Decimal
 from unittest.mock import MagicMock, patch, ANY
 from boto3.dynamodb.conditions import Key
 from src.repositories.exercise_repository import ExerciseRepository
@@ -132,6 +133,157 @@ class TestExerciseRepository(unittest.TestCase):
 
         # Assert the result is correct
         self.assertEqual(result, exercises_data)
+
+    def test_get_exercises_by_workout_converts_decimals(self):
+        """
+        Test that get_exercises_by_workout converts Decimal to float
+        """
+        # Mock DynamoDB response with Decimal values (simulates real DynamoDB data)
+        mock_response = {
+            "Items": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout1",
+                    "sets": Decimal("3"),
+                    "reps": Decimal("8"),
+                    "weight": Decimal("100.5"),
+                    "status": "completed",
+                },
+                {
+                    "exercise_id": "ex2",
+                    "workout_id": "workout1",
+                    "sets": Decimal("4"),
+                    "reps": Decimal("6"),
+                    "weight": Decimal("85.0"),
+                    "status": "planned",
+                },
+            ]
+        }
+
+        self.table_mock.query.return_value = mock_response
+
+        # Call the method
+        exercises = self.repository.get_exercises_by_workout("workout1")
+
+        # Verify decimal conversion happened
+        self.assertEqual(len(exercises), 2)
+
+        # Check first exercise - should be floats now
+        ex1 = exercises[0]
+        self.assertIsInstance(ex1["sets"], float)
+        self.assertIsInstance(ex1["reps"], float)
+        self.assertIsInstance(ex1["weight"], float)
+        self.assertEqual(ex1["sets"], 3.0)
+        self.assertEqual(ex1["reps"], 8.0)
+        self.assertEqual(ex1["weight"], 100.5)
+
+        # Check second exercise
+        ex2 = exercises[1]
+        self.assertIsInstance(ex2["sets"], float)
+        self.assertIsInstance(ex2["reps"], float)
+        self.assertIsInstance(ex2["weight"], float)
+        self.assertEqual(ex2["weight"], 85.0)
+
+    def test_get_exercises_by_day_converts_decimals(self):
+        """
+        Test that get_exercises_by_day converts Decimal to float
+        """
+        # Mock DynamoDB response with Decimal values
+        mock_response = {
+            "Items": [
+                {
+                    "exercise_id": "ex1",
+                    "day_id": "day1",
+                    "sets": Decimal("5"),
+                    "reps": Decimal("5"),
+                    "weight": Decimal("135.75"),
+                    "status": "completed",
+                }
+            ]
+        }
+
+        self.table_mock.query.return_value = mock_response
+
+        # Call the method
+        exercises = self.repository.get_exercises_by_day("day1")
+
+        # Verify decimal conversion happened
+        self.assertEqual(len(exercises), 1)
+        ex1 = exercises[0]
+        self.assertIsInstance(ex1["sets"], float)
+        self.assertIsInstance(ex1["reps"], float)
+        self.assertIsInstance(ex1["weight"], float)
+        self.assertEqual(ex1["weight"], 135.75)
+
+    def test_get_exercises_by_workout_empty_response_handling(self):
+        """
+        Test that empty responses are handled correctly after decimal conversion fix
+        """
+        mock_response = {"Items": []}
+        self.table_mock.query.return_value = mock_response
+
+        exercises = self.repository.get_exercises_by_workout("workout1")
+
+        self.assertEqual(exercises, [])
+
+    def test_get_exercises_by_workout_mixed_decimal_types(self):
+        """
+        Test handling of mixed data types including nested Decimal values
+        Comprehensive test for UC22 production blocker
+        """
+        # Mock response with complex nested data including sets_data
+        mock_response = {
+            "Items": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout1",
+                    "sets": Decimal("3"),
+                    "reps": Decimal("8"),
+                    "weight": Decimal("102.27"),
+                    "rpe": Decimal("8.5"),
+                    "status": "completed",
+                    "sets_data": [
+                        {
+                            "set_number": 1,
+                            "reps": Decimal("8"),
+                            "weight": Decimal("102.27"),
+                            "completed": True,
+                        },
+                        {
+                            "set_number": 2,
+                            "reps": Decimal("7"),
+                            "weight": Decimal("102.27"),
+                            "completed": True,
+                        },
+                    ],
+                }
+            ]
+        }
+
+        self.table_mock.query.return_value = mock_response
+
+        exercises = self.repository.get_exercises_by_workout("workout1")
+
+        # Verify top-level decimal conversion
+        ex1 = exercises[0]
+        self.assertIsInstance(ex1["sets"], float)
+        self.assertIsInstance(ex1["reps"], float)
+        self.assertIsInstance(ex1["weight"], float)
+        self.assertIsInstance(ex1["rpe"], float)
+
+        # Verify nested sets_data decimal conversion
+        sets_data = ex1["sets_data"]
+        self.assertEqual(len(sets_data), 2)
+
+        set1 = sets_data[0]
+        self.assertIsInstance(set1["reps"], float)
+        self.assertIsInstance(set1["weight"], float)
+        self.assertEqual(set1["weight"], 102.27)
+
+        set2 = sets_data[1]
+        self.assertIsInstance(set2["reps"], float)
+        self.assertIsInstance(set2["weight"], float)
+        self.assertEqual(set2["reps"], 7.0)
 
     def test_create_exercise(self):
         """
