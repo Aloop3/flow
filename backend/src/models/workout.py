@@ -111,13 +111,22 @@ class Workout:
         """
         Calculate the total volume of the workout (sets * reps * weight).
 
+        Defensive implementation that handles mixed Decimal/float types
+        from DynamoDB to prevent arithmetic errors during exercise completion.
+
         :return: The total volume
         """
         total_volume = 0.0
 
         for exercise in self.exercises:
             if exercise.status == "completed":
-                total_volume += exercise.sets * exercise.reps * exercise.weight
+                # Defensive type conversion for arithmetic safety
+                # Converts Decimal types from DynamoDB to float for arithmetic operations
+                sets = float(exercise.sets)
+                reps = float(exercise.reps)
+                weight = float(exercise.weight)
+
+                total_volume += sets * reps * weight
 
         return total_volume
 

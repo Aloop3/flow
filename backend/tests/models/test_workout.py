@@ -1,4 +1,6 @@
 import unittest
+from decimal import Decimal
+from unittest.mock import patch
 from src.models.workout import Workout
 from src.models.exercise import Exercise
 
@@ -371,6 +373,147 @@ class TestWorkoutModel(unittest.TestCase):
         self.assertEqual(workout_dict["exercises"][0]["notes"], "Felt strong")
         self.assertEqual(workout_dict["exercises"][0]["status"], "completed")
         self.assertEqual(workout_dict["exercises"][0]["rpe"], 8.0)
+
+    def test_volume_calculation_with_decimal_types(self):
+        """
+        Test volume calculation when DynamoDB returns Decimal types
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-03-15",
+        )
+
+        # Create exercise with Decimal types (simulating DynamoDB data)
+        exercise = Exercise(
+            exercise_id="test-exercise",
+            workout_id="workout123",
+            exercise_type="squat",
+            sets=Decimal("3"),  # DynamoDB Decimal
+            reps=Decimal("8"),  # DynamoDB Decimal
+            weight=Decimal("100.5"),  # DynamoDB Decimal
+            status="completed",
+        )
+
+        workout.add_exercise(exercise)
+
+        # This should NOT raise "unsupported operand type(s) for *: 'decimal.Decimal' and 'float'"
+        volume = workout.calculate_volume()
+
+        # Expected: 3 * 8 * 100.5 = 2412.0
+        self.assertEqual(volume, 2412.0)
+        self.assertIsInstance(volume, float)
+
+    def test_volume_calculation_with_mixed_types(self):
+        """
+        Test volume calculation with mixed Decimal/int/float types
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-03-15",
+        )
+
+        exercise = Exercise(
+            exercise_id="test-exercise",
+            workout_id="workout123",
+            exercise_type="bench_press",
+            sets=3,  # int
+            reps=Decimal("10"),  # Decimal
+            weight=85.5,  # float
+            status="completed",
+        )
+
+        workout.add_exercise(exercise)
+        volume = workout.calculate_volume()
+
+        # Expected: 3 * 10 * 85.5 = 2565.0
+        self.assertEqual(volume, 2565.0)
+
+    def test_volume_calculation_with_decimal_precision(self):
+        """
+        Test volume calculation with decimal precision values
+        Tests the defensive float() conversion for precise Decimal values
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-03-15",
+        )
+
+        # Exercise with precise decimal weights (common in powerlifting)
+        precise_exercise = Exercise(
+            exercise_id="precise-exercise",
+            workout_id="workout123",
+            exercise_type="bench_press",
+            sets=Decimal("4"),
+            reps=Decimal("6"),
+            weight=Decimal("102.27"),  # 225.5 lbs converted to kg
+            status="completed",
+        )
+
+        workout.add_exercise(precise_exercise)
+        volume = workout.calculate_volume()
+
+        # Expected: 4 * 6 * 102.27 = 2454.48
+        self.assertEqual(volume, 2454.48)
+
+    def test_volume_calculation_multiple_decimal_exercises(self):
+        """
+        Test volume calculation with multiple exercises having Decimal types
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-03-15",
+        )
+
+        # Completed exercise with Decimals
+        completed_exercise = Exercise(
+            exercise_id="completed-exercise",
+            workout_id="workout123",
+            exercise_type="squat",
+            sets=Decimal("3"),
+            reps=Decimal("8"),
+            weight=Decimal("100.0"),
+            status="completed",
+        )
+
+        # Planned exercise with Decimals (should be ignored)
+        planned_exercise = Exercise(
+            exercise_id="planned-exercise",
+            workout_id="workout123",
+            exercise_type="bench_press",
+            sets=Decimal("3"),
+            reps=Decimal("10"),
+            weight=Decimal("80.0"),
+            status="planned",
+        )
+
+        # Another completed exercise with mixed types
+        mixed_exercise = Exercise(
+            exercise_id="mixed-exercise",
+            workout_id="workout123",
+            exercise_type="deadlift",
+            sets=2,  # int
+            reps=Decimal("5"),  # Decimal
+            weight=120.5,  # float
+            status="completed",
+        )
+
+        workout.add_exercise(completed_exercise)
+        workout.add_exercise(planned_exercise)
+        workout.add_exercise(mixed_exercise)
+
+        volume = workout.calculate_volume()
+
+        # Expected: completed (3*8*100.0) + mixed (2*5*120.5) = 2400.0 + 1205.0 = 3605.0
+        # Planned exercise ignored
+        self.assertEqual(volume, 3605.0)
 
 
 if __name__ == "__main__":  # pragma: no cover

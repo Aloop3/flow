@@ -2,6 +2,7 @@ from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
 from src.config.exercise_config import ExerciseConfig
+from src.utils.decimal_converter import convert_decimals_to_floats
 
 
 class ExerciseRepository(BaseRepository):
@@ -30,7 +31,10 @@ class ExerciseRepository(BaseRepository):
             Limit=ExerciseConfig.MAX_ITEMS,
         )
 
-        return response.get("Items", [])
+        items = response.get("Items", [])
+
+        # Apply decimal conversion to all items
+        return [convert_decimals_to_floats(item) for item in items]
 
     def get_exercises_by_day(self, day_id: str) -> List[Dict[str, Any]]:
         """
@@ -45,7 +49,10 @@ class ExerciseRepository(BaseRepository):
             Limit=ExerciseConfig.MAX_ITEMS,
         )
 
-        return response.get("Items", [])
+        items = response.get("Items", [])
+
+        # Apply decimal conversion to all items
+        return [convert_decimals_to_floats(item) for item in items]
 
     def get_completed_exercises_by_type(
         self, athlete_id: str, exercise_type: str
