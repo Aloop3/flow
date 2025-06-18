@@ -44,14 +44,27 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, user }) =>
     if (weightPreference === 'kg') return 'kg';
     if (weightPreference === 'lb') return 'lb';
     
-    // Auto behavior - SBD default to kg, accessories to lb
+    // Auto behavior - Equipment-first hierarchy, then SBD default to kg, accessories to lb
     if (!exerciseType) {
       return 'lb'; // Default for undefined/empty exercise types
     }
     
+    const exerciseLower = exerciseType.toLowerCase();
+    
+    // Check for equipment type (dumbbell/machine → lb)
+    const equipmentKeywords = ['dumbbell', 'machine', 'cable'];
+    const isEquipmentBased = equipmentKeywords.some(keyword => 
+      exerciseLower.includes(keyword)
+    );
+    
+    if (isEquipmentBased) {
+      return 'lb';
+    }
+    
+    // Check for Big 3 movements (barbell variants → kg)
     const bigThree = ['squat', 'bench press', 'deadlift'];
     const isBigThree = bigThree.some(lift => 
-      exerciseType.toLowerCase().includes(lift)
+      exerciseLower.includes(lift)
     );
     
     return isBigThree ? 'kg' : 'lb';
