@@ -16,7 +16,7 @@ Parameters:
     Description: CORS origin for API Gateway
   LayerVersion:
     Type: String
-    Default: v0.1.0
+    Default: v0-1-0
     Description: Version of layers to use
 
 Globals:
