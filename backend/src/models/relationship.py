@@ -11,7 +11,7 @@ class Relationship:
         status: Literal["pending", "active", "ended"] = "pending",
         created_at: str = None,
         invitation_code: Optional[str] = None,
-        expiration_time: Optional[int] = None,
+        ttl: Optional[int] = None,
     ):
         self.relationship_id: str = relationship_id
         self.coach_id: str = coach_id
@@ -19,7 +19,7 @@ class Relationship:
         self.status: Literal["pending", "active", "ended"] = status
         self.created_at: str = created_at or dt.datetime.now().isoformat()
         self.invitation_code: Optional[str] = invitation_code
-        self.expiration_time: Optional[int] = expiration_time
+        self.ttl: Optional[int] = ttl
 
     def to_dict(self) -> Dict[str, Any]:
         result = {
@@ -36,7 +36,7 @@ class Relationship:
         if self.invitation_code is not None:
             result["invitation_code"] = self.invitation_code
 
-        if self.expiration_time is not None:
-            result["expiration_time"] = self.expiration_time
+        if self.ttl is not None:
+            result["ttl"] = self.ttl
 
         return result
