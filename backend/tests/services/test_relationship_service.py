@@ -220,9 +220,9 @@ class TestRelationshipService(unittest.TestCase):
         # Verify the result is None
         self.assertIsNone(result)
 
-    def test_end_relationship(self):
+    def test_end_relationship_with_ttl(self):
         """
-        Test ending an active relationship
+        Test ending an active relationship and setting TTL for cleanup
         """
         # Mock data for an active relationship
         active_relationship = {
@@ -238,13 +238,14 @@ class TestRelationshipService(unittest.TestCase):
             active_relationship
         )
 
-        # Mock the updated relationship
+        # Mock the updated relationship with TTL
         ended_relationship = {
             "relationship_id": "rel123",
             "coach_id": "coach456",
             "athlete_id": "athlete789",
             "status": "ended",
-            "created_at": "2025-03-12T09:00:00",
+            "created_at": "2025-03-01T09:00:00",
+            "ttl": 1720958400,  # 60 days from end date
         }
 
         # Setup the update_relationship to return a Relationship object
@@ -261,15 +262,18 @@ class TestRelationshipService(unittest.TestCase):
                 "rel123"
             )
 
-            # Verify the update was called with correct parameters
-            mock_update_relationship.assert_called_once_with(
-                "rel123", {"status": "ended"}
-            )
+            # Verify the update was called with status and TTL
+            mock_update_relationship.assert_called_once()
+            call_args = mock_update_relationship.call_args[0]
+            self.assertEqual(call_args[0], "rel123")
+            self.assertEqual(call_args[1]["status"], "ended")
+            self.assertIn("ttl", call_args[1])
 
             # Verify the returned object is the updated relationship
             self.assertIsInstance(result, Relationship)
             self.assertEqual(result.relationship_id, "rel123")
             self.assertEqual(result.status, "ended")
+            self.assertEqual(result.ttl, 1720958400)
 
     def test_end_relationship_already_ended(self):
         """
@@ -326,13 +330,16 @@ class TestRelationshipService(unittest.TestCase):
                 "athlete_id": "athlete2",
                 "status": "pending",
                 "created_at": "2025-03-02T10:00:00",
+                "invitation_code": "ABC123",
+                "ttl": 1678701600,
             },
             {
                 "relationship_id": "rel3",
                 "coach_id": "coach123",
                 "athlete_id": "athlete3",
-                "status": "pending",
+                "status": "ended",
                 "created_at": "2025-03-03T08:00:00",
+                "ttl": 1720958400,
             },
         ]
 
@@ -356,26 +363,37 @@ class TestRelationshipService(unittest.TestCase):
         self.assertEqual(result[1].relationship_id, "rel2")
         self.assertEqual(result[2].relationship_id, "rel3")
 
-    def test_generate_invitation_code(self):
+        # Verify TTL fields are preserved
+        self.assertIsNone(result[0].ttl)  # Active relationship has no TTL
+        self.assertEqual(result[1].ttl, 1678701600)  # Pending has TTL
+        self.assertEqual(result[2].ttl, 1720958400)  # Ended has TTL
+
+    def test_generate_invitation_code_with_ttl(self):
         """
-        Test generating an invitation code for a coach
+        Test generating an invitation code with TTL for a coach
         """
         # Setup
         coach_id = "coach789"
 
-        # patch dt.datetime so that now() returns mock_future
-        with patch("src.services.relationship_service.dt.datetime") as dt_cls:
-            mock_now = MagicMock()
-            mock_future = MagicMock()
-            # dt.datetime.now() → mock_now
-            dt_cls.now.return_value = mock_now
-            # mock_now + ANY → mock_future
-            mock_now.__add__.return_value = mock_future
-            # timestamp() on that future → our fixed epoch
-            mock_future.timestamp.return_value = 1678701600
+        # Mock the RelationshipConfig values
+        with patch(
+            "src.services.relationship_service.RelationshipConfig"
+        ) as mock_config:
+            mock_config.INVITATION_CODE_TTL_HOURS = 24
 
-            # Call the method
-            result = self.relationship_service.generate_invitation_code(coach_id)
+            # patch dt.datetime so that now() returns mock_future
+            with patch("src.services.relationship_service.dt.datetime") as dt_cls:
+                mock_now = MagicMock()
+                mock_future = MagicMock()
+                # dt.datetime.now() → mock_now
+                dt_cls.now.return_value = mock_now
+                # mock_now + ANY → mock_future
+                mock_now.__add__.return_value = mock_future
+                # timestamp() on that future → our fixed epoch
+                mock_future.timestamp.return_value = 1678701600
+
+                # Call the method
+                result = self.relationship_service.generate_invitation_code(coach_id)
 
         # Assert that repository was called
         self.relationship_repository_mock.create_relationship.assert_called_once()
@@ -384,19 +402,20 @@ class TestRelationshipService(unittest.TestCase):
         relationship_dict = (
             self.relationship_repository_mock.create_relationship.call_args[0][0]
         )
-        print(relationship_dict)
 
         self.assertEqual(relationship_dict["relationship_id"], "test-uuid")
         self.assertEqual(relationship_dict["coach_id"], coach_id)
         self.assertEqual(relationship_dict["invitation_code"], result.invitation_code)
-        self.assertEqual(relationship_dict["expiration_time"], 1678701600)
+        self.assertEqual(
+            relationship_dict["ttl"], 1678701600
+        )  # TTL field instead of expiration_time
         self.assertNotIn("athlete_id", relationship_dict)
         self.assertEqual(relationship_dict["status"], "pending")
 
         # Verify returned object
         self.assertIsInstance(result, Relationship)
         self.assertEqual(result.invitation_code, relationship_dict["invitation_code"])
-        self.assertEqual(result.expiration_time, 1678701600)
+        self.assertEqual(result.ttl, 1678701600)
 
     def test_validate_invitation_code_athlete_has_relationship(self):
         """
@@ -449,13 +468,14 @@ class TestRelationshipService(unittest.TestCase):
         # Mock invitation code not found
         self.relationship_repository_mock.get_relationship_by_code.return_value = None
 
-        # Act
-        result = self.relationship_service.validate_invitation_code(
-            invitation_code, athlete_id
-        )
+        # Act & Assert
+        with self.assertRaises(ValueError) as context:
+            self.relationship_service.validate_invitation_code(
+                invitation_code, athlete_id
+            )
 
-        # Assert
-        self.assertIsNone(result)
+        # Verify correct error code
+        self.assertEqual(str(context.exception), "INVALID_CODE")
 
         # Verify repository methods called correctly
         self.relationship_repository_mock.get_active_relationship_for_athlete.assert_called_once_with(
@@ -485,22 +505,22 @@ class TestRelationshipService(unittest.TestCase):
                 "relationship_id": "rel789",
                 "coach_id": "coach456",
                 "invitation_code": invitation_code,
-                "expiration_time": 1678697000,  # earlier than current time
+                "ttl": 1678697000,  # earlier than current time
             }
 
-            # Act
-            result = self.relationship_service.validate_invitation_code(
-                invitation_code, athlete_id
-            )
+            # Act & Assert
+            with self.assertRaises(ValueError) as context:
+                self.relationship_service.validate_invitation_code(
+                    invitation_code, athlete_id
+                )
 
-        # Assert
-        self.assertIsNone(result)
+        # Verify correct error code
+        self.assertEqual(str(context.exception), "EXPIRED_CODE")
 
         # Verify code was found but no update attempted
         self.relationship_repository_mock.get_relationship_by_code.assert_called_once_with(
             invitation_code
         )
-        # No mocked update_relationship in this setUp, so we can't easily assert it wasn't called
 
     def test_validate_invitation_code_success(self):
         """
@@ -537,7 +557,7 @@ class TestRelationshipService(unittest.TestCase):
                 "relationship_id": relationship_id,
                 "coach_id": "coach789",
                 "invitation_code": invitation_code,
-                "expiration_time": 1678705200,  # future timestamp
+                "ttl": 1678705200,  # future timestamp
             }
 
             # Act
@@ -548,12 +568,12 @@ class TestRelationshipService(unittest.TestCase):
         # Assert
         self.assertEqual(result, updated_relationship)
 
-        # Verify correct update was attempted
+        # Verify correct update was attempted (TTL-based)
         expected_update = {
             "athlete_id": athlete_id,
             "status": "active",
             "invitation_code": None,
-            "expiration_time": None,
+            "ttl": None,  # Remove TTL for active relationships
         }
         self.relationship_service.update_relationship.assert_called_once_with(
             relationship_id, expected_update

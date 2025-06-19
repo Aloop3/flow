@@ -164,7 +164,7 @@ def get_relationship(event, context):
 @with_middleware([log_request, handle_errors])
 def generate_invitation_code(event, context):
     """
-    Handle POST /coaches/{coach_id}/invitation request to generate an invitation code
+    Handle POST /coaches/{coach_id}/invitation request to generate invitation code
     """
     try:
         # Extract coach_id from path parameters
@@ -176,7 +176,7 @@ def generate_invitation_code(event, context):
         # Return code and expiration info
         response_data = {
             "invitation_code": relationship.invitation_code,
-            "expires_at": relationship.expiration_time,
+            "expires_at": relationship.ttl,
             "relationship_id": relationship.relationship_id,
         }
 

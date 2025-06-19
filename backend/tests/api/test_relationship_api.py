@@ -164,9 +164,9 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response_body["error"], "Test exception")
 
     @patch("src.services.relationship_service.RelationshipService.end_relationship")
-    def test_end_relationship_success(self, mock_end_relationship):
+    def test_end_relationship_success_with_ttl(self, mock_end_relationship):
         """
-        Test successful relationship ending
+        Test successful relationship ending with TTL
         """
 
         # Setup
@@ -177,6 +177,7 @@ class TestRelationshipAPI(BaseTest):
             "athlete_id": "athlete789",
             "status": "ended",  # Updated from active to ended
             "created_at": "2025-03-13T12:00:00",
+            "ttl": 1720958400,  # TTL for 60-day cleanup
         }
         mock_end_relationship.return_value = mock_rel
 
@@ -191,6 +192,7 @@ class TestRelationshipAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["relationship_id"], "rel123")
         self.assertEqual(response_body["status"], "ended")
+        self.assertEqual(response_body["ttl"], 1720958400)
         mock_end_relationship.assert_called_once_with("rel123")
 
     @patch("src.services.relationship_service.RelationshipService.end_relationship")
@@ -254,6 +256,8 @@ class TestRelationshipAPI(BaseTest):
             "coach_id": "coach456",
             "athlete_id": "athlete2",
             "status": "pending",
+            "invitation_code": "ABC123",
+            "ttl": 1678701600,
         }
         mock_get_relationships.return_value = [mock_rel1, mock_rel2]
 
@@ -272,6 +276,7 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(len(response_body), 2)
         self.assertEqual(response_body[0]["relationship_id"], "rel1")
         self.assertEqual(response_body[1]["relationship_id"], "rel2")
+        self.assertEqual(response_body[1]["ttl"], 1678701600)  # TTL present in pending
         mock_get_relationships.assert_called_once_with("coach456", "active")
 
     @patch(
@@ -397,14 +402,16 @@ class TestRelationshipAPI(BaseTest):
     @patch(
         "src.services.relationship_service.RelationshipService.generate_invitation_code"
     )
-    def test_generate_invitation_code_success(self, mock_generate_invitation_code):
+    def test_generate_invitation_code_success_with_ttl(
+        self, mock_generate_invitation_code
+    ):
         """
-        Test successful invitation code generation
+        Test successful invitation code generation with TTL
         """
         # Setup
         mock_rel = MagicMock()
         mock_rel.invitation_code = "TEST123456"
-        mock_rel.expiration_time = 1715000000  # Example timestamp
+        mock_rel.ttl = 1715000000  # TTL timestamp instead of expiration_time
         mock_rel.relationship_id = "rel123"
         mock_generate_invitation_code.return_value = mock_rel
 
@@ -418,7 +425,7 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response["statusCode"], 201)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["invitation_code"], "TEST123456")
-        self.assertEqual(response_body["expires_at"], 1715000000)
+        self.assertEqual(response_body["expires_at"], 1715000000)  # Uses ttl field
         self.assertEqual(response_body["relationship_id"], "rel123")
         mock_generate_invitation_code.assert_called_once_with("coach456")
 
@@ -508,9 +515,9 @@ class TestRelationshipAPI(BaseTest):
     )
     def test_accept_invitation_code_invalid_code(self, mock_validate_invitation_code):
         """
-        Test invitation code acceptance with invalid/expired code
+        Test invitation code acceptance with invalid code
         """
-        # Setup - Service returns None for invalid code
+        # Setup - Service returns None for invalid code (current implementation)
         mock_validate_invitation_code.return_value = None
 
         event = {
@@ -525,9 +532,36 @@ class TestRelationshipAPI(BaseTest):
         # Assert
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
-        self.assertIn("Invalid or expired invitation code", response_body["error"])
+        self.assertEqual(response_body["error"], "Invalid or expired invitation code")
         mock_validate_invitation_code.assert_called_once_with(
             "INVALID123", "athlete789"
+        )
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.validate_invitation_code"
+    )
+    def test_accept_invitation_code_expired_code(self, mock_validate_invitation_code):
+        """
+        Test invitation code acceptance with expired code
+        """
+        # Setup - Service returns None for expired code (current implementation)
+        mock_validate_invitation_code.return_value = None
+
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "body": json.dumps({"invitation_code": "EXPIRED123"}),
+        }
+        context = {}
+
+        # Call API
+        response = relationship_api.accept_invitation_code(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Invalid or expired invitation code")
+        mock_validate_invitation_code.assert_called_once_with(
+            "EXPIRED123", "athlete789"
         )
 
     @patch(
@@ -537,7 +571,7 @@ class TestRelationshipAPI(BaseTest):
         """
         Test invitation code acceptance when athlete already has a coach
         """
-        # Setup - ValueError for existing coach relationship
+        # Setup - ValueError for existing coach relationship (current implementation returns 400)
         mock_validate_invitation_code.side_effect = ValueError(
             "Athlete already has an active coach relationship"
         )
@@ -552,7 +586,7 @@ class TestRelationshipAPI(BaseTest):
         response = relationship_api.accept_invitation_code(event, context)
 
         # Assert
-        self.assertEqual(response["statusCode"], 400)
+        self.assertEqual(response["statusCode"], 400)  # Current implementation uses 400
         response_body = json.loads(response["body"])
         self.assertIn(
             "Athlete already has an active coach relationship", response_body["error"]

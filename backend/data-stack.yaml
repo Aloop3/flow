@@ -94,6 +94,9 @@ Resources:
       KeySchema:
         - AttributeName: relationship_id
           KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
       GlobalSecondaryIndexes:
         - IndexName: coach-index
           KeySchema:
