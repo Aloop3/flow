@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { getBlocks } from '../services/api';
 import type { Block } from '../services/api';
@@ -13,24 +13,35 @@ interface BlocksProps {
 const Blocks = ({ user, signOut }: BlocksProps) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
 
+  const fetchBlocks = async () => {
+    setIsLoading(true);
+    try {
+      const blocksData = await getBlocks(user.user_id);
+      console.log('Blocks data:', blocksData);
+      setBlocks(blocksData);
+    } catch (error) {
+      console.error('Error fetching blocks:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial load
   useEffect(() => {
-    console.log('User object in Blocks', user)
-    const fetchBlocks = async () => {
-      setIsLoading(true);
-      try {
-        const blocksData = await getBlocks(user.user_id);
-        console.log('Blocks data:', blocksData)
-        setBlocks(blocksData);
-      } catch (error) {
-        console.error('Error fetching blocks:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+    console.log('User object in Blocks', user);
     fetchBlocks();
   }, [user]);
+
+  // Refetch on navigation back to /blocks (handles create -> list navigation)
+  useEffect(() => {
+    // Only refetch if we're on the exact /blocks route
+    if (location.pathname === '/blocks') {
+      console.log('🔄 Navigation detected - refreshing blocks list');
+      fetchBlocks();
+    }
+  }, [location.pathname]);
 
   return (
     <Layout user={user} signOut={signOut}>
