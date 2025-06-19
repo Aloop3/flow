@@ -6,6 +6,8 @@ import {
   getVolumeData, 
   getFrequencyAnalysis,
   getBlocks,
+  getCoachRelationships,
+  getUser,
   type MaxWeightData,
   type VolumeData,
   type FrequencyData,
@@ -30,30 +32,84 @@ interface AnalyticsProps {
   signOut: () => void;
 }
 
+interface Athlete {
+  athlete_id: string;
+  name: string;
+  relationship_id: string;
+}
+
 const Analytics = ({ user, signOut }: AnalyticsProps) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAthletes, setIsLoadingAthletes] = useState(false);
   const [maxWeightData, setMaxWeightData] = useState<{[key: string]: MaxWeightData[]}>({});
   const [volumeData, setVolumeData] = useState<VolumeData[]>([]);
   const [frequencyData, setFrequencyData] = useState<{[key: string]: FrequencyData[]}>({});
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
-  const [athletes, setAthletes] = useState<any[]>([]);
+  const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [currentAthleteName, setCurrentAthleteName] = useState<string>('');
 
   // Determine current athlete ID (self or selected athlete for coaches)
   const currentAthleteId = selectedAthleteId || user.user_id;
 
+  // Load coach's athletes on component mount
+  useEffect(() => {
+    const loadAthletes = async () => {
+      if (user.role !== 'coach') return;
+      
+      setIsLoadingAthletes(true);
+      try {
+        const relationships = await getCoachRelationships(user.user_id, 'active');
+        console.log('Coach relationships loaded:', relationships);
+        
+        // Fetch athlete details for each relationship
+        const athletesList = await Promise.all(
+          relationships.map(async (rel) => {
+            try {
+              const athlete = await getUser(rel.athlete_id);
+              return {
+                athlete_id: rel.athlete_id,
+                name: athlete?.name || 'Unknown Athlete',
+                relationship_id: rel.relationship_id
+              };
+            } catch (error) {
+              console.error(`Error fetching athlete ${rel.athlete_id}:`, error);
+              return {
+                athlete_id: rel.athlete_id,
+                name: 'Unknown Athlete',
+                relationship_id: rel.relationship_id
+              };
+            }
+          })
+        );
+        
+        setAthletes(athletesList);
+        console.log('Athletes loaded for coach:', athletesList);
+      } catch (error) {
+        console.error('Error loading coach athletes:', error);
+        setAthletes([]);
+      } finally {
+        setIsLoadingAthletes(false);
+      }
+    };
+
+    loadAthletes();
+  }, [user.role, user.user_id]);
+
+  // Main analytics loading effect - triggers on athlete changes
   useEffect(() => {
     const initializeAnalytics = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
-        // For coaches, load athlete list for selection
-        if (user.role === 'coach') {
-          // TODO: Load coach's athletes when we implement athlete selection
-          // For now, just use coach's own data
-          setAthletes([]);
+        // Set current athlete name for display
+        if (selectedAthleteId) {
+          const selectedAthlete = athletes.find(a => a.athlete_id === selectedAthleteId);
+          setCurrentAthleteName(selectedAthlete?.name || 'Selected Athlete');
+        } else {
+          setCurrentAthleteName(user.role === 'coach' ? 'My Analytics' : '');
         }
 
         // Load blocks for date range context
@@ -65,14 +121,29 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
 
       } catch (err) {
         console.error('Error loading analytics:', err);
-        setError('Failed to load analytics data. Please try again.');
+        
+        // Handle permission errors specifically
+        if (err instanceof Error && err.message.includes('403')) {
+          setError('You do not have permission to view this athlete\'s analytics.');
+        } else if (err instanceof Error && err.message.includes('401')) {
+          setError('Authentication required. Please log in again.');
+        } else {
+          setError('Failed to load analytics data. Please try again.');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     initializeAnalytics();
-  }, [currentAthleteId, user.role, user.user_id]);
+  }, [currentAthleteId, user.role, user.user_id, selectedAthleteId, athletes]);
+
+  // Handle athlete selection changes
+  const handleAthleteChange = (athleteId: string) => {
+    console.log('Athlete selection changed to:', athleteId);
+    setSelectedAthleteId(athleteId);
+    // Analytics will reload automatically via useEffect dependency
+  };
 
   const SBD_EXERCISES = ['squat', 'bench press', 'deadlift'] as const;
 
@@ -97,6 +168,11 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
             .catch(error => {
               const callEndTime = performance.now();
               console.error(`Max weight error for ${exerciseType} after ${callEndTime - callStartTime}ms:`, error);
+              
+              // Re-throw permission errors to be handled by parent
+              if (error.message?.includes('403') || error.message?.includes('401')) {
+                throw error;
+              }
               return { type: 'maxWeight', exerciseType, data: [] };
             });
         }),
@@ -113,6 +189,11 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
             .catch(error => {
               const callEndTime = performance.now();
               console.error(`Frequency error for ${exerciseType} after ${callEndTime - callStartTime}ms:`, error);
+              
+              // Re-throw permission errors to be handled by parent
+              if (error.message?.includes('403') || error.message?.includes('401')) {
+                throw error;
+              }
               return { type: 'frequency', exerciseType, data: [] };
             });
         }),
@@ -129,6 +210,11 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
             .catch(error => {
               const callEndTime = performance.now();
               console.error(`Volume data error after ${callEndTime - callStartTime}ms:`, error);
+              
+              // Re-throw permission errors to be handled by parent
+              if (error.message?.includes('403') || error.message?.includes('401')) {
+                throw error;
+              }
               return { type: 'volume', data: [] };
             });
         })()
@@ -175,7 +261,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
     }
   };
 
-
   // Helper function to format weight - backend already handles unit conversion
   const formatWeight = (weight: number, unit?: string) => {
     // Use the unit from the backend response, fallback to 'kg' for SBD
@@ -213,12 +298,30 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
       </div>
       <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to Load Analytics</h3>
       <p className="text-gray-500 mb-4">{error}</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        Try Again
-      </button>
+      {error?.includes('permission') && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 max-w-md mx-auto">
+          <p className="text-sm text-yellow-800">
+            This athlete's data is not accessible. Please ensure you have an active coach-athlete relationship.
+          </p>
+        </div>
+      )}
+      <div className="space-x-2">
+        <button
+          onClick={() => {
+            setSelectedAthleteId('');
+            setError(null);
+          }}
+          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+        >
+          View My Analytics
+        </button>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Try Again
+        </button>
+      </div>
     </div>
   );
 
@@ -232,7 +335,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
       </div>
       <h3 className="text-lg font-medium text-gray-900 mb-2">No Analytics Data Available</h3>
       <p className="text-gray-500 mb-4">
-        Start logging workouts to see your progress analytics.
+        {selectedAthleteId ? 'This athlete hasn\'t logged any workouts yet.' : 'Start logging workouts to see your progress analytics.'}
       </p>
       <Link
         to="/blocks"
@@ -254,9 +357,11 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Analytics {currentAthleteName && `- ${currentAthleteName}`}
+            </h1>
             <p className="mt-1 text-sm text-gray-500">
-              Track your progress and training insights
+              {selectedAthleteId ? 'Track athlete progress and training insights' : 'Track your progress and training insights'}
             </p>
           </div>
           <div className="mt-4 sm:mt-0">
@@ -269,25 +374,36 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
           </div>
         </div>
 
-        {/* Coach athlete selector - placeholder for future implementation */}
-        {user.role === 'coach' && athletes.length > 0 && (
+        {/* Coach athlete selector */}
+        {user.role === 'coach' && (
           <div className="bg-white shadow rounded-lg p-4">
             <label htmlFor="athlete-select" className="block text-sm font-medium text-gray-700 mb-2">
               Select Athlete
             </label>
-            <select
-              id="athlete-select"
-              value={selectedAthleteId}
-              onChange={(e) => setSelectedAthleteId(e.target.value)}
-              className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-            >
-              <option value="">View My Analytics</option>
-              {athletes.map((athlete) => (
-                <option key={athlete.athlete_id} value={athlete.athlete_id}>
-                  {athlete.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center space-x-2">
+              <select
+                id="athlete-select"
+                value={selectedAthleteId}
+                onChange={(e) => handleAthleteChange(e.target.value)}
+                disabled={isLoadingAthletes}
+                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md disabled:bg-gray-100"
+              >
+                <option value="">View My Analytics</option>
+                {athletes.map((athlete) => (
+                  <option key={athlete.athlete_id} value={athlete.athlete_id}>
+                    {athlete.name}
+                  </option>
+                ))}
+              </select>
+              {isLoadingAthletes && (
+                <div className="text-sm text-gray-500">Loading athletes...</div>
+              )}
+            </div>
+            {athletes.length === 0 && !isLoadingAthletes && (
+              <p className="mt-2 text-sm text-gray-500">
+                No active athletes found. Athletes will appear here once they accept your invitation.
+              </p>
+            )}
           </div>
         )}
 
@@ -304,10 +420,12 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
               <div className="text-xs text-yellow-700 space-y-1">
                 <p>User ID: {user.user_id}</p>
                 <p>Current Athlete ID: {currentAthleteId}</p>
+                <p>Selected Athlete: {selectedAthleteId || 'None (viewing own)'}</p>
                 <p>Max Weight Data: {Object.values(maxWeightData).flat().length} total entries</p>
                 <p>Volume Data: {volumeData.length} entries</p>
                 <p>Frequency Data: {Object.values(frequencyData).flat().length} total entries</p>
                 <p>Blocks: {blocks.length} total</p>
+                <p>Athletes Available: {athletes.length}</p>
                 <p>Check browser console for API responses</p>
               </div>
             </div>
