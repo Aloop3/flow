@@ -74,61 +74,107 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
     initializeAnalytics();
   }, [currentAthleteId, user.role, user.user_id]);
 
+  const SBD_EXERCISES = ['squat', 'bench press', 'deadlift'] as const;
+
   const loadAnalyticsData = async (athleteId: string) => {
     try {
-      // Calculate date range - last 6 months for initial view
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
       console.log('Loading analytics data for athlete:', athleteId);
-      console.log('Date range:', startDate, 'to', endDate);
 
-      // SBD exercise types - load all three
-      const sbdExercises = ['squat', 'bench press', 'deadlift'];
+      // Start timing
+      const overallStartTime = performance.now();
+
+      // Create all API calls in parallel - 7 calls total
+      const apiCalls = [
+        // Max weight progression calls (3 exercises)
+        ...SBD_EXERCISES.map(exerciseType => {
+          const callStartTime = performance.now();
+          return getMaxWeightProgression(athleteId, exerciseType)
+            .then(data => {
+              const callEndTime = performance.now();
+              console.log(`Max weight ${exerciseType} completed in ${callEndTime - callStartTime}ms`);
+              return { type: 'maxWeight', exerciseType, data };
+            })
+            .catch(error => {
+              const callEndTime = performance.now();
+              console.error(`Max weight error for ${exerciseType} after ${callEndTime - callStartTime}ms:`, error);
+              return { type: 'maxWeight', exerciseType, data: [] };
+            });
+        }),
+        
+        // Frequency analysis calls (3 exercises)
+        ...SBD_EXERCISES.map(exerciseType => {
+          const callStartTime = performance.now();
+          return getFrequencyAnalysis(athleteId, exerciseType)
+            .then(data => {
+              const callEndTime = performance.now();
+              console.log(`Frequency ${exerciseType} completed in ${callEndTime - callStartTime}ms`);
+              return { type: 'frequency', exerciseType, data };
+            })
+            .catch(error => {
+              const callEndTime = performance.now();
+              console.error(`Frequency error for ${exerciseType} after ${callEndTime - callStartTime}ms:`, error);
+              return { type: 'frequency', exerciseType, data: [] };
+            });
+        }),
+        
+        // Volume data call (1 call)
+        (() => {
+          const callStartTime = performance.now();
+          return getVolumeData(athleteId, 'monthly')
+            .then(data => {
+              const callEndTime = performance.now();
+              console.log(`Volume data completed in ${callEndTime - callStartTime}ms`);
+              return { type: 'volume', data };
+            })
+            .catch(error => {
+              const callEndTime = performance.now();
+              console.error(`Volume data error after ${callEndTime - callStartTime}ms:`, error);
+              return { type: 'volume', data: [] };
+            });
+        })()
+      ];
+
+      console.log(`Starting ${apiCalls.length} parallel API calls...`);
+      
+      // Execute all calls in parallel
+      const results = await Promise.all(apiCalls);
+      
+      const overallEndTime = performance.now();
+      const totalTime = overallEndTime - overallStartTime;
+      console.log(`🚀 ALL PARALLEL API CALLS COMPLETED IN ${totalTime}ms (${(totalTime/1000).toFixed(2)}s)`);
+      console.log(`Performance improvement: Was ~9700ms, now ${totalTime}ms = ${((9700-totalTime)/9700*100).toFixed(1)}% faster`);
+      
+      // Process results
       const maxWeightResults: {[key: string]: MaxWeightData[]} = {};
       const frequencyResults: {[key: string]: FrequencyData[]} = {};
-
-      // Load max weight and frequency data for each SBD exercise
-      for (const exerciseType of sbdExercises) {
-        console.log(`Loading max weight progression for ${exerciseType}...`);
-        try {
-          const maxWeight = await getMaxWeightProgression(athleteId, exerciseType);
-          console.log(`Max weight result (${exerciseType}):`, maxWeight);
-          maxWeightResults[exerciseType] = maxWeight;
-        } catch (error) {
-          console.error(`Max weight error for ${exerciseType}:`, error);
-          maxWeightResults[exerciseType] = [];
+      let volumeResult: VolumeData[] = [];
+      
+      results.forEach(result => {
+        if (result.type === 'maxWeight' && 'exerciseType' in result) {
+          maxWeightResults[result.exerciseType] = result.data as MaxWeightData[];
+          console.log(`Max weight result (${result.exerciseType}):`, result.data);
+        } else if (result.type === 'frequency' && 'exerciseType' in result) {
+          frequencyResults[result.exerciseType] = result.data as FrequencyData[];
+          console.log(`Frequency result (${result.exerciseType}):`, result.data);
+        } else if (result.type === 'volume') {
+          volumeResult = result.data as VolumeData[];
+          console.log('Volume data result (monthly):', result.data);
         }
+      });
 
-        console.log(`Loading frequency analysis for ${exerciseType}...`);
-        try {
-          const frequency = await getFrequencyAnalysis(athleteId, exerciseType);
-          console.log(`Frequency result (${exerciseType}):`, frequency);
-          frequencyResults[exerciseType] = frequency;
-        } catch (error) {
-          console.error(`Frequency error for ${exerciseType}:`, error);
-          frequencyResults[exerciseType] = [];
-        }
-      }
-
+      // Update state
       setMaxWeightData(maxWeightResults);
       setFrequencyData(frequencyResults);
+      setVolumeData(volumeResult);
 
-      console.log('Loading volume data...');
-      try {
-        // Use monthly grouping (maps to backend's time_period=month)
-        const volume = await getVolumeData(athleteId, 'monthly');
-        console.log('Volume data result (monthly):', volume);
-        setVolumeData(volume);
-      } catch (error) {
-        console.error('Volume data error:', error);
-        setVolumeData([]);
-      }
+      console.log('Analytics data loaded successfully with parallel calls');
+      
     } catch (err) {
       console.error('Error loading analytics data:', err);
       throw err;
     }
   };
+
 
   // Helper function to format weight - backend already handles unit conversion
   const formatWeight = (weight: number, unit?: string) => {
