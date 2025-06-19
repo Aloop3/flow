@@ -7,6 +7,7 @@ import time
 from typing import List, Dict, Any, Optional
 from src.repositories.relationship_repository import RelationshipRepository
 from src.models.relationship import Relationship
+from src.config.relationship_config import RelationshipConfig
 
 
 class RelationshipService:
@@ -91,8 +92,8 @@ class RelationshipService:
         # Generate random alphanumeric code (6 characters)
         code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
-        # Calculate expiration time (24 hours from now)
-        expiry = int((dt.datetime.now() + timedelta(hours=24)).timestamp())
+        # Calculate TTL for 24 hours from now (Unix timestamp)
+        ttl_timestamp = int((dt.datetime.now() + timedelta(hours=24)).timestamp())
 
         # Create a pending relationship with the code
         relationship = Relationship(
@@ -100,7 +101,7 @@ class RelationshipService:
             coach_id=coach_id,
             status="pending",
             invitation_code=code,
-            expiration_time=expiry,
+            ttl=ttl_timestamp,  # DynamoDB TTL field
         )
 
         self.relationship_repository.create_relationship(relationship.to_dict())
@@ -129,19 +130,21 @@ class RelationshipService:
         )
 
         if not relationship_data:
-            return None
+            raise ValueError("INVALID_CODE")
 
-        # Check if code is expired
+        # Check if code is expired (manual check before DynamoDB TTL cleanup)
         current_time = int(time.time())
-        if relationship_data.get("expiration_time", 0) < current_time:
-            return None
+        ttl_time = relationship_data.get("ttl", 0)
 
-        # Update the relationship
+        if ttl_time < current_time:
+            raise ValueError("EXPIRED_CODE")
+
+        # Update the relationship to active (removes TTL and invitation code)
         update_data = {
             "athlete_id": athlete_id,
             "status": "active",
             "invitation_code": None,  # Clear the code once used
-            "expiration_time": None,  # Clear the expiration
+            "ttl": None,  # Remove TTL for active relationships
         }
 
         relationship_id = relationship_data["relationship_id"]
@@ -190,7 +193,7 @@ class RelationshipService:
 
     def end_relationship(self, relationship_id: str) -> Optional[Relationship]:
         """
-        Ends a relationship
+        Ends a relationship and sets TTL for 60-day cleanup
 
         :param relationship_id: The ID of the relationship to end
         :return: The updated Relationship object if found, else None
@@ -199,7 +202,13 @@ class RelationshipService:
         if not relationship or relationship.status not in ["pending", "active"]:
             return None
 
-        return self.update_relationship(relationship_id, {"status": "ended"})
+        # Calculate TTL for 60 days from now (Unix timestamp)
+        ttl_timestamp = int((dt.datetime.now() + timedelta(days=60)).timestamp())
+
+        return self.update_relationship(
+            relationship_id,
+            {"status": "ended", "ttl": ttl_timestamp},  # Set TTL for automatic cleanup
+        )
 
     def update_relationship(
         self, relationship_id: str, update_data: Dict[str, Any]
