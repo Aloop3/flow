@@ -17,6 +17,12 @@ class RelationshipConfig(BaseConfig):
     ATHLETE_INDEX = "athlete-index"
     COACH_ATHLETE_INDEX = "coach-athlete-index"
 
+    # TTL Configuration
+    INVITATION_CODE_TTL_HOURS = BaseConfig.get_int_env("INVITATION_CODE_TTL_HOURS", 24)
+    ENDED_RELATIONSHIP_TTL_DAYS = BaseConfig.get_int_env(
+        "ENDED_RELATIONSHIP_TTL_DAYS", 60
+    )
+
     # API Rate Limits (per minute)
     RELATIONSHIP_CREATE_RATE_LIMIT_PER_MIN = BaseConfig.get_int_env(
         "RELATIONSHIP_CREATE_RATE_LIMIT", 10
