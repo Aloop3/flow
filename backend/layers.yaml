@@ -6,7 +6,7 @@ Parameters:
   LayerVersion:
     Type: String
     Default: v0-1-0
-    Description: Semantic version for layer exports (underscores for CloudFormation compatibility)
+    Description: Semantic version for layer exports
 
 Resources:
   VendorLayer:

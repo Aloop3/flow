@@ -12,7 +12,7 @@ Parameters:
     Description: Environment name for resource naming
   LayerVersion:
     Type: String
-    Default: v0.1.0
+    Default: v0-1-0
     Description: Version of layers to use
 
 Resources:
