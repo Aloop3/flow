@@ -86,6 +86,9 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-UsersTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-ExercisesTable"
       
       Events:
         # User API Routes
@@ -361,13 +364,13 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-ExercisesTable"
-        - DynamoDBCrudPolicy:
+        - DynamoDBReadPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-BlocksTable"
-        - DynamoDBCrudPolicy:
+        - DynamoDBReadPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-WeeksTable"
-        - DynamoDBCrudPolicy:
+        - DynamoDBReadPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-RelationshipsTable"
 
@@ -554,6 +557,7 @@ Resources:
   # SNS Topics for Alerts
   MonitoringTopic:
     Type: AWS::SNS::Topic
+    Condition: IsProdEnvironment
     Properties:
       TopicName: !Sub "flow-${Environment}-monitoring-alerts"
       DisplayName: !Sub "Flow ${Environment} Environment Monitoring Alerts"
@@ -564,6 +568,7 @@ Resources:
   # Lambda Error Alarms
   LambdaErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
     Properties:
       AlarmName: !Sub "${Environment}-flow-lambda-errors-high"
       AlarmDescription: !Sub "Lambda errors exceeded threshold in ${Environment}"
@@ -572,7 +577,7 @@ Resources:
       Statistic: Sum
       Period: 300  # 5 minutes
       EvaluationPeriods: 1
-      Threshold: !If [IsProdEnvironment, 2, 10]
+      Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref MonitoringTopic
@@ -586,6 +591,7 @@ Resources:
   # Individual Lambda Function Alarms (for detailed troubleshooting)
   UserFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
     Properties:
       AlarmName: !Sub "${Environment}-flow-user-lambda-errors"
       AlarmDescription: "User Lambda function errors"
@@ -594,7 +600,7 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
-      Threshold: !If [IsProdEnvironment, 2, 10]
+      Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref MonitoringTopic
@@ -604,6 +610,7 @@ Resources:
 
   BlockFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
     Properties:
       AlarmName: !Sub "${Environment}-flow-block-lambda-errors"
       AlarmDescription: "Block Lambda function errors"
@@ -612,7 +619,7 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
-      Threshold: !If [IsProdEnvironment, 2, 10]
+      Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref MonitoringTopic
@@ -622,6 +629,7 @@ Resources:
 
   WorkoutFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
     Properties:
       AlarmName: !Sub "${Environment}-flow-workout-lambda-errors"
       AlarmDescription: "Workout Lambda function errors"
@@ -630,7 +638,7 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
-      Threshold: !If [IsProdEnvironment, 2, 10]
+      Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref MonitoringTopic
@@ -659,6 +667,7 @@ Resources:
   # DynamoDB Throttling Alarms
   BlocksTableThrottleAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
     Properties:
       AlarmName: !Sub "${Environment}-flow-blocks-dynamodb-throttles"
       AlarmDescription: "Blocks table throttling events"
@@ -667,7 +676,7 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
-      Threshold: !If [IsProdEnvironment, 1, 5]
+      Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref MonitoringTopic
@@ -678,6 +687,7 @@ Resources:
 
   WorkoutsTableThrottleAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
     Properties:
       AlarmName: !Sub "${Environment}-flow-workouts-dynamodb-throttles"
       AlarmDescription: "Workouts table throttling events"
@@ -686,7 +696,7 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
-      Threshold: !If [IsProdEnvironment, 1, 5]
+      Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref MonitoringTopic
@@ -697,6 +707,7 @@ Resources:
 
   ExercisesTableThrottleAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
     Properties:
       AlarmName: !Sub "${Environment}-flow-exercises-dynamodb-throttles"
       AlarmDescription: "Exercises table throttling events"
@@ -705,7 +716,7 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
-      Threshold: !If [IsProdEnvironment, 1, 5]
+      Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref MonitoringTopic
@@ -717,6 +728,7 @@ Resources:
   # API Gateway 5xx Error Alarm
   ApiGateway5xxErrorAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
     Properties:
       AlarmName: !Sub "${Environment}-flow-api-5xx-errors-high"
       AlarmDescription: "API Gateway 5xx errors exceeded threshold"
@@ -725,7 +737,7 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
-      Threshold: !If [IsProdEnvironment, 2, 10]
+      Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref MonitoringTopic
@@ -741,6 +753,7 @@ Outputs:
       Name: !Sub "flow-app-${Environment}-FlowApi"
   
   MonitoringTopicArn:
+    Condition: IsProdEnvironment
     Description: "Monitoring alerts SNS topic ARN"
     Value: !Ref MonitoringTopic
     Export:
