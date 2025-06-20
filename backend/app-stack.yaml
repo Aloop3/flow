@@ -18,6 +18,11 @@ Parameters:
     Type: String
     Default: v0-1-0
     Description: Version of layers to use
+  AlertEmail:
+    Type: String
+    Default: ""
+    Description: Email address for monitoring alerts
+    NoEcho: true
 
 Globals:
   Function:
@@ -47,6 +52,9 @@ Globals:
           Fn::Sub: "flow-${Environment}-RelationshipsTable"
         LOG_LEVEL: INFO
         REGION: !Ref AWS::Region
+
+Conditions:
+  IsProdEnvironment: !Equals [!Ref Environment, "prod"]
 
 Resources:
   # API Gateway Definition
@@ -542,34 +550,188 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /analytics/block-comparison/{athlete_id}
             Method: get     
-          
-  # CognitoPostConfirmationFunction:
-  #   Type: AWS::Serverless::Function
-  #   Properties:
-  #     CodeUri: src/lambdas/cognito_triggers/
-  #     Handler: post_confirmation_lambda.handler
-  #     Runtime: python3.9
-  #     Timeout: 30
-  #     Environment:
-  #       Variables:
-  #         USERS_TABLE: !ImportValue
-  #           Fn::Sub: "flow-${Environment}-UsersTable"
-  #     Policies:
-  #       - DynamoDBCrudPolicy:
-  #           TableName: !ImportValue
-  #             Fn::Sub: "flow-${Environment}-UsersTable"
 
-  # # Lambda permission for Cognito to invoke the function
-  # CognitoTriggerPermission:
-  #   Type: AWS::Lambda::Permission
-  #   Properties:
-  #     Action: lambda:InvokeFunction
-  #     FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
-  #     Principal: cognito-idp.amazonaws.com
-  #     SourceArn: !Sub
-  #       - "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}"
-  #       - UserPoolId: !ImportValue
-  #           Fn::Sub: "flow-${Environment}-UserPoolId"
+  # SNS Topics for Alerts
+  MonitoringTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "flow-${Environment}-monitoring-alerts"
+      DisplayName: !Sub "Flow ${Environment} Environment Monitoring Alerts"
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+
+  # Lambda Error Alarms
+  LambdaErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-lambda-errors-high"
+      AlarmDescription: !Sub "Lambda errors exceeded threshold in ${Environment}"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300  # 5 minutes
+      EvaluationPeriods: 1
+      Threshold: !If [IsProdEnvironment, 2, 10]
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      OKActions:
+        - !Ref MonitoringTopic
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub "${AWS::StackName}-UserFunction-*"
+
+  # Individual Lambda Function Alarms (for detailed troubleshooting)
+  UserFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-user-lambda-errors"
+      AlarmDescription: "User Lambda function errors"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !If [IsProdEnvironment, 2, 10]
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref UserFunction
+
+  BlockFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-block-lambda-errors"
+      AlarmDescription: "Block Lambda function errors"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !If [IsProdEnvironment, 2, 10]
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref BlockFunction
+
+  WorkoutFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-workout-lambda-errors"
+      AlarmDescription: "Workout Lambda function errors"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !If [IsProdEnvironment, 2, 10]
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WorkoutFunction
+
+  # Lambda Timeout Alarms (Production only)
+  LambdaTimeoutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: IsProdEnvironment
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-lambda-timeout-approaching"
+      AlarmDescription: "Lambda duration approaching timeout"
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 24000  # 80% of 30 second timeout (24 seconds in milliseconds)
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      TreatMissingData: notBreaching
+
+  # DynamoDB Throttling Alarms
+  BlocksTableThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-blocks-dynamodb-throttles"
+      AlarmDescription: "Blocks table throttling events"
+      MetricName: UserErrors
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !If [IsProdEnvironment, 1, 5]
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      Dimensions:
+        - Name: TableName
+          Value: !ImportValue
+            Fn::Sub: "flow-${Environment}-BlocksTable"
+
+  WorkoutsTableThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-workouts-dynamodb-throttles"
+      AlarmDescription: "Workouts table throttling events"
+      MetricName: UserErrors
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !If [IsProdEnvironment, 1, 5]
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      Dimensions:
+        - Name: TableName
+          Value: !ImportValue
+            Fn::Sub: "flow-${Environment}-WorkoutsTable"
+
+  ExercisesTableThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-exercises-dynamodb-throttles"
+      AlarmDescription: "Exercises table throttling events"
+      MetricName: UserErrors
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !If [IsProdEnvironment, 1, 5]
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      Dimensions:
+        - Name: TableName
+          Value: !ImportValue
+            Fn::Sub: "flow-${Environment}-ExercisesTable"
+
+  # API Gateway 5xx Error Alarm
+  ApiGateway5xxErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Environment}-flow-api-5xx-errors-high"
+      AlarmDescription: "API Gateway 5xx errors exceeded threshold"
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !If [IsProdEnvironment, 2, 10]
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref MonitoringTopic
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub "${AWS::StackName}-FlowAPI"
 
 Outputs:
   FlowApi:
@@ -577,3 +739,9 @@ Outputs:
     Value: !Sub "https://${FlowAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
     Export:
       Name: !Sub "flow-app-${Environment}-FlowApi"
+  
+  MonitoringTopicArn:
+    Description: "Monitoring alerts SNS topic ARN"
+    Value: !Ref MonitoringTopic
+    Export:
+      Name: !Sub "flow-app-${Environment}-MonitoringTopic"
