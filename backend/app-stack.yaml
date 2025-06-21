@@ -563,6 +563,9 @@ Resources:
       Description: Health check endpoint for CI/CD validation
       Timeout: 10
       MemorySize: 128
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
 
       Events:
         HealthCheck:
