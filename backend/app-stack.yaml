@@ -553,6 +553,26 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /analytics/block-comparison/{athlete_id}
             Method: get     
+  
+  # Health Check Lambda function
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/health_lambda/
+      Handler: health_lambda.handler
+      Description: Health check endpoint for CI/CD validation
+      Timeout: 10
+      MemorySize: 128
+
+      Events:
+        HealthCheck:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /health
+            Method: get
+            Auth:
+              Authorizer: NONE
 
   # SNS Topics for Alerts
   MonitoringTopic:
