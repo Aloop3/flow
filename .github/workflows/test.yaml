@@ -1,4 +1,4 @@
-name: Flow Tests
+name: Flow Tests and Deployment
 
 on:
   push:
@@ -68,3 +68,94 @@ jobs:
         # Generate coverage reports
         coverage report -m
         coverage xml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+        
+    - name: Install AWS SAM CLI
+      uses: aws-actions/setup-sam@v2
+      with:
+        use-installer: true
+        
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+        
+    - name: Determine deployment environment
+      id: env
+      run: |
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "environment=prod" >> $GITHUB_OUTPUT
+          echo "cors_origin=https://prod.d3n7bxbkj4ddz8.amplifyapp.com" >> $GITHUB_OUTPUT
+        else
+          echo "environment=dev" >> $GITHUB_OUTPUT
+          echo "cors_origin=https://dev.dykl7ea8q4fpo.amplifyapp.com" >> $GITHUB_OUTPUT
+        fi
+        echo "layer_version=v0-1-0" >> $GITHUB_OUTPUT
+    
+    - name: Deploy to AWS
+      working-directory: backend
+      run: |
+        chmod +x deploy_sam_stacks.sh
+        ./deploy_sam_stacks.sh ${{ steps.env.outputs.environment }} ${{ steps.env.outputs.cors_origin }} ${{ steps.env.outputs.layer_version }}
+    
+    - name: Get API URL
+      id: api_url
+      working-directory: backend
+      run: |
+        API_URL=$(aws cloudformation describe-stacks --stack-name "flow-app-${{ steps.env.outputs.environment }}" --query 'Stacks[0].Outputs[?OutputKey==`FlowApi`].OutputValue' --output text)
+        echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+        echo "API URL: $API_URL"
+    
+    - name: Health check validation
+      run: |
+        echo "🔍 Validating API health..."
+        API_URL="${{ steps.api_url.outputs.api_url }}"
+        
+        # Wait for API to be available (max 2 minutes)
+        for i in {1..24}; do
+          if curl -s -f "${API_URL}/health" > /dev/null; then
+            echo "✅ Health check passed on attempt $i"
+            break
+          else
+            echo "⏳ Health check attempt $i failed, retrying in 5s..."
+            sleep 5
+          fi
+          
+          if [ $i -eq 24 ]; then
+            echo "❌ Health check failed after 2 minutes"
+            exit 1
+          fi
+        done
+        
+        # Validate health response
+        HEALTH_RESPONSE=$(curl -s "${API_URL}/health")
+        echo "🏥 Health response: $HEALTH_RESPONSE"
+        
+        # Check if response contains expected fields
+        if echo "$HEALTH_RESPONSE" | jq -e '.status == "healthy" and .environment == "${{ steps.env.outputs.environment }}"' > /dev/null; then
+          echo "✅ Health check validation successful"
+        else
+          echo "❌ Health check validation failed"
+          exit 1
+        fi
+    
+    - name: Deployment summary
+      run: |
+        echo "🎉 Deployment completed successfully!"
+        echo "📍 Environment: ${{ steps.env.outputs.environment }}"
+        echo "🌐 API URL: ${{ steps.api_url.outputs.api_url }}"
+        echo "🏥 Health check: ✅ PASSED"
