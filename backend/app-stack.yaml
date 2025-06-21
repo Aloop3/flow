@@ -573,6 +573,7 @@ Resources:
             Method: get
             Auth:
               Authorizer: NONE
+              OverrideApiAuth: true
 
   # SNS Topics for Alerts
   MonitoringTopic:
