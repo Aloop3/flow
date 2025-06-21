@@ -97,20 +97,29 @@ jobs:
     - name: Determine deployment environment
       id: env
       run: |
-        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-          echo "environment=prod" >> $GITHUB_OUTPUT
-          echo "cors_origin=https://prod.d3n7bxbkj4ddz8.amplifyapp.com" >> $GITHUB_OUTPUT
-        else
-          echo "environment=dev" >> $GITHUB_OUTPUT
-          echo "cors_origin=https://dev.dykl7ea8q4fpo.amplifyapp.com" >> $GITHUB_OUTPUT
-        fi
+        echo "environment=prod" >> $GITHUB_OUTPUT
+        echo "cors_origin=https://prod.d3n7bxbkj4ddz8.amplifyapp.com" >> $GITHUB_OUTPUT
         echo "layer_version=v0-1-0" >> $GITHUB_OUTPUT
     
-    - name: Deploy to AWS
+    - name: Deploy Data Stack
       working-directory: backend
       run: |
-        chmod +x deploy_sam_stacks.sh
-        ./deploy_sam_stacks.sh ${{ steps.env.outputs.environment }} ${{ steps.env.outputs.cors_origin }} ${{ steps.env.outputs.layer_version }}
+        sam validate --lint -t data-stack.yaml
+        sam build -t data-stack.yaml
+        sam deploy -t data-stack.yaml \
+          --stack-name "flow-data-${{ steps.env.outputs.environment }}" \
+          --parameter-overrides Environment=${{ steps.env.outputs.environment }} LayerVersion=${{ steps.env.outputs.layer_version }} \
+          --no-confirm-changeset --no-fail-on-empty-changeset --capabilities CAPABILITY_IAM
+    
+    - name: Deploy App Stack
+      working-directory: backend
+      run: |
+        sam validate --lint -t app-stack.yaml
+        sam build -t app-stack.yaml
+        sam deploy -t app-stack.yaml \
+          --stack-name "flow-app-${{ steps.env.outputs.environment }}" \
+          --parameter-overrides Environment=${{ steps.env.outputs.environment }} CorsOrigin="${{ steps.env.outputs.cors_origin }}" LayerVersion=${{ steps.env.outputs.layer_version }} \
+          --no-confirm-changeset --no-fail-on-empty-changeset --capabilities CAPABILITY_IAM
     
     - name: Get API URL
       id: api_url
@@ -159,3 +168,4 @@ jobs:
         echo "📍 Environment: ${{ steps.env.outputs.environment }}"
         echo "🌐 API URL: ${{ steps.api_url.outputs.api_url }}"
         echo "🏥 Health check: ✅ PASSED"
+        echo "📦 Layers: MANUAL (v0-1-0) - No automated updates"
