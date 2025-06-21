@@ -61,6 +61,10 @@ Resources:
     Properties:
       TableName: !Sub "flow-${Environment}-users"
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
       AttributeDefinitions:
         - AttributeName: user_id
           AttributeType: S
@@ -84,6 +88,10 @@ Resources:
     Properties:
       TableName: !Sub "flow-${Environment}-relationships"
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
       AttributeDefinitions:
         - AttributeName: relationship_id
           AttributeType: S
@@ -126,6 +134,10 @@ Resources:
     Properties:
       TableName: !Sub "flow-${Environment}-blocks"
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
       AttributeDefinitions:
         - AttributeName: block_id
           AttributeType: S
@@ -157,6 +169,10 @@ Resources:
     Properties:
       TableName: !Sub "flow-${Environment}-weeks"
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
       AttributeDefinitions:
         - AttributeName: week_id
           AttributeType: S
@@ -180,6 +196,10 @@ Resources:
     Properties:
       TableName: !Sub "flow-${Environment}-days"
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
       AttributeDefinitions:
         - AttributeName: day_id
           AttributeType: S
@@ -203,6 +223,10 @@ Resources:
     Properties:
       TableName: !Sub "flow-${Environment}-exercises"
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
       AttributeDefinitions:
         - AttributeName: exercise_id
           AttributeType: S
@@ -234,6 +258,10 @@ Resources:
     Properties:
       TableName: !Sub "flow-${Environment}-workouts"
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
       AttributeDefinitions:
         - AttributeName: workout_id
           AttributeType: S
