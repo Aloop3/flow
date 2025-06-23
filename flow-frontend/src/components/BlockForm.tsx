@@ -56,8 +56,8 @@ const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) =>
       newErrors.title = 'Title is required';
     }
     
-    if (formData.number_of_weeks < 4 || formData.number_of_weeks > 12) {
-      newErrors.number_of_weeks = 'Number of weeks must be between 4 and 12';
+    if (formData.number_of_weeks < 3 || formData.number_of_weeks > 12) {
+      newErrors.number_of_weeks = 'Number of weeks must be between 3 and 12';
     }
 
     if (!formData.start_date) {
@@ -164,7 +164,7 @@ const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) =>
           type="number"
           id="number_of_weeks"
           name="number_of_weeks"
-          min="4"
+          min="3"
           max="12"
           value={formData.number_of_weeks}
           onChange={handleChange}

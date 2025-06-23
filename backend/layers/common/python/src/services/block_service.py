@@ -62,8 +62,8 @@ class BlockService:
         :param number_of_weeks: Number of weeks to auto-generate (default is 4)
         :return: The created Block object
         """
-        # Ensure number_of_weeks is between 4 - 12
-        if number_of_weeks < 4 or number_of_weeks > 12:
+        # Ensure number_of_weeks is between 3 - 12
+        if number_of_weeks < 3 or number_of_weeks > 12:
             number_of_weeks = 4
 
         # Calculate end_date based on start_date and number_of_weeks
@@ -148,6 +148,7 @@ class BlockService:
             start_date_obj = dt.datetime.fromisoformat(
                 start_date.replace("Z", "+00:00") if "Z" in start_date else start_date
             )
+
             # Force start date to be in UTC
             start_date_utc = start_date_obj.astimezone(dt.timezone.utc)
             start_date_str = start_date_utc.strftime("%Y-%m-%d")

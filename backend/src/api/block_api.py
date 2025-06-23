@@ -40,9 +40,9 @@ def create_block(event, context):
         # Validate number_of_weeks
         try:
             number_of_weeks = int(number_of_weeks)
-            if number_of_weeks < 4 or number_of_weeks > 12:
+            if number_of_weeks < 3 or number_of_weeks > 12:
                 return create_response(
-                    400, {"error": "Number of weeks must be between 4 and 12"}
+                    400, {"error": "Number of weeks must be between 3 and 12"}
                 )
         except (ValueError, TypeError):
             return create_response(400, {"error": "Number of weeks must be an integer"})
