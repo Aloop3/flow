@@ -62,8 +62,8 @@ class BlockService:
         :param number_of_weeks: Number of weeks to auto-generate (default is 4)
         :return: The created Block object
         """
-        # Ensure number_of_weeks is between 4 - 12
-        if number_of_weeks < 4 or number_of_weeks > 12:
+        # Ensure number_of_weeks is between 3 - 12
+        if number_of_weeks < 3 or number_of_weeks > 12:
             number_of_weeks = 4
 
         # Calculate end_date based on start_date and number_of_weeks
