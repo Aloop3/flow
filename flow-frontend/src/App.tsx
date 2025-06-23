@@ -17,6 +17,7 @@ import CoachAthleteBlocks from './pages/coach/CoachAthleteBlocks';
 import CoachBlockCreate from './pages/coach/CoachBlockCreate';
 import { UserProvider } from './contexts/UserContext';
 import Analytics from './pages/coach/Analytics';
+import BetaFeedback from './components/BetaFeedback';
 
 
 //  AuthenticatedApp component extracted
@@ -66,26 +67,11 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
     }
   };
 
-  const DebugButton = () => (
-    <button 
-      onClick={() => {
-        console.log("Clearing auth state");
-        signOut();
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.reload();
-      }}
-      className="fixed bottom-4 right-4 px-3 py-2 bg-red-600 text-white text-xs rounded"
-    >
-      Reset Auth
-    </button>
-  );
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        <DebugButton />
       </div>
     );
   }
@@ -95,7 +81,6 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
     return (
       <>
         <RoleSelector user={user} onRoleSelected={handleRoleSelected} />
-        <DebugButton />
       </>
     );
   }
@@ -144,7 +129,7 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
             <Route path="/analytics" element={<Analytics user={userData} signOut={handleEnhancedSignOut} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          <DebugButton />
+          <BetaFeedback />
         </Router>
       </UserProvider>
     );

@@ -55,6 +55,7 @@ Globals:
 
 Conditions:
   IsProdEnvironment: !Equals [!Ref Environment, "prod"]
+  IsDevEnvironment: !Equals [!Ref Environment, "dev"]
 
 Resources:
   # API Gateway Definition
@@ -577,14 +578,49 @@ Resources:
             Auth:
               Authorizer: NONE
               OverrideApiAuth: true
+  
+  # Feedback Lambda function (dev only)
+  FeedbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/feedback_lambda/
+      Handler: feedback_lambda.handler
+      Description: Beta feedback collection endpoint
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - SNSPublishMessagePolicy:
+            TopicName: !Sub "flow-${Environment}-feedback-alerts"
 
-  # SNS Topics for Alerts
+      Events:
+        SubmitFeedback:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /feedback
+            Method: post
+
+  # SNS Topic for Alerts
   MonitoringTopic:
     Type: AWS::SNS::Topic
     Condition: IsProdEnvironment
     Properties:
       TopicName: !Sub "flow-${Environment}-monitoring-alerts"
       DisplayName: !Sub "Flow ${Environment} Environment Monitoring Alerts"
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+  
+  # SNS Topic for beta feedback (dev only)
+  FeedbackTopic:
+    Type: AWS::SNS::Topic
+    Condition: IsDevEnvironment
+    Properties:
+      TopicName: !Sub "flow-${Environment}-feedback-alerts"
+      DisplayName: !Sub "Flow ${Environment} Beta Feedback"
       Subscription:
         - Protocol: email
           Endpoint: !Ref AlertEmail
