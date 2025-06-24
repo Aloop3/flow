@@ -1412,14 +1412,16 @@ export const getMaxWeightProgression = async (
 
 export const getVolumeData = async (
   athleteId: string,
-  groupBy: 'weekly' | 'monthly' = 'monthly' // Map to backend's time_period
+  groupBy: 'daily' | 'weekly' | 'monthly' = 'monthly' // Map to backend's time_period
 ): Promise<VolumeData[]> => {
   try {
     const headers = await getAuthHeaders();
     
     const params = new URLSearchParams();
     // Map frontend groupBy to backend time_period
-    const timePeriod = groupBy === 'weekly' ? 'week' : 'month';
+    const timePeriod = groupBy === 'daily' ? 'week' :  // Daily shows last 7 days
+                       groupBy === 'weekly' ? 'month' : // Weekly shows last 30 days grouped by week
+                       'all'; // Monthly shows all data grouped by month
     params.append('time_period', timePeriod);
     
     const queryString = params.toString();

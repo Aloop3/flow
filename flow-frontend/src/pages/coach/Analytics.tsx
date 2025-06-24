@@ -49,6 +49,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentAthleteName, setCurrentAthleteName] = useState<string>('');
+  const [volumeTimeRange, setVolumeTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
 
   // Determine current athlete ID (self or selected athlete for coaches)
   const currentAthleteId = selectedAthleteId || user.user_id;
@@ -137,6 +138,31 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
 
     initializeAnalytics();
   }, [currentAthleteId, user.role, user.user_id, selectedAthleteId, athletes]);
+
+  useEffect(() => {
+    const reloadVolumeData = async () => {
+      if (!currentAthleteId) return;
+      
+      try {
+        console.log(`Reloading volume data for ${volumeTimeRange} view`);
+        const callStartTime = performance.now();
+        
+        const volumeResult = await getVolumeData(
+          currentAthleteId, 
+          volumeTimeRange === 'daily' ? 'weekly' : volumeTimeRange
+        );
+        
+        const callEndTime = performance.now();
+        console.log(`Volume data reloaded in ${callEndTime - callStartTime}ms`);
+        
+        setVolumeData(volumeResult);
+      } catch (error) {
+        console.error('Error reloading volume data:', error);
+      }
+    };
+
+    reloadVolumeData();
+  }, [volumeTimeRange, currentAthleteId]); // Only depends on volume time range and athlete
 
   // Handle athlete selection changes
   const handleAthleteChange = (athleteId: string) => {
@@ -452,31 +478,67 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
               )}
             </div>
 
-            {/* 1RM - Now appears before charts */}
+            {/* 1RM with Total */}
             <div className="bg-white shadow rounded-lg p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 1RM
               </h3>
               <div className="space-y-2">
-                {['squat', 'bench press', 'deadlift'].map(exerciseType => {
-                  const exerciseData = maxWeightData[exerciseType] || [];
-                  const latestData = exerciseData[exerciseData.length - 1];
-                  const exerciseName = capitalizeExerciseName(exerciseType);
+                {(() => {
+                  // Calculate individual 1RMs and total
+                  const sbdData = ['squat', 'bench press', 'deadlift'].map(exerciseType => {
+                    const exerciseData = maxWeightData[exerciseType] || [];
+                    const latestData = exerciseData[exerciseData.length - 1];
+                    const exerciseName = capitalizeExerciseName(exerciseType);
+                    
+                    return {
+                      exerciseType,
+                      exerciseName,
+                      latestData,
+                      weight: latestData?.max_weight || 0,
+                      unit: latestData?.unit || 'kg'
+                    };
+                  });
                   
-                  return latestData ? (
-                    <div key={exerciseType} className="flex justify-between items-center gap-4">
-                      <span className="text-sm text-gray-600 flex-shrink-0">{exerciseName}</span>
-                      <span className="text-sm font-medium text-gray-900 text-right">
-                        {formatWeight(latestData.max_weight, latestData.unit)}
-                      </span>
-                    </div>
-                  ) : (
-                    <div key={exerciseType} className="flex justify-between items-center gap-4">
-                      <span className="text-sm text-gray-400 flex-shrink-0">{exerciseName}</span>
-                      <span className="text-sm text-gray-400 text-right">No data</span>
-                    </div>
+                  // Calculate total (only if all three lifts have data)
+                  const allHaveData = sbdData.every(data => data.latestData);
+                  const total = allHaveData ? sbdData.reduce((sum, data) => sum + data.weight, 0) : 0;
+                  const totalUnit = sbdData.find(data => data.latestData)?.unit || 'kg';
+                  
+                  return (
+                    <>
+                      {/* Individual 1RMs */}
+                      {sbdData.map(({ exerciseType, exerciseName, latestData, weight, unit }) => (
+                        latestData ? (
+                          <div key={exerciseType} className="flex justify-between items-center gap-4">
+                            <span className="text-sm text-gray-600 flex-shrink-0">{exerciseName}</span>
+                            <span className="text-sm font-medium text-gray-900 text-right">
+                              {formatWeight(weight, unit)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div key={exerciseType} className="flex justify-between items-center gap-4">
+                            <span className="text-sm text-gray-400 flex-shrink-0">{exerciseName}</span>
+                            <span className="text-sm text-gray-400 text-right">No data</span>
+                          </div>
+                        )
+                      ))}
+                      
+                      {/* Total Row */}
+                      {allHaveData && (
+                        <>
+                          <div className="border-t border-gray-200 my-2"></div>
+                          <div className="flex justify-between items-center gap-4">
+                            <span className="text-sm font-semibold text-gray-900 flex-shrink-0">Total</span>
+                            <span className="text-sm font-bold text-blue-600 text-right">
+                              {formatWeight(total, totalUnit)}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </>
                   );
-                })}
+                })()}
               </div>
             </div>
 
@@ -544,40 +606,105 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                 ) : null;
               })}
 
-              {/* Volume Chart */}
+              {/* Volume Chart with Toggle */}
               {volumeData.length > 0 && (
                 <div className="bg-white shadow rounded-lg p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    Monthly Training Volume
-                  </h3>
+                  {/* Toggle Header */}
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Training Volume
+                    </h3>
+                    
+                    {/* Time Range Toggle Buttons */}
+                    <div className="flex bg-gray-100 rounded-lg p-1">
+                      {(['daily', 'weekly', 'monthly'] as const).map((range) => (
+                        <button
+                          key={range}
+                          onClick={() => setVolumeTimeRange(range)}
+                          className={`px-3 py-1 text-sm font-medium rounded-md transition-colors duration-200 ${
+                            volumeTimeRange === range
+                              ? 'bg-white text-blue-600 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          {range.charAt(0).toUpperCase() + range.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Volume Chart with Dynamic Processing */}
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart 
                         data={(() => {
-                          console.log('Volume data for chart:', volumeData);
-                          // Group by date and sum volumes to handle duplicate dates
-                          const groupedData = volumeData.reduce((acc, item) => {
-                            console.log('Processing volume item:', item);
-                            const dateKey = new Date(item.date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                            // Backend returns 'volume' not 'total_volume'
-                            const volume = (item as any).volume || item.total_volume || 0;
-                            if (acc[dateKey]) {
-                              acc[dateKey].volume += volume;
-                            } else {
-                              acc[dateKey] = {
-                                date: dateKey,
-                                volume: volume,
-                                fullDate: item.date
-                              };
-                            }
-                            return acc;
-                          }, {} as Record<string, any>);
+                          console.log(`Volume data for ${volumeTimeRange} chart:`, volumeData);
                           
-                          const result = Object.values(groupedData).sort((a: any, b: any) => 
-                            new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime()
-                          );
-                          console.log('Chart data result:', result);
-                          return result;
+                          if (volumeTimeRange === 'daily') {
+                            // Daily: Show each date as-is (last 7 days from backend)
+                            return volumeData
+                              .map(item => ({
+                                date: new Date(item.date).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                }),
+                                volume: (item as any).volume || item.total_volume || 0,
+                                fullDate: item.date
+                              }))
+                              .sort((a, b) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
+                          
+                          } else if (volumeTimeRange === 'weekly') {
+                            // Weekly: Group by week (last 30 days from backend)
+                            const weeklyData = volumeData.reduce((acc, item) => {
+                              const date = new Date(item.date);
+                              const weekStart = new Date(date);
+                              weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
+                              const weekKey = weekStart.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric' 
+                              });
+                              
+                              const volume = (item as any).volume || item.total_volume || 0;
+                              
+                              if (acc[weekKey]) {
+                                acc[weekKey].volume += volume;
+                              } else {
+                                acc[weekKey] = {
+                                  date: weekKey,
+                                  volume: volume,
+                                  weekStart: weekStart.getTime()
+                                };
+                              }
+                              return acc;
+                            }, {} as Record<string, any>);
+                            
+                            return Object.values(weeklyData)
+                              .sort((a: any, b: any) => a.weekStart - b.weekStart);
+                          
+                          } else {
+                            // Monthly: Group by month (existing logic)
+                            const groupedData = volumeData.reduce((acc, item) => {
+                              const dateKey = new Date(item.date).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                year: '2-digit' 
+                              });
+                              const volume = (item as any).volume || item.total_volume || 0;
+                              
+                              if (acc[dateKey]) {
+                                acc[dateKey].volume += volume;
+                              } else {
+                                acc[dateKey] = {
+                                  date: dateKey,
+                                  volume: volume,
+                                  fullDate: item.date
+                                };
+                              }
+                              return acc;
+                            }, {} as Record<string, any>);
+                            
+                            return Object.values(groupedData)
+                              .sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
+                          }
                         })()} 
                         margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                       >
