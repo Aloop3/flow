@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ExerciseSetData } from '../services/api';
@@ -13,6 +13,31 @@ interface SortableInlineSetRowProps {
   readOnly?: boolean;
   onSetUpdated: () => void;
 }
+
+// Custom debounce hook for performance optimization
+const useDebounce = (callback: (...args: any[]) => void, delay: number) => {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const debouncedCallback = useCallback((...args: any[]) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      callback(...args);
+    }, delay);
+  }, [callback, delay]);
+  
+  // Cleanup function to cancel pending calls
+  const cancel = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+  
+  return { debouncedCallback, cancel };
+};
 
 const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
   const {
@@ -63,7 +88,7 @@ const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
   );
 };
 
-// Enhanced content component with always-visible inputs
+// Enhanced content component with always-visible inputs and debounced performance
 const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   exerciseId,
   setNumber,
@@ -77,6 +102,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notesExpanded, setNotesExpanded] = React.useState(false);
+
   
   // Single state for display values
   const [displayData, setDisplayData] = React.useState<{
@@ -167,31 +193,59 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     }
   };
 
-  // Individual field change handlers
+  // Debounced commit functions for real-time performance
+  const debouncedCommitWeight = useDebounce((weight: number) => {
+    commitSetData({ weight });
+  }, 150); // 150ms debounce for optimal balance
+
+  const debouncedCommitReps = useDebounce((reps: number) => {
+    commitSetData({ reps });
+  }, 150);
+
+  const debouncedCommitRpe = useDebounce((rpe: number | undefined) => {
+    commitSetData({ rpe });
+  }, 150);
+
+  // Individual field change handlers with debounced performance optimization
   const handleWeightChange = (value: string) => {
     const weight = parseNumber(value, displayData.weight, 0);
     setDisplayData(prev => ({ ...prev, weight }));
+    
+    // Debounced API call for real-time persistence
+    debouncedCommitWeight.debouncedCallback(weight);
   };
 
   const handleWeightBlur = () => {
+    // Cancel pending debounced call and commit immediately for data integrity
+    debouncedCommitWeight.cancel();
     commitSetData({ weight: displayData.weight });
   };
 
   const handleRepsChange = (value: string) => {
     const reps = parseNumber(value, displayData.reps, 1);
     setDisplayData(prev => ({ ...prev, reps }));
+    
+    // Debounced API call for real-time persistence
+    debouncedCommitReps.debouncedCallback(reps);
   };
 
   const handleRepsBlur = () => {
+    // Cancel pending debounced call and commit immediately for data integrity
+    debouncedCommitReps.cancel();
     commitSetData({ reps: displayData.reps });
   };
 
   const handleRpeChange = (value: string) => {
     const rpe = value.trim() ? parseNumber(value, displayData.rpe || 0, 0, 10) : undefined;
     setDisplayData(prev => ({ ...prev, rpe }));
+    
+    // Debounced API call for real-time persistence
+    debouncedCommitRpe.debouncedCallback(rpe);
   };
 
   const handleRpeBlur = () => {
+    // Cancel pending debounced call and commit immediately for data integrity
+    debouncedCommitRpe.cancel();
     commitSetData({ rpe: displayData.rpe });
   };
 
@@ -275,7 +329,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         </div>
       </td>
 
-      {/* Weight - Always visible input */}
+      {/* Weight - Always visible input with debounced performance */}
       <td className="px-1 py-2 w-16">
         <input
           type="text"
@@ -283,13 +337,13 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
           onChange={(e) => handleWeightChange(e.target.value)}
           onBlur={handleWeightBlur}
           onFocus={(e) => e.target.select()}
-          className="w-12 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
-          disabled={readOnly || isSaving}
+          className={`w-12 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block`}
+                        disabled={readOnly}
           placeholder={`${plannedWeight}`}
         />
       </td>
 
-      {/* Reps - Always visible input */}
+      {/* Reps - Always visible input with debounced performance */}
       <td className="px-1 py-2 w-12">
         <input
           type="text"
@@ -297,13 +351,13 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
           onChange={(e) => handleRepsChange(e.target.value)}
           onBlur={handleRepsBlur}
           onFocus={(e) => e.target.select()}
-          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
-          disabled={readOnly || isSaving}
+          className={`w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block`}
+          disabled={readOnly}
           placeholder={`${plannedReps}`}
         />
       </td>
 
-      {/* RPE - Always visible input */}
+      {/* RPE - Always visible input with debounced performance */}
       <td className="px-1 py-2 w-12">
         <input
           type="text"
@@ -311,9 +365,9 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
           onChange={(e) => handleRpeChange(e.target.value)}
           onBlur={handleRpeBlur}
           onFocus={(e) => e.target.select()}
-          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
+          className={`w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block`}
           placeholder="RPE"
-          disabled={readOnly || isSaving}
+          disabled={readOnly}
         />
       </td>
 
@@ -370,30 +424,26 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
 
       {/* Completion Status */}
       <td className="px-1 py-2 text-center w-16">
-        {isSaving ? (
-          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        ) : (
-          <button
-            onClick={handleToggleCompletion}
-            disabled={readOnly}
-            className={`w-6 h-6 rounded-full flex items-center justify-center mx-auto transition-all duration-200 ${
-              readOnly 
-                ? 'cursor-not-allowed opacity-50' 
-                : 'cursor-pointer hover:scale-110 transform'
-            } ${
-              isCompleted
-                ? 'bg-green-500 text-white hover:bg-green-600 shadow-md'
-                : 'border-2 border-gray-300 hover:border-green-400 hover:bg-green-50'
-            }`}
-            title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
-          >
-            {isCompleted && (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            )}
-          </button>
-        )}
+        <button
+          onClick={handleToggleCompletion}
+          disabled={readOnly}
+          className={`w-6 h-6 rounded-full flex items-center justify-center mx-auto transition-all duration-200 ${
+            readOnly 
+              ? 'cursor-not-allowed opacity-50' 
+              : 'cursor-pointer hover:scale-110 transform'
+          } ${
+            isCompleted
+              ? 'bg-green-500 text-white hover:bg-green-600 shadow-md'
+              : 'border-2 border-gray-300 hover:border-green-400 hover:bg-green-50'
+          }`}
+          title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+        >
+          {isCompleted && (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
       </td>
 
       {/* Error display */}

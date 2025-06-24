@@ -9,7 +9,7 @@ interface FeedbackData {
   pageUrl?: string;
 }
 
-// Helper to get auth headers (same pattern as your other API calls)
+// Helper to get auth headers
 const getAuthHeaders = async () => {
   try {
     const { tokens } = await fetchAuthSession();
