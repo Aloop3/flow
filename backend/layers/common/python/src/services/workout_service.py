@@ -328,7 +328,7 @@ class WorkoutService:
             return existing_workout
 
         # Record the start time and update status to in_progress
-        now = dt.datetime.now().isoformat()
+        now = dt.datetime.now().isoformat() + "Z"
         update_data = {
             "start_time": now,
             "status": "in_progress",
@@ -361,7 +361,7 @@ class WorkoutService:
             return existing_workout
 
         # Record finish time
-        now = dt.datetime.now().isoformat()
+        now = dt.datetime.now().isoformat() + "Z"
         update_data = {"finish_time": now}
 
         # Update the workout in repository
