@@ -425,6 +425,18 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /workouts/copy
             Method: post
+        StartWorkoutSession:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}/start
+            Method: post
+        FinishWorkoutSession:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /workouts/{workout_id}/finish
+            Method: post
   
   # Relationship Lambda function
   RelationshipFunction:

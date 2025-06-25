@@ -324,3 +324,92 @@ def copy_workout(event, context):
     except Exception as e:
         logger.error(f"Error copying workout: {str(e)}")
         return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
+def start_workout_session(event, context):
+    """
+    Handle POST /workouts/{workout_id}/start request to start workout timing
+    """
+    try:
+        # Extract workout_id from path parameters
+        workout_id = event["pathParameters"]["workout_id"]
+
+        # Extract user info from cognito claims
+        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+
+        # Get the workout to validate it exists and check permissions
+        workout = workout_service.get_workout(workout_id)
+        if not workout:
+            return create_response(404, {"error": "Workout not found"})
+
+        # Verify the current user has permission (either is the athlete or their coach)
+        if current_user_id != workout.athlete_id:
+            # Check if current user is the coach
+            relationship = relationship_service.get_active_relationship(
+                coach_id=current_user_id, athlete_id=workout.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized to start timing for this workout"}
+                )
+
+        # Start the workout session
+        updated_workout = workout_service.start_workout_session(workout_id)
+
+        if not updated_workout:
+            return create_response(500, {"error": "Failed to start workout session"})
+
+        return create_response(200, updated_workout.to_dict())
+
+    except ValueError as e:
+        return create_response(400, {"error": str(e)})
+    except Exception as e:
+        return create_response(500, {"error": str(e)})
+
+
+@with_middleware([log_request, handle_errors])
+def finish_workout_session(event, context):
+    """
+    Handle POST /workouts/{workout_id}/finish request to finish workout timing
+    """
+    try:
+        # Extract workout_id from path parameters
+        workout_id = event["pathParameters"]["workout_id"]
+
+        # Extract user info from cognito claims
+        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+
+        # Get the workout to validate it exists and check permissions
+        workout = workout_service.get_workout(workout_id)
+        if not workout:
+            return create_response(404, {"error": "Workout not found"})
+
+        # Verify the current user has permission (either is the athlete or their coach)
+        if current_user_id != workout.athlete_id:
+            # Check if current user is the coach
+            relationship = relationship_service.get_active_relationship(
+                coach_id=current_user_id, athlete_id=workout.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized to finish timing for this workout"}
+                )
+
+        # Finish the workout session
+        updated_workout = workout_service.finish_workout_session(workout_id)
+
+        if not updated_workout:
+            return create_response(
+                400,
+                {
+                    "error": "Cannot finish workout session - session not started or already finished"
+                },
+            )
+
+        return create_response(200, updated_workout.to_dict())
+
+    except ValueError as e:
+        return create_response(400, {"error": str(e)})
+    except Exception as e:
+        return create_response(500, {"error": str(e)})

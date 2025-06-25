@@ -18,6 +18,8 @@ ROUTE_MAP = {
     "POST /workouts/copy": workout_api.copy_workout,
     "POST /days/{day_id}/workout": workout_api.create_day_workout,
     "GET /exercises/types": exercise_type_api.get_exercise_types,
+    "POST /workouts/{workout_id}/start": workout_api.start_workout_session,
+    "POST /workouts/{workout_id}/finish": workout_api.finish_workout_session,
 }
 
 

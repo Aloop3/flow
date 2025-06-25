@@ -1,5 +1,6 @@
 from typing import Dict, List, Literal, Any, Optional
 from .exercise import Exercise
+import datetime as dt
 
 
 class Workout:
@@ -13,6 +14,8 @@ class Workout:
         status: Literal[
             "not_started", "in_progress", "completed", "skipped"
         ] = "not_started",
+        start_time: Optional[str] = None,
+        finish_time: Optional[str] = None,
     ):
         self.workout_id: str = workout_id
         self.athlete_id: str = athlete_id
@@ -23,6 +26,8 @@ class Workout:
             "not_started", "in_progress", "completed", "skipped"
         ] = status
         self.exercises: List[Exercise] = []
+        self.start_time: Optional[str] = start_time
+        self.finish_time: Optional[str] = finish_time
 
     @property
     def status(self) -> Literal["not_started", "in_progress", "completed", "skipped"]:
@@ -56,6 +61,37 @@ class Workout:
             return "completed"
         else:
             return "in_progress"
+
+    @property
+    def duration_minutes(self) -> Optional[int]:
+        """
+        Calculate workout duration in minutes from start_time to finish_time.
+
+        :return: Duration in minutes if both timestamps exist, None otherwise
+        """
+        if not (self.start_time and self.finish_time):
+            return None
+
+        try:
+            # Handle both with and without timezone suffixes
+            start_str = (
+                self.start_time.replace("Z", "+00:00")
+                if self.start_time.endswith("Z")
+                else self.start_time
+            )
+            finish_str = (
+                self.finish_time.replace("Z", "+00:00")
+                if self.finish_time.endswith("Z")
+                else self.finish_time
+            )
+
+            start = dt.datetime.fromisoformat(start_str)
+            finish = dt.datetime.fromisoformat(finish_str)
+
+            duration_seconds = (finish - start).total_seconds()
+            return int(duration_seconds / 60)
+        except (ValueError, TypeError, AttributeError) as e:
+            return None
 
     @status.setter
     def status(
@@ -204,6 +240,8 @@ class Workout:
             "notes": self.notes,
             "status": self.status,
             "exercises": [ex.to_dict() for ex in self.exercises],
+            "start_time": self.start_time,
+            "finish_time": self.finish_time,
         }
 
     @classmethod
@@ -222,6 +260,8 @@ class Workout:
             date=data.get("date"),
             notes=data.get("notes"),
             status=data.get("status", "not_started"),
+            start_time=data.get("start_time"),
+            finish_time=data.get("finish_time"),
         )
 
         # Add exercises if present
