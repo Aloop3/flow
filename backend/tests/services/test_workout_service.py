@@ -781,8 +781,9 @@ class TestWorkoutService(unittest.TestCase):
         Test successfully starting a workout timing session
         """
         # Mock current time
-        mock_time = "2025-06-24T14:30:00.123456"
-        mock_datetime.now.return_value.isoformat.return_value = mock_time
+        mock_time_base = "2025-06-24T14:30:00.123456"
+        mock_time_with_z = "2025-06-24T14:30:00.123456Z"
+        mock_datetime.now.return_value.isoformat.return_value = mock_time_base
 
         # Mock existing workout without timing
         existing_workout_data = {
@@ -803,7 +804,7 @@ class TestWorkoutService(unittest.TestCase):
             "day_id": "day789",
             "date": "2025-06-24",
             "status": "in_progress",
-            "start_time": mock_time,
+            "start_time": mock_time_with_z,
             "finish_time": None,
             "exercises": [],
         }
@@ -821,14 +822,14 @@ class TestWorkoutService(unittest.TestCase):
         # Assert datetime.now() was called
         mock_datetime.now.assert_called_once()
 
-        # Assert repository update was called with correct data
+        # Assert repository update was called with correct data (with Z appended)
         self.workout_repository_mock.update_workout.assert_called_once_with(
-            "workout123", {"start_time": mock_time, "status": "in_progress"}
+            "workout123", {"start_time": mock_time_with_z, "status": "in_progress"}
         )
 
         # Assert result is updated workout
         self.assertIsInstance(result, Workout)
-        self.assertEqual(result.start_time, mock_time)
+        self.assertEqual(result.start_time, mock_time_with_z)
         self.assertEqual(result.status, "in_progress")
 
     def test_start_workout_session_nonexistent_workout(self):
@@ -889,8 +890,9 @@ class TestWorkoutService(unittest.TestCase):
         Test successfully finishing a workout timing session
         """
         # Mock current time
-        mock_time = "2025-06-24T15:45:00.789012"
-        mock_datetime.now.return_value.isoformat.return_value = mock_time
+        mock_time_base = "2025-06-24T15:45:00.789012"
+        mock_time_with_z = "2025-06-24T15:45:00.789012Z"
+        mock_datetime.now.return_value.isoformat.return_value = mock_time_base
 
         # Mock existing workout with start_time but no finish_time
         existing_workout_data = {
@@ -899,20 +901,20 @@ class TestWorkoutService(unittest.TestCase):
             "day_id": "day789",
             "date": "2025-06-24",
             "status": "in_progress",
-            "start_time": "2025-06-24T14:30:00.123456",
+            "start_time": "2025-06-24T14:30:00.123456Z",
             "finish_time": None,
             "exercises": [],
         }
 
-        # Mock updated workout with finish_time
+        # Mock updated workout with finish_time (WITH Z)
         updated_workout_data = {
             "workout_id": "workout123",
             "athlete_id": "athlete456",
             "day_id": "day789",
             "date": "2025-06-24",
             "status": "in_progress",
-            "start_time": "2025-06-24T14:30:00.123456",
-            "finish_time": mock_time,
+            "start_time": "2025-06-24T14:30:00.123456Z",
+            "finish_time": mock_time_with_z,  # Updated to include Z
             "exercises": [],
         }
 
@@ -929,15 +931,15 @@ class TestWorkoutService(unittest.TestCase):
         # Assert datetime.now() was called
         mock_datetime.now.assert_called_once()
 
-        # Assert repository update was called with correct data
+        # Assert repository update was called with correct data (WITH Z)
         self.workout_repository_mock.update_workout.assert_called_once_with(
-            "workout123", {"finish_time": mock_time}
+            "workout123", {"finish_time": mock_time_with_z}  # Expect WITH Z
         )
 
         # Assert result is updated workout
         self.assertIsInstance(result, Workout)
-        self.assertEqual(result.finish_time, mock_time)
-        self.assertEqual(result.start_time, "2025-06-24T14:30:00.123456")
+        self.assertEqual(result.finish_time, mock_time_with_z)  # Expect WITH Z
+        self.assertEqual(result.start_time, "2025-06-24T14:30:00.123456Z")
 
     def test_finish_workout_session_nonexistent_workout(self):
         """
