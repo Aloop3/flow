@@ -10,6 +10,7 @@ import FocusTag from '../components/FocusTag';
 import { toast } from 'react-toastify';
 import ExerciseList from '../components/ExerciseList';
 import { updateDay } from '../services/api';
+import WorkoutTimer from '../components/WorkoutTimer';
 
 
 interface DayDetailProps {
@@ -38,6 +39,9 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const [notesContent, setNotesContent] = useState('');
   const [isEditingFocus, setIsEditingFocus] = useState(false);
   const [isSavingFocus, setIsSavingFocus] = useState(false);
+  const handleWorkoutTimerUpdated = (updatedWorkout: Workout) => {
+    setWorkout(updatedWorkout);
+  };
 
   useEffect(() => {
     if (!dayId) return;
@@ -469,6 +473,12 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                     </button> */}
                   </div>
                 </div>
+
+                <WorkoutTimer
+                  workout={workout}
+                  onWorkoutUpdated={handleWorkoutTimerUpdated}
+                  readOnly={user?.role !== 'athlete' && workout.athlete_id !== user?.user_id}
+                />
 
                 <ExerciseList
                   exercises={workout.exercises}
