@@ -6,6 +6,7 @@ from src.repositories.exercise_repository import ExerciseRepository
 from src.models.workout import Workout
 from src.models.exercise import Exercise
 from src.services.exercise_service import ExerciseService
+import datetime as dt
 
 
 class WorkoutService:
@@ -307,3 +308,61 @@ class WorkoutService:
         response = self.workout_repository.delete_workout(workout_id)
 
         return bool(response)
+
+    def start_workout_session(self, workout_id: str) -> Optional[Workout]:
+        """
+        Start a workout timing session by recording start_time and updating status
+
+        :param workout_id: The ID of the workout to start timing
+        :return: Updated Workout object if found and started, None otherwise
+        """
+        # Get existing workout to validate
+        existing_workout = self.get_workout(workout_id)
+
+        if not existing_workout:
+            return None
+
+        # Check if session is already started
+        if existing_workout.start_time:
+            # Session already started, return the existing workout without changes
+            return existing_workout
+
+        # Record the start time and update status to in_progress
+        now = dt.datetime.now().isoformat()
+        update_data = {
+            "start_time": now,
+            "status": "in_progress",
+        }
+
+        # Update the workout in repository
+        return self.update_workout(workout_id, update_data)
+
+    def finish_workout_session(self, workout_id: str) -> Optional[Workout]:
+        """
+        Finish a workout timing session by recording finish_time
+
+        :param workout_id: The ID of the workout to finish timing
+        :return: Updated Workout object if found and finished, None otherwise
+        """
+        # Get the existing workout to validate it exists and has started
+        existing_workout = self.get_workout(workout_id)
+
+        if not existing_workout:
+            return None
+
+        # Check if session was started
+        if not existing_workout.start_time:
+            # Cannot finish a session that was never started
+            return None
+
+        # Check if session is already finished
+        if existing_workout.finish_time:
+            # Session already finished, return existing workout without changes
+            return existing_workout
+
+        # Record finish time
+        now = dt.datetime.now().isoformat()
+        update_data = {"finish_time": now}
+
+        # Update the workout in repository
+        return self.update_workout(workout_id, update_data)
