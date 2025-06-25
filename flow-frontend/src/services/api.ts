@@ -98,6 +98,8 @@ export interface Workout {
   status: 'not_started' | 'in_progress' | 'completed' | 'skipped';
   exercises: Exercise[];
   total_volume?: number;
+  start_time?: string;
+  finish_time?: string;
 }
 
 export interface ExerciseSetData {
@@ -864,6 +866,89 @@ export const getWorkoutStatus = (
     return 'completed';
   } else {
     return 'in_progress';
+  }
+};
+
+export const startWorkoutSession = async (workoutId: string): Promise<Workout> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await post({
+      apiName: 'flow-api',
+      path: `/workouts/${workoutId}/start`,
+      options: {
+        headers,
+        body: {},
+      },
+    });
+
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        console.log('Successfully started workout session:', responseData);
+        return responseData as unknown as Workout;
+      } catch (e) {
+        console.error('Failed to parse start workout response:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+
+    throw new Error('No response data');
+  } catch (error) {
+    // Check for specific status codes
+    if (error instanceof ApiError && error.statusCode === 403) {
+      throw new ApiError('Unauthorized to start timing for this workout', 403, error);
+    }
+    if (error instanceof ApiError && error.statusCode === 404) {
+      throw new ApiError('Workout not found', 404, error);
+    }
+    console.error('Error starting workout session:', error);
+    throw error;
+  }
+};
+
+export const finishWorkoutSession = async (workoutId: string): Promise<Workout> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await post({
+      apiName: 'flow-api',
+      path: `/workouts/${workoutId}/finish`,
+      options: {
+        headers,
+        body: {},
+      },
+    });
+
+    // For Amplify v6, await the response
+    const actualResponse = await apiResponse.response;
+
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        console.log('Successfully finished workout session:', responseData);
+        return responseData as unknown as Workout;
+      } catch (e) {
+        console.error('Failed to parse finish workout response:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+
+    throw new Error('No response data');
+  } catch (error) {
+    // Check for specific status codes
+    if (error instanceof ApiError && error.statusCode === 400) {
+      throw new ApiError('Cannot finish workout session - session not started or already finished', 400, error);
+    }
+    if (error instanceof ApiError && error.statusCode === 403) {
+      throw new ApiError('Unauthorized to finish timing for this workout', 403, error);
+    }
+    if (error instanceof ApiError && error.statusCode === 404) {
+      throw new ApiError('Workout not found', 404, error);
+    }
+    console.error('Error finishing workout session:', error);
+    throw error;
   }
 };
 
