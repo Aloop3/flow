@@ -1036,6 +1036,381 @@ class TestWorkoutAPI(BaseTest):
         call_args = mock_create_workout.call_args[1]
         self.assertEqual(call_args["athlete_id"], "athlete456")
 
+    @patch("src.services.workout_service.WorkoutService.start_workout_session")
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_start_workout_session_success(self, mock_get_workout, mock_start_session):
+        """
+        Test successful workout timing session start
+        """
+        # Setup mock workout
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
+        mock_workout.to_dict.return_value = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:30:00.123456",
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Setup mocks
+        mock_get_workout.return_value = mock_workout
+        mock_start_session.return_value = mock_workout
+
+        # Setup event - athlete starting their own workout
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.start_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["workout_id"], "workout123")
+        self.assertEqual(response_body["status"], "in_progress")
+        self.assertEqual(response_body["start_time"], "2025-06-24T14:30:00.123456")
+        self.assertIsNone(response_body["finish_time"])
+
+        # Verify service calls
+        mock_get_workout.assert_called_once_with("workout123")
+        mock_start_session.assert_called_once_with("workout123")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.start_workout_session")
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_start_workout_session_coach_success(
+        self, mock_get_workout, mock_start_session, mock_get_relationship
+    ):
+        """
+        Test successful workout timing session start by coach
+        """
+        # Setup mock workout
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
+        mock_workout.to_dict.return_value = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:30:00.123456",
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Setup mock relationship
+        mock_relationship = MagicMock()
+        mock_relationship.status = "active"
+
+        # Setup mocks
+        mock_get_workout.return_value = mock_workout
+        mock_start_session.return_value = mock_workout
+        mock_get_relationship.return_value = mock_relationship
+
+        # Setup event - coach starting athlete's workout
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {"sub": "coach789"}  # Different from athlete_id
+                }
+            },
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.start_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["workout_id"], "workout123")
+        self.assertEqual(response_body["status"], "in_progress")
+
+        # Verify service calls
+        mock_get_workout.assert_called_once_with("workout123")
+        mock_get_relationship.assert_called_once_with(
+            coach_id="coach789", athlete_id="athlete456"
+        )
+        mock_start_session.assert_called_once_with("workout123")
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_start_workout_session_workout_not_found(self, mock_get_workout):
+        """
+        Test starting workout session for non-existent workout
+        """
+        # Setup mock to return None
+        mock_get_workout.return_value = None
+
+        # Setup event
+        event = {
+            "pathParameters": {"workout_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.start_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Workout not found")
+
+        # Verify service call
+        mock_get_workout.assert_called_once_with("nonexistent")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_start_workout_session_unauthorized(
+        self, mock_get_workout, mock_get_relationship
+    ):
+        """
+        Test starting workout session without permission
+        """
+        # Setup mock workout
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
+
+        # Setup mocks - no active relationship
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        # Setup event - unauthorized user
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "unauthorized789"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.start_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 403)
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["error"], "Unauthorized to start timing for this workout"
+        )
+
+        # Verify service calls
+        mock_get_workout.assert_called_once_with("workout123")
+        mock_get_relationship.assert_called_once_with(
+            coach_id="unauthorized789", athlete_id="athlete456"
+        )
+
+    @patch("src.services.workout_service.WorkoutService.start_workout_session")
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_start_workout_session_service_failure(
+        self, mock_get_workout, mock_start_session
+    ):
+        """
+        Test starting workout session when service fails
+        """
+        # Setup mock workout
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
+
+        # Setup mocks - service returns None (failure)
+        mock_get_workout.return_value = mock_workout
+        mock_start_session.return_value = None
+
+        # Setup event
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.start_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Failed to start workout session")
+
+    @patch("src.services.workout_service.WorkoutService.finish_workout_session")
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_finish_workout_session_success(
+        self, mock_get_workout, mock_finish_session
+    ):
+        """
+        Test successful workout timing session finish
+        """
+        # Setup mock workout
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
+        mock_workout.to_dict.return_value = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:30:00.123456",
+            "finish_time": "2025-06-24T15:45:00.789012",
+            "exercises": [],
+        }
+
+        # Setup mocks
+        mock_get_workout.return_value = mock_workout
+        mock_finish_session.return_value = mock_workout
+
+        # Setup event
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.finish_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["workout_id"], "workout123")
+        self.assertEqual(response_body["start_time"], "2025-06-24T14:30:00.123456")
+        self.assertEqual(response_body["finish_time"], "2025-06-24T15:45:00.789012")
+
+        # Verify service calls
+        mock_get_workout.assert_called_once_with("workout123")
+        mock_finish_session.assert_called_once_with("workout123")
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_finish_workout_session_workout_not_found(self, mock_get_workout):
+        """
+        Test finishing workout session for non-existent workout
+        """
+        # Setup mock to return None
+        mock_get_workout.return_value = None
+
+        # Setup event
+        event = {
+            "pathParameters": {"workout_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.finish_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Workout not found")
+
+    @patch("src.services.workout_service.WorkoutService.finish_workout_session")
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_finish_workout_session_not_started(
+        self, mock_get_workout, mock_finish_session
+    ):
+        """
+        Test finishing workout session that was never started
+        """
+        # Setup mock workout
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
+
+        # Setup mocks - service returns None (cannot finish)
+        mock_get_workout.return_value = mock_workout
+        mock_finish_session.return_value = None
+
+        # Setup event
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.finish_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 400)
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["error"],
+            "Cannot finish workout session - session not started or already finished",
+        )
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_finish_workout_session_unauthorized(
+        self, mock_get_workout, mock_get_relationship
+    ):
+        """
+        Test finishing workout session without permission
+        """
+        # Setup mock workout
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
+
+        # Setup mocks - no active relationship
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        # Setup event - unauthorized user
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "unauthorized789"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.finish_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 403)
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["error"], "Unauthorized to finish timing for this workout"
+        )
+
+    @patch("src.services.workout_service.WorkoutService.start_workout_session")
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_start_workout_session_general_exception(
+        self, mock_get_workout, mock_start_session
+    ):
+        """
+        Test starting workout session when general exception occurs
+        """
+        # Setup mock workout
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
+
+        # Setup mocks - service throws exception
+        mock_get_workout.return_value = mock_workout
+        mock_start_session.side_effect = Exception("Database connection error")
+
+        # Setup event
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        context = {}
+
+        # Call API
+        response = workout_api.start_workout_session(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 500)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Database connection error")
+
 
 if __name__ == "__main__":
     unittest.main()

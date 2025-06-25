@@ -3,6 +3,7 @@ from decimal import Decimal
 from unittest.mock import patch
 from src.models.workout import Workout
 from src.models.exercise import Exercise
+import datetime as dt
 
 
 class TestWorkoutModel(unittest.TestCase):
@@ -49,6 +50,39 @@ class TestWorkoutModel(unittest.TestCase):
         self.assertIsNone(workout.notes)
         self.assertEqual(workout.status, "not_started")
         self.assertEqual(workout.exercises, [])  # Empty list by default
+
+    def test_workout_initialization_with_timing_fields(self):
+        """
+        Test Workout model initialization with timing fields
+        """
+        start_time = "2025-06-24T14:30:00"
+        finish_time = "2025-06-24T15:45:00"
+
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time=start_time,
+            finish_time=finish_time,
+        )
+
+        self.assertEqual(workout.start_time, start_time)
+        self.assertEqual(workout.finish_time, finish_time)
+
+    def test_workout_initialization_without_timing_fields(self):
+        """
+        Test Workout model initialization without timing fields defaults to None
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+        )
+
+        self.assertIsNone(workout.start_time)
+        self.assertIsNone(workout.finish_time)
 
     def test_add_exercise(self):
         """
@@ -331,6 +365,142 @@ class TestWorkoutModel(unittest.TestCase):
         # Deadlift doesn't count because it's not completed
         self.assertEqual(workout.calculate_volume(), 6525.0)
 
+    def test_duration_minutes_calculation_valid_times(self):
+        """
+        Test duration calculation with valid start and finish times
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time="2025-06-24T14:30:00",
+            finish_time="2025-06-24T15:45:00",  # 75 minutes later
+        )
+
+        self.assertEqual(workout.duration_minutes, 75)
+
+    def test_duration_minutes_calculation_same_time(self):
+        """
+        Test duration calculation when start and finish times are the same
+        """
+        same_time = "2025-06-24T14:30:00"
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time=same_time,
+            finish_time=same_time,
+        )
+
+        self.assertEqual(workout.duration_minutes, 0)
+
+    def test_duration_minutes_with_timezone_suffix(self):
+        """
+        Test duration calculation with timezone Z suffix
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time="2025-06-24T14:30:00Z",
+            finish_time="2025-06-24T16:00:00Z",  # 90 minutes later
+        )
+
+        self.assertEqual(workout.duration_minutes, 90)
+
+    def test_duration_minutes_with_timezone_offset(self):
+        """
+        Test duration calculation with timezone offset
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time="2025-06-24T14:30:00-05:00",
+            finish_time="2025-06-24T15:00:00-05:00",  # 30 minutes later
+        )
+
+        self.assertEqual(workout.duration_minutes, 30)
+
+    def test_duration_minutes_returns_none_when_no_start_time(self):
+        """
+        Test duration returns None when start_time is missing
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            finish_time="2025-06-24T15:45:00",
+        )
+
+        self.assertIsNone(workout.duration_minutes)
+
+    def test_duration_minutes_returns_none_when_no_finish_time(self):
+        """
+        Test duration returns None when finish_time is missing
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time="2025-06-24T14:30:00",
+        )
+
+        self.assertIsNone(workout.duration_minutes)
+
+    def test_duration_minutes_handles_invalid_timestamp_format(self):
+        """
+        Test duration returns None for invalid timestamp formats
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time="invalid-timestamp",
+            finish_time="2025-06-24T15:45:00",
+        )
+
+        self.assertIsNone(workout.duration_minutes)
+
+    def test_duration_minutes_handles_none_values(self):
+        """
+        Test duration handles None values gracefully
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+        )
+
+        # Explicitly set to None
+        workout.start_time = None
+        workout.finish_time = None
+
+        self.assertIsNone(workout.duration_minutes)
+
+    def test_duration_minutes_cross_day_calculation(self):
+        """
+        Test duration calculation across day boundaries
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time="2025-06-24T23:30:00",
+            finish_time="2025-06-25T01:00:00",  # 90 minutes later, next day
+        )
+
+        self.assertEqual(workout.duration_minutes, 90)
+
     def test_to_dict(self):
         """
         Test Workout model to_dict method
@@ -373,6 +543,43 @@ class TestWorkoutModel(unittest.TestCase):
         self.assertEqual(workout_dict["exercises"][0]["notes"], "Felt strong")
         self.assertEqual(workout_dict["exercises"][0]["status"], "completed")
         self.assertEqual(workout_dict["exercises"][0]["rpe"], 8.0)
+
+    def test_to_dict_includes_timing_fields(self):
+        """
+        Test to_dict method includes timing fields
+        """
+        start_time = "2025-06-24T14:30:00"
+        finish_time = "2025-06-24T15:45:00"
+
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+            start_time=start_time,
+            finish_time=finish_time,
+        )
+
+        workout_dict = workout.to_dict()
+
+        self.assertEqual(workout_dict["start_time"], start_time)
+        self.assertEqual(workout_dict["finish_time"], finish_time)
+
+    def test_to_dict_with_none_timing_fields(self):
+        """
+        Test to_dict method with None timing fields
+        """
+        workout = Workout(
+            workout_id="workout123",
+            athlete_id="athlete456",
+            day_id="day789",
+            date="2025-06-24",
+        )
+
+        workout_dict = workout.to_dict()
+
+        self.assertIsNone(workout_dict["start_time"])
+        self.assertIsNone(workout_dict["finish_time"])
 
     def test_volume_calculation_with_decimal_types(self):
         """
@@ -514,6 +721,42 @@ class TestWorkoutModel(unittest.TestCase):
         # Expected: completed (3*8*100.0) + mixed (2*5*120.5) = 2400.0 + 1205.0 = 3605.0
         # Planned exercise ignored
         self.assertEqual(volume, 3605.0)
+
+    def test_from_dict_with_timing_fields(self):
+        """
+        Test from_dict method creates workout with timing fields
+        """
+        data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "start_time": "2025-06-24T14:30:00",
+            "finish_time": "2025-06-24T15:45:00",
+            "status": "completed",
+        }
+
+        workout = Workout.from_dict(data)
+
+        self.assertEqual(workout.start_time, "2025-06-24T14:30:00")
+        self.assertEqual(workout.finish_time, "2025-06-24T15:45:00")
+
+    def test_from_dict_without_timing_fields(self):
+        """
+        Test from_dict method handles missing timing fields gracefully
+        """
+        data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "not_started",
+        }
+
+        workout = Workout.from_dict(data)
+
+        self.assertIsNone(workout.start_time)
+        self.assertIsNone(workout.finish_time)
 
 
 if __name__ == "__main__":  # pragma: no cover

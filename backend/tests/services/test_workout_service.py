@@ -4,6 +4,7 @@ from src.models.workout import Workout
 from src.models.exercise import Exercise
 from src.services.workout_service import WorkoutService
 from src.services.exercise_service import ExerciseService
+import datetime as dt
 
 
 class TestWorkoutService(unittest.TestCase):
@@ -773,6 +774,332 @@ class TestWorkoutService(unittest.TestCase):
         # Assert repository methods were called correctly
         self.workout_repository_mock.get_workout.assert_called_once_with("nonexistent")
         self.workout_repository_mock.update_workout.assert_not_called()
+
+    @patch("src.services.workout_service.dt.datetime")
+    def test_start_workout_session_success(self, mock_datetime):
+        """
+        Test successfully starting a workout timing session
+        """
+        # Mock current time
+        mock_time = "2025-06-24T14:30:00.123456"
+        mock_datetime.now.return_value.isoformat.return_value = mock_time
+
+        # Mock existing workout without timing
+        existing_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "not_started",
+            "start_time": None,
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Mock updated workout with start_time
+        updated_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": mock_time,
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Configure mocks
+        self.workout_repository_mock.get_workout.side_effect = [
+            existing_workout_data,  # First call in get_workout
+            existing_workout_data,  # Second call in update_workout (existing check)
+            updated_workout_data,  # Third call in update_workout (return updated)
+        ]
+
+        # Call the service method
+        result = self.workout_service.start_workout_session("workout123")
+
+        # Assert datetime.now() was called
+        mock_datetime.now.assert_called_once()
+
+        # Assert repository update was called with correct data
+        self.workout_repository_mock.update_workout.assert_called_once_with(
+            "workout123", {"start_time": mock_time, "status": "in_progress"}
+        )
+
+        # Assert result is updated workout
+        self.assertIsInstance(result, Workout)
+        self.assertEqual(result.start_time, mock_time)
+        self.assertEqual(result.status, "in_progress")
+
+    def test_start_workout_session_nonexistent_workout(self):
+        """
+        Test starting a session for a workout that doesn't exist
+        """
+        # Configure mock to return None (workout not found)
+        self.workout_repository_mock.get_workout.return_value = None
+
+        # Call the service method
+        result = self.workout_service.start_workout_session("nonexistent")
+
+        # Assert repository was called to check for workout
+        self.workout_repository_mock.get_workout.assert_called_once_with("nonexistent")
+
+        # Assert update was not called
+        self.workout_repository_mock.update_workout.assert_not_called()
+
+        # Assert result is None
+        self.assertIsNone(result)
+
+    def test_start_workout_session_already_started(self):
+        """
+        Test starting a session for a workout that already has start_time
+        """
+        # Mock existing workout with start_time already set
+        existing_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:00:00.123456",
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Configure mock
+        self.workout_repository_mock.get_workout.return_value = existing_workout_data
+
+        # Call the service method
+        result = self.workout_service.start_workout_session("workout123")
+
+        # Assert repository was called to get workout
+        self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
+
+        # Assert update was NOT called (session already started)
+        self.workout_repository_mock.update_workout.assert_not_called()
+
+        # Assert result is the existing workout
+        self.assertIsInstance(result, Workout)
+        self.assertEqual(result.start_time, "2025-06-24T14:00:00.123456")
+        self.assertEqual(result.status, "in_progress")
+
+    @patch("src.services.workout_service.dt.datetime")
+    def test_finish_workout_session_success(self, mock_datetime):
+        """
+        Test successfully finishing a workout timing session
+        """
+        # Mock current time
+        mock_time = "2025-06-24T15:45:00.789012"
+        mock_datetime.now.return_value.isoformat.return_value = mock_time
+
+        # Mock existing workout with start_time but no finish_time
+        existing_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:30:00.123456",
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Mock updated workout with finish_time
+        updated_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:30:00.123456",
+            "finish_time": mock_time,
+            "exercises": [],
+        }
+
+        # Configure mocks
+        self.workout_repository_mock.get_workout.side_effect = [
+            existing_workout_data,  # First call in get_workout
+            existing_workout_data,  # Second call in update_workout (existing check)
+            updated_workout_data,  # Third call in update_workout (return updated)
+        ]
+
+        # Call the service method
+        result = self.workout_service.finish_workout_session("workout123")
+
+        # Assert datetime.now() was called
+        mock_datetime.now.assert_called_once()
+
+        # Assert repository update was called with correct data
+        self.workout_repository_mock.update_workout.assert_called_once_with(
+            "workout123", {"finish_time": mock_time}
+        )
+
+        # Assert result is updated workout
+        self.assertIsInstance(result, Workout)
+        self.assertEqual(result.finish_time, mock_time)
+        self.assertEqual(result.start_time, "2025-06-24T14:30:00.123456")
+
+    def test_finish_workout_session_nonexistent_workout(self):
+        """
+        Test finishing a session for a workout that doesn't exist
+        """
+        # Configure mock to return None (workout not found)
+        self.workout_repository_mock.get_workout.return_value = None
+
+        # Call the service method
+        result = self.workout_service.finish_workout_session("nonexistent")
+
+        # Assert repository was called to check for workout
+        self.workout_repository_mock.get_workout.assert_called_once_with("nonexistent")
+
+        # Assert update was not called
+        self.workout_repository_mock.update_workout.assert_not_called()
+
+        # Assert result is None
+        self.assertIsNone(result)
+
+    def test_finish_workout_session_not_started(self):
+        """
+        Test finishing a session for a workout that was never started
+        """
+        # Mock existing workout without start_time
+        existing_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "not_started",
+            "start_time": None,
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Configure mock
+        self.workout_repository_mock.get_workout.return_value = existing_workout_data
+
+        # Call the service method
+        result = self.workout_service.finish_workout_session("workout123")
+
+        # Assert repository was called to get workout
+        self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
+
+        # Assert update was NOT called (session never started)
+        self.workout_repository_mock.update_workout.assert_not_called()
+
+        # Assert result is None (cannot finish unstarted session)
+        self.assertIsNone(result)
+
+    def test_finish_workout_session_already_finished(self):
+        """
+        Test finishing a session for a workout that already has finish_time
+        """
+        # Mock existing workout with both start_time and finish_time
+        existing_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "completed",
+            "start_time": "2025-06-24T14:30:00.123456",
+            "finish_time": "2025-06-24T15:30:00.654321",
+            "exercises": [],
+        }
+
+        # Configure mock
+        self.workout_repository_mock.get_workout.return_value = existing_workout_data
+
+        # Call the service method
+        result = self.workout_service.finish_workout_session("workout123")
+
+        # Assert repository was called to get workout
+        self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
+
+        # Assert update was NOT called (session already finished)
+        self.workout_repository_mock.update_workout.assert_not_called()
+
+        # Assert result is the existing workout
+        self.assertIsInstance(result, Workout)
+        self.assertEqual(result.start_time, "2025-06-24T14:30:00.123456")
+        self.assertEqual(result.finish_time, "2025-06-24T15:30:00.654321")
+
+    @patch("src.services.workout_service.dt.datetime")
+    def test_start_finish_workout_session_complete_flow(self, mock_datetime):
+        """
+        Test complete flow of starting and finishing a workout session
+        """
+        # Mock times
+        start_time = "2025-06-24T14:30:00.123456"
+        finish_time = "2025-06-24T15:45:00.789012"
+        mock_datetime.now.return_value.isoformat.side_effect = [start_time, finish_time]
+
+        # Mock initial workout
+        initial_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "not_started",
+            "start_time": None,
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Mock workout after start
+        started_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": start_time,
+            "finish_time": None,
+            "exercises": [],
+        }
+
+        # Mock workout after finish
+        finished_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": start_time,
+            "finish_time": finish_time,
+            "exercises": [],
+        }
+
+        # Configure mocks for start operation
+        self.workout_repository_mock.get_workout.side_effect = [
+            initial_workout_data,  # get_workout call in start_workout_session
+            initial_workout_data,  # get_workout call in update_workout (existing check)
+            started_workout_data,  # get_workout call in update_workout (return updated)
+            started_workout_data,  # get_workout call in finish_workout_session
+            started_workout_data,  # get_workout call in update_workout (existing check)
+            finished_workout_data,  # get_workout call in update_workout (return updated)
+        ]
+
+        # Start the session
+        start_result = self.workout_service.start_workout_session("workout123")
+
+        # Assert start worked correctly
+        self.assertIsInstance(start_result, Workout)
+        self.assertEqual(start_result.start_time, start_time)
+        self.assertEqual(start_result.status, "in_progress")
+        self.assertIsNone(start_result.finish_time)
+
+        # Finish the session
+        finish_result = self.workout_service.finish_workout_session("workout123")
+
+        # Assert finish worked correctly
+        self.assertIsInstance(finish_result, Workout)
+        self.assertEqual(finish_result.start_time, start_time)
+        self.assertEqual(finish_result.finish_time, finish_time)
+
+        # Assert both datetime calls were made
+        self.assertEqual(mock_datetime.now.call_count, 2)
+
+        # Assert both update calls were made
+        self.assertEqual(self.workout_repository_mock.update_workout.call_count, 2)
 
 
 if __name__ == "__main__":  # pragma: no cover
