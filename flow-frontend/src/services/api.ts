@@ -1,5 +1,5 @@
 import { fetchAuthSession, signOut } from 'aws-amplify/auth';
-import { get, post, put, del } from 'aws-amplify/api';
+import { get, post, put, del, patch } from 'aws-amplify/api';
 
 export class ApiError extends Error {
   constructor(
@@ -205,6 +205,20 @@ export const getAuthHeaders = async () => {
     throw new Error('Authentication required');
   }
 };
+
+// Notification interface
+export interface Notification {
+  notification_id: string;
+  coach_id: string;
+  athlete_id: string;
+  athlete_name: string;
+  workout_id: string;
+  day_info: string; // e.g., "Day 5 (2024-06-25)"
+  workout_data: Workout;
+  is_read: boolean;
+  created_at: string;
+  notification_type: string;
+}
 
 // User endpoints
 export const createUser = async (userData: Omit<User, 'user_id'>): Promise<User> => {
@@ -1657,5 +1671,78 @@ export const getBlockComparison = async (
   } catch (error) {
     console.error('Error fetching block comparison:', error);
     return null;
+  }
+};
+
+// Notification endpoints
+export const getNotifications = async (): Promise<Notification[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    
+    console.log('Fetching notifications for coach');
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path: '/notifications',
+      options: { headers },
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json() as any;
+        console.log('Notifications data:', responseData);
+        return Array.isArray(responseData) ? responseData as Notification[] : [];
+      } catch (e) {
+        console.error('Failed to parse notifications response:', e);
+        return [];
+      }
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    throw error;
+  }
+};
+
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  try {
+    const headers = await getAuthHeaders();
+    
+    console.log('Marking notification as read:', notificationId);
+    const apiResponse = await patch({
+      apiName: 'flow-api',
+      path: `/notifications/${notificationId}/read`,
+      options: {
+        headers,
+        body: {},
+      },
+    });
+
+    const actualResponse = await apiResponse.response;
+
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json() as any;
+        console.log('Successfully marked notification as read:', responseData);
+        return; // Backend returns success message
+      } catch (e) {
+        console.error('Failed to parse mark read response:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+
+    throw new Error('No response data');
+  } catch (error) {
+    // Check for specific status codes
+    if (error instanceof ApiError && error.statusCode === 404) {
+      throw new ApiError('Notification not found', 404, error);
+    }
+    if (error instanceof ApiError && error.statusCode === 403) {
+      throw new ApiError('Unauthorized to mark this notification as read', 403, error);
+    }
+    console.error('Error marking notification as read:', error);
+    throw error;
   }
 };
