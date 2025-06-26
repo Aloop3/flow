@@ -28,6 +28,23 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Check if all exercises are completed
+  const allExercisesCompleted = (): boolean => {
+    if (!workout.exercises || workout.exercises.length === 0) {
+      return false;
+    }
+    return workout.exercises.every(exercise => exercise.status === 'completed');
+  };
+
+  // Get exercise completion status for UI feedback
+  const getExerciseCompletionStatus = (): { completed: number; total: number } => {
+    if (!workout.exercises || workout.exercises.length === 0) {
+      return { completed: 0, total: 0 };
+    }
+    const completed = workout.exercises.filter(ex => ex.status === 'completed').length;
+    return { completed, total: workout.exercises.length };
+  };
+
   const handleStartSession = async () => {
     if (isStarting || readOnly) return;
 
@@ -52,11 +69,18 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
   const handleFinishSession = async () => {
     if (isFinishing || readOnly) return;
 
+    // Check if all exercises are completed before allowing finish
+    if (!allExercisesCompleted()) {
+      const { completed, total } = getExerciseCompletionStatus();
+      toast.error(`Complete all exercises before finishing workout (${completed}/${total} completed)`);
+      return;
+    }
+
     setIsFinishing(true);
     try {
       const updatedWorkout = await finishWorkoutSession(workout.workout_id);
       onWorkoutUpdated(updatedWorkout);
-      toast.success('Workout timer finished!');
+      toast.success('Workout completed! 🎉');
     } catch (error) {
       console.error('Error finishing workout session:', error);
       
@@ -80,52 +104,41 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
     const endTime = workout.finish_time ? new Date(workout.finish_time) : currentTime;
     
     const durationMs = endTime.getTime() - startTime.getTime();
+    const durationMinutes = Math.floor(durationMs / (1000 * 60));
+    const durationSeconds = Math.floor((durationMs % (1000 * 60)) / 1000);
     
-    // Ensure minimum 1 minute for active sessions, handle negative durations
-    let durationMinutes = Math.floor(durationMs / (1000 * 60));
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
     
-    // Handle negative durations (timezone issues)
-    if (durationMinutes < 0) {
-      durationMinutes = Math.abs(durationMinutes);
-    }
-    
-    // Show minimum 1 minute for completed sessions > 0
-    if (workout.finish_time && durationMinutes === 0 && durationMs > 0) {
-      durationMinutes = 1;
-    }
-    
-    if (durationMinutes < 60) {
-      return `${durationMinutes}m`;
+    // Handle different time formats based on duration
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}`;
+    } else if (minutes > 0) {
+      return `${minutes}m`;
     } else {
-      const hours = Math.floor(durationMinutes / 60);
-      const minutes = durationMinutes % 60;
-      return `${hours}h ${minutes}m`;
+      // Show seconds for workouts under 1 minute
+      return `${durationSeconds}s`;
     }
-  };
-
-  const formatTime = (timeString: string): string => {
-    const date = new Date(timeString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const getTimerStatus = (): 'not_started' | 'in_progress' | 'finished' => {
     if (!workout.start_time) return 'not_started';
-    if (workout.finish_time) return 'finished';
-    return 'in_progress';
+    if (!workout.finish_time) return 'in_progress';
+    return 'finished';
   };
 
   const timerStatus = getTimerStatus();
   const duration = calculateDuration();
+  const exerciseStatus = getExerciseCompletionStatus();
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+      {/* Compact timer layout */}
       <div className="flex items-center justify-between">
+        {/* Status indicator and exercise progress */}
         <div className="flex items-center space-x-4">
-          <h3 className="text-lg font-medium text-gray-900">Workout Timer</h3>
-          
-          {/* Timer Status Indicator */}
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
+            <div className={`w-3 h-3 rounded-full ${
               timerStatus === 'not_started' ? 'bg-gray-400' :
               timerStatus === 'in_progress' ? 'bg-green-400 animate-pulse' :
               'bg-blue-400'
@@ -136,42 +149,31 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
                'Completed'}
             </span>
           </div>
+
+          {/* Exercise completion status - compact */}
+          {workout.exercises && workout.exercises.length > 0 && (
+            <div className="text-sm text-gray-500">
+              <span className={`font-medium ${
+                exerciseStatus.completed === exerciseStatus.total ? 'text-green-600' : 'text-orange-600'
+              }`}>
+                {exerciseStatus.completed}/{exerciseStatus.total} exercises
+                {exerciseStatus.completed === exerciseStatus.total && ' ✅'}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Duration Display */}
+        {/* Duration display - smaller and inline */}
         {duration && (
-          <div className="text-right">
-            <div className="text-xl font-mono font-bold text-gray-900">
-              {duration}
-            </div>
-            {timerStatus === 'in_progress' && (
-              <div className="text-xs text-gray-500">Live</div>
-            )}
+          <div className="text-sm font-medium text-gray-700">
+            {duration}
           </div>
         )}
       </div>
 
-      {/* Timer Details */}
-      {(workout.start_time || workout.finish_time) && (
-        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-          {workout.start_time && (
-            <div>
-              <span className="text-gray-500">Started:</span>
-              <div className="font-medium">{formatTime(workout.start_time)}</div>
-            </div>
-          )}
-          {workout.finish_time && (
-            <div>
-              <span className="text-gray-500">Finished:</span>
-              <div className="font-medium">{formatTime(workout.finish_time)}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Control Buttons */}
+      {/* Control Buttons - more compact */}
       {!readOnly && (
-        <div className="mt-4 flex space-x-2">
+        <div className="mt-3 flex items-center space-x-2">
           {timerStatus === 'not_started' && (
             <FormButton
               type="button"
@@ -185,20 +187,21 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
           )}
           
           {timerStatus === 'in_progress' && (
-            <FormButton
-              type="button"
-              variant="secondary"
-              onClick={handleFinishSession}
-              disabled={isFinishing}
-              isLoading={isFinishing}
-            >
-              Finish Workout
-            </FormButton>
-          )}
-          
-          {timerStatus === 'finished' && (
-            <div className="text-sm text-gray-500 py-2">
-              ✅ Workout timing completed
+            <div className="flex items-center space-x-2">
+              <FormButton
+                type="button"
+                variant="secondary"
+                onClick={handleFinishSession}
+                disabled={isFinishing || !allExercisesCompleted()}
+                isLoading={isFinishing}
+              >
+                Finish Workout
+              </FormButton>
+              {!allExercisesCompleted() && (
+                <span className="text-xs text-orange-600">
+                  Complete all exercises first
+                </span>
+              )}
             </div>
           )}
         </div>
