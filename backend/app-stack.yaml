@@ -50,6 +50,8 @@ Globals:
           Fn::Sub: "flow-${Environment}-WorkoutsTable"
         RELATIONSHIPS_TABLE: !ImportValue
           Fn::Sub: "flow-${Environment}-RelationshipsTable"
+        NOTIFICATIONS_TABLE: !ImportValue
+          Fn::Sub: "flow-${Environment}-NotificationsTable"
         LOG_LEVEL: INFO
         REGION: !Ref AWS::Region
 
@@ -614,6 +616,37 @@ Resources:
             RestApiId: !Ref FlowAPI
             Path: /feedback
             Method: post
+  
+  # Notification Lambda function
+  NotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/notification_lambda/
+      Handler: notification_lambda.handler
+      Description: Lambda handler for notification-related endpoints
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-NotificationsTable"
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-UsersTable"
+
+      Events:
+        # Notification API Routes
+        GetNotifications:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /notifications
+            Method: get
+        MarkNotificationAsRead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /notifications/{notification_id}/read
+            Method: patch
 
   # SNS Topic for Alerts
   MonitoringTopic:
