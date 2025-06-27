@@ -299,6 +299,32 @@ class WorkoutService:
         if new_status != workout.status:
             self.workout_repository.update_workout(workout_id, {"status": new_status})
 
+    def _create_completion_notification(self, workout_id: str) -> None:
+        """
+        Create a notification when a workout is completed
+
+        :param workout_id: ID of the completed workout
+        """
+        try:
+            # Import here to avoid circular imports
+            from src.services.notification_service import NotificationService
+
+            # Get the updated workout with completed status
+            completed_workout = self.get_workout(workout_id)
+            if not completed_workout:
+                return
+
+            # Create notification (this method handles all error cases gracefully)
+            notification_service = NotificationService()
+            notification_service.create_workout_completion_notification(
+                completed_workout
+            )
+
+        except Exception as e:
+            # Log the error but don't break the workout completion flow
+            print(f"Error creating workout completion notification: {str(e)}")
+            # Notification failure should not impact workout functionality
+
     def delete_workout(self, workout_id: str) -> bool:
         """
         Deletes a workout by workout_id, including all its exercises
