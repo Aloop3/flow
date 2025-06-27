@@ -256,7 +256,6 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                   <ExerciseTracker
                     exercise={exercise}
                     onComplete={handleComplete}
-                    onCancel={() => setExpandedExerciseId(null)}
                     readOnly={readOnly}
                     forceExpanded={true}
                   />

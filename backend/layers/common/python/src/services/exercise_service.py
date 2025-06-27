@@ -291,10 +291,11 @@ class ExerciseService:
         # Automatically recalculate exercise status based on remaining sets
         if not updated_sets_data:
             update_data["status"] = "planned"
-        elif all(set_data.get("completed", False) for set_data in updated_sets_data):
-            update_data["status"] = "completed"
         else:
-            update_data["status"] = "in_progress"
+            if exercise.status == "planned" and any(
+                set_data.get("completed", False) for set_data in updated_sets_data
+            ):
+                update_data["status"] = "in_progress"
 
         # Update the exercise in the database
         return self.update_exercise(exercise_id, update_data)
