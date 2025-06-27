@@ -23,7 +23,6 @@ import { useWeightUnit } from '../contexts/UserContext';
 interface ExerciseTrackerProps {
   exercise: Exercise;
   onComplete: () => void;
-  onCancel?: () => void;
   readOnly?: boolean;
   forceExpanded?: boolean;
 }
@@ -31,7 +30,6 @@ interface ExerciseTrackerProps {
 const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   exercise,
   onComplete,
-  onCancel,
   readOnly = false,
   forceExpanded = false, // Default to false for backward compatibility
 }) => {
@@ -379,7 +377,9 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
               )}
 
               {/* Remove Last Set Button */}
-              {!readOnly && exerciseState.sets > 1 && (
+              {!readOnly && 
+                exerciseState.sets > 1 && 
+                !(allSetsCompleted && exerciseState.status !== 'completed') && (
                 <FormButton
                   type="button"
                   variant="secondary"
@@ -405,17 +405,6 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
                   isLoading={isSubmitting}
                 >
                   Complete Exercise
-                </FormButton>
-              )}
-
-              {/* Cancel Button */}
-              {onCancel && (
-                <FormButton
-                  type="button"
-                  variant="secondary"
-                  onClick={onCancel}
-                >
-                  Cancel
                 </FormButton>
               )}
             </div>
