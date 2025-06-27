@@ -75,20 +75,39 @@ class TestNotificationService(unittest.TestCase):
         self.assertEqual(service.notification_repository, self.mock_notification_repo)
         self.assertEqual(service.user_repository, self.mock_user_repo)
 
+    @patch("src.services.notification_service.RelationshipService")
     @patch("src.services.notification_service.NotificationRepository")
     @patch("src.services.notification_service.UserRepository")
     def test_create_workout_completion_notification_success(
-        self, mock_user_repo_class, mock_notification_repo_class
+        self,
+        mock_user_repo_class,
+        mock_notification_repo_class,
+        mock_relationship_service_class,
     ):
-        """Test successful creation of workout completion notification."""
+        """Test successful notification creation."""
         # Setup mocks
         mock_notification_repo_class.return_value = self.mock_notification_repo
         mock_user_repo_class.return_value = self.mock_user_repo
+        mock_relationship_service = MagicMock()
+        mock_relationship_service_class.return_value = mock_relationship_service
 
+        # Mock athlete and coach data
         self.mock_user_repo.get_user.side_effect = [
             self.test_athlete_data,  # First call for athlete
             self.test_coach_data,  # Second call for coach
         ]
+
+        # Mock active relationship found
+        relationship_data = {
+            "coach_id": "coach-123",
+            "athlete_id": "athlete-456",
+            "status": "active",
+        }
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.return_value = (
+            relationship_data
+        )
+
+        # Mock notification repository
         self.mock_notification_repo.create_notification.return_value = True
 
         service = NotificationService()
@@ -96,10 +115,17 @@ class TestNotificationService(unittest.TestCase):
         # Test notification creation
         result = service.create_workout_completion_notification(self.test_workout)
 
-        # Verify
+        # Verify success
         self.assertTrue(result)
+
+        # Verify calls
+        self.assertEqual(self.mock_user_repo.get_user.call_count, 2)
         self.mock_user_repo.get_user.assert_any_call("athlete-456")
-        self.mock_user_repo.get_user.assert_any_call("coach-789")
+        self.mock_user_repo.get_user.assert_any_call("coach-123")
+
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.assert_called_once_with(
+            "athlete-456"
+        )
         self.mock_notification_repo.create_notification.assert_called_once()
 
     @patch("src.services.notification_service.NotificationRepository")
@@ -124,19 +150,30 @@ class TestNotificationService(unittest.TestCase):
         self.mock_user_repo.get_user.assert_called_once_with("athlete-456")
         self.mock_notification_repo.create_notification.assert_not_called()
 
+    @patch("src.services.notification_service.RelationshipService")
     @patch("src.services.notification_service.NotificationRepository")
     @patch("src.services.notification_service.UserRepository")
     def test_create_workout_completion_notification_no_coach(
-        self, mock_user_repo_class, mock_notification_repo_class
+        self,
+        mock_user_repo_class,
+        mock_notification_repo_class,
+        mock_relationship_service_class,
     ):
         """Test notification creation when athlete has no coach assigned."""
         # Setup mocks
         mock_notification_repo_class.return_value = self.mock_notification_repo
         mock_user_repo_class.return_value = self.mock_user_repo
+        mock_relationship_service = MagicMock()
+        mock_relationship_service_class.return_value = mock_relationship_service
 
-        athlete_data_no_coach = self.test_athlete_data.copy()
-        athlete_data_no_coach["coach_id"] = None
-        self.mock_user_repo.get_user.return_value = athlete_data_no_coach
+        # Mock athlete data (no coach_id field needed anymore)
+        athlete_data = self.test_athlete_data.copy()
+        self.mock_user_repo.get_user.return_value = athlete_data
+
+        # Mock no active relationship found
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.return_value = (
+            None
+        )
 
         service = NotificationService()
 
@@ -146,47 +183,89 @@ class TestNotificationService(unittest.TestCase):
         # Verify - should return True but not create notification
         self.assertTrue(result)
         self.mock_user_repo.get_user.assert_called_once_with("athlete-456")
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.assert_called_once_with(
+            "athlete-456"
+        )
         self.mock_notification_repo.create_notification.assert_not_called()
 
+    @patch("src.services.notification_service.RelationshipService")
     @patch("src.services.notification_service.NotificationRepository")
     @patch("src.services.notification_service.UserRepository")
     def test_create_workout_completion_notification_coach_not_found(
-        self, mock_user_repo_class, mock_notification_repo_class
+        self,
+        mock_user_repo_class,
+        mock_notification_repo_class,
+        mock_relationship_service_class,
     ):
         """Test notification creation when coach is not found."""
         # Setup mocks
         mock_notification_repo_class.return_value = self.mock_notification_repo
         mock_user_repo_class.return_value = self.mock_user_repo
+        mock_relationship_service = MagicMock()
+        mock_relationship_service_class.return_value = mock_relationship_service
 
+        # Mock athlete found, coach not found
         self.mock_user_repo.get_user.side_effect = [
             self.test_athlete_data,  # First call for athlete
-            None,  # Second call for coach - not found
+            None,  # Second call for coach returns None
         ]
+
+        # Mock successful relationship lookup
+        relationship_data = {
+            "coach_id": "coach-123",
+            "athlete_id": "athlete-456",
+            "status": "active",
+        }
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.return_value = (
+            relationship_data
+        )
 
         service = NotificationService()
 
         # Test notification creation
         result = service.create_workout_completion_notification(self.test_workout)
 
-        # Verify
+        # Verify - should return False when coach not found
         self.assertFalse(result)
         self.assertEqual(self.mock_user_repo.get_user.call_count, 2)
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.assert_called_once_with(
+            "athlete-456"
+        )
         self.mock_notification_repo.create_notification.assert_not_called()
 
+    @patch("src.services.notification_service.RelationshipService")
     @patch("src.services.notification_service.NotificationRepository")
     @patch("src.services.notification_service.UserRepository")
     def test_create_workout_completion_notification_repository_failure(
-        self, mock_user_repo_class, mock_notification_repo_class
+        self,
+        mock_user_repo_class,
+        mock_notification_repo_class,
+        mock_relationship_service_class,
     ):
         """Test notification creation when repository fails."""
         # Setup mocks
         mock_notification_repo_class.return_value = self.mock_notification_repo
         mock_user_repo_class.return_value = self.mock_user_repo
+        mock_relationship_service = MagicMock()
+        mock_relationship_service_class.return_value = mock_relationship_service
 
+        # Mock successful user and relationship lookups
         self.mock_user_repo.get_user.side_effect = [
-            self.test_athlete_data,
-            self.test_coach_data,
+            self.test_athlete_data,  # First call for athlete
+            self.test_coach_data,  # Second call for coach
         ]
+
+        # Mock successful relationship lookup
+        relationship_data = {
+            "coach_id": "coach-123",
+            "athlete_id": "athlete-456",
+            "status": "active",
+        }
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.return_value = (
+            relationship_data
+        )
+
+        # Mock repository failure
         self.mock_notification_repo.create_notification.return_value = False
 
         service = NotificationService()
@@ -194,8 +273,14 @@ class TestNotificationService(unittest.TestCase):
         # Test notification creation
         result = service.create_workout_completion_notification(self.test_workout)
 
-        # Verify
+        # Verify failure is handled gracefully
         self.assertFalse(result)
+
+        # Verify calls were made
+        self.assertEqual(self.mock_user_repo.get_user.call_count, 2)
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.assert_called_once_with(
+            "athlete-456"
+        )
         self.mock_notification_repo.create_notification.assert_called_once()
 
     @patch("src.services.notification_service.NotificationRepository")
@@ -421,22 +506,38 @@ class TestNotificationService(unittest.TestCase):
         # Verify
         self.assertIsNone(result)
 
+    @patch("src.services.notification_service.RelationshipService")
     @patch("src.services.notification_service.NotificationRepository")
     @patch("src.services.notification_service.UserRepository")
     def test_day_info_formatting_with_day_id_and_date(
-        self, mock_user_repo_class, mock_notification_repo_class
+        self,
+        mock_user_repo_class,
+        mock_notification_repo_class,
+        mock_relationship_service_class,
     ):
         """Test that day_info is formatted correctly with both day_id and date."""
         # Setup mocks
         mock_notification_repo_class.return_value = self.mock_notification_repo
         mock_user_repo_class.return_value = self.mock_user_repo
+        mock_relationship_service = MagicMock()
+        mock_relationship_service_class.return_value = mock_relationship_service
 
         self.mock_user_repo.get_user.side_effect = [
             self.test_athlete_data,
             self.test_coach_data,
         ]
-        self.mock_notification_repo.create_notification.return_value = True
 
+        # Mock successful relationship lookup
+        relationship_data = {
+            "coach_id": "coach-123",
+            "athlete_id": "athlete-456",
+            "status": "active",
+        }
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.return_value = (
+            relationship_data
+        )
+
+        self.mock_notification_repo.create_notification.return_value = True
         service = NotificationService()
 
         # Test with workout that has no date
@@ -448,7 +549,6 @@ class TestNotificationService(unittest.TestCase):
             notes="Test workout",
             status="completed",
         )
-
         result = service.create_workout_completion_notification(workout_no_date)
 
         # Verify notification creation was called with correct day_info
@@ -456,22 +556,38 @@ class TestNotificationService(unittest.TestCase):
         expected_day_info = "Day day-789"
         self.assertEqual(call_args["day_info"], expected_day_info)
 
+    @patch("src.services.notification_service.RelationshipService")
     @patch("src.services.notification_service.NotificationRepository")
     @patch("src.services.notification_service.UserRepository")
     def test_day_info_formatting_without_day_id(
-        self, mock_user_repo_class, mock_notification_repo_class
+        self,
+        mock_user_repo_class,
+        mock_notification_repo_class,
+        mock_relationship_service_class,
     ):
         """Test that day_info is formatted correctly without day_id."""
         # Setup mocks
         mock_notification_repo_class.return_value = self.mock_notification_repo
         mock_user_repo_class.return_value = self.mock_user_repo
+        mock_relationship_service = MagicMock()
+        mock_relationship_service_class.return_value = mock_relationship_service
 
         self.mock_user_repo.get_user.side_effect = [
             self.test_athlete_data,
             self.test_coach_data,
         ]
-        self.mock_notification_repo.create_notification.return_value = True
 
+        # Mock successful relationship lookup
+        relationship_data = {
+            "coach_id": "coach-123",
+            "athlete_id": "athlete-456",
+            "status": "active",
+        }
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.return_value = (
+            relationship_data
+        )
+
+        self.mock_notification_repo.create_notification.return_value = True
         service = NotificationService()
 
         # Test with workout that has no day_id
@@ -483,7 +599,6 @@ class TestNotificationService(unittest.TestCase):
             notes="Test workout",
             status="completed",
         )
-
         result = service.create_workout_completion_notification(workout_no_day_id)
 
         # Verify notification creation was called with correct day_info
@@ -491,22 +606,38 @@ class TestNotificationService(unittest.TestCase):
         expected_day_info = "Workout (2024-06-25)"
         self.assertEqual(call_args["day_info"], expected_day_info)
 
+    @patch("src.services.notification_service.RelationshipService")
     @patch("src.services.notification_service.NotificationRepository")
     @patch("src.services.notification_service.UserRepository")
     def test_workout_data_storage_in_notification(
-        self, mock_user_repo_class, mock_notification_repo_class
+        self,
+        mock_user_repo_class,
+        mock_notification_repo_class,
+        mock_relationship_service_class,
     ):
         """Test that full workout data is stored in notification."""
         # Setup mocks
         mock_notification_repo_class.return_value = self.mock_notification_repo
         mock_user_repo_class.return_value = self.mock_user_repo
+        mock_relationship_service = MagicMock()
+        mock_relationship_service_class.return_value = mock_relationship_service
 
         self.mock_user_repo.get_user.side_effect = [
             self.test_athlete_data,
             self.test_coach_data,
         ]
-        self.mock_notification_repo.create_notification.return_value = True
 
+        # Mock successful relationship lookup
+        relationship_data = {
+            "coach_id": "coach-123",
+            "athlete_id": "athlete-456",
+            "status": "active",
+        }
+        mock_relationship_service.relationship_repository.get_active_relationship_for_athlete.return_value = (
+            relationship_data
+        )
+
+        self.mock_notification_repo.create_notification.return_value = True
         service = NotificationService()
 
         # Test notification creation
@@ -514,17 +645,24 @@ class TestNotificationService(unittest.TestCase):
 
         # Verify workout data is stored
         call_args = self.mock_notification_repo.create_notification.call_args[0][0]
+        self.assertIn("workout_data", call_args)
         self.assertEqual(call_args["workout_data"], self.test_workout.to_dict())
 
+    @patch("src.services.notification_service.RelationshipService")
     @patch("src.services.notification_service.NotificationRepository")
     @patch("src.services.notification_service.UserRepository")
     def test_notification_sorting_in_grouped_by_athlete(
-        self, mock_user_repo_class, mock_notification_repo_class
+        self,
+        mock_user_repo_class,
+        mock_notification_repo_class,
+        mock_relationship_service_class,
     ):
         """Test that notifications are sorted by creation time within athlete groups."""
         # Setup mocks
         mock_notification_repo_class.return_value = self.mock_notification_repo
         mock_user_repo_class.return_value = self.mock_user_repo
+        mock_relationship_service = MagicMock()
+        mock_relationship_service_class.return_value = mock_relationship_service
 
         # Create notifications with different timestamps for same athlete
         notification_1 = self.test_notification_data.copy()
