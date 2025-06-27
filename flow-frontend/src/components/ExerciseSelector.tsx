@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getExerciseTypes, createCustomExercise, ExerciseTypeLibrary } from '../services/api';
-import LoadingSpinner from './LoadingSpinner';
+import { ExerciseSelectorSkeleton } from './SkeletonLoader';
+
 
 
 interface ExerciseSelectorProps {
@@ -144,9 +145,7 @@ const ExerciseSelector = ({ onSelect, selectedExercise, userId }: ExerciseSelect
       </div>
       
       {isLoading ? (
-        <div className="flex justify-center py-4">
-          <LoadingSpinner />
-        </div>
+        <ExerciseSelectorSkeleton />
       ) : error ? (
         <div className="text-red-500 text-center py-4">
           {error}
