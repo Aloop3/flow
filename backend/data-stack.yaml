@@ -288,6 +288,37 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
   
+  NotificationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "flow-${Environment}-notifications"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
+      AttributeDefinitions:
+        - AttributeName: notification_id
+          AttributeType: S
+        - AttributeName: coach_id  
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: notification_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: coach-index
+          KeySchema:
+            - AttributeName: coach_id
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+  
   CognitoPostConfirmationFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -358,6 +389,12 @@ Outputs:
     Value: !Ref WorkoutsTable
     Export:
       Name: !Sub "flow-${Environment}-WorkoutsTable"
+  
+  NotificationsTable:
+    Description: Notifications DynamoDB table name
+    Value: !Ref NotificationsTable
+    Export:
+      Name: !Sub "flow-${Environment}-NotificationsTable"
   
   UserPoolId:
     Description: Cognito User Pool ID

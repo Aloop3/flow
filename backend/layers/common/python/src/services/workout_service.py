@@ -7,6 +7,7 @@ from src.models.workout import Workout
 from src.models.exercise import Exercise
 from src.services.exercise_service import ExerciseService
 import datetime as dt
+from src.services.notification_service import NotificationService
 
 
 class WorkoutService:
@@ -298,6 +299,32 @@ class WorkoutService:
         if new_status != workout.status:
             self.workout_repository.update_workout(workout_id, {"status": new_status})
 
+    def _create_completion_notification(self, workout_id: str) -> None:
+        """
+        Create a notification when a workout is completed
+
+        :param workout_id: ID of the completed workout
+        """
+        try:
+            # Import here to avoid circular imports
+            from src.services.notification_service import NotificationService
+
+            # Get the updated workout with completed status
+            completed_workout = self.get_workout(workout_id)
+            if not completed_workout:
+                return
+
+            # Create notification (this method handles all error cases gracefully)
+            notification_service = NotificationService()
+            notification_service.create_workout_completion_notification(
+                completed_workout
+            )
+
+        except Exception as e:
+            # Log the error but don't break the workout completion flow
+            print(f"Error creating workout completion notification: {str(e)}")
+            # Notification failure should not impact workout functionality
+
     def delete_workout(self, workout_id: str) -> bool:
         """
         Deletes a workout by workout_id, including all its exercises
@@ -340,6 +367,7 @@ class WorkoutService:
     def finish_workout_session(self, workout_id: str) -> Optional[Workout]:
         """
         Finish a workout timing session by recording finish_time
+        and creating coach notification if all exercises are completed
 
         :param workout_id: The ID of the workout to finish timing
         :return: Updated Workout object if found and finished, None otherwise
@@ -360,9 +388,36 @@ class WorkoutService:
             # Session already finished, return existing workout without changes
             return existing_workout
 
+        # Check if all exercises are completed
+        all_exercises_completed = (
+            all(
+                exercise.status == "completed"
+                for exercise in existing_workout.exercises
+            )
+            if existing_workout.exercises
+            else False
+        )
+
+        if not all_exercises_completed:
+            # Cannot finish workout until all exercises are completed
+            return None
+
         # Record finish time
         now = dt.datetime.now().isoformat() + "Z"
         update_data = {"finish_time": now}
 
         # Update the workout in repository
-        return self.update_workout(workout_id, update_data)
+        updated_workout = self.update_workout(workout_id, update_data)
+
+        # Create coach notification
+        if updated_workout:
+            try:
+                notification_service = NotificationService()
+                notification_service.create_workout_completion_notification(
+                    updated_workout
+                )
+            except Exception:
+                # Don't fail workout completion if notification fails
+                pass
+
+        return updated_workout

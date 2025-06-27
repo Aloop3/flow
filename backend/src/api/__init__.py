@@ -10,3 +10,4 @@ from src.api import exercise_api
 from src.api import workout_api
 from src.api import relationship_api
 from src.api import set_api
+from src.api import notification_api

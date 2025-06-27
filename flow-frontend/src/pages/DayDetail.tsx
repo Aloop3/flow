@@ -11,6 +11,8 @@ import { toast } from 'react-toastify';
 import ExerciseList from '../components/ExerciseList';
 import { updateDay } from '../services/api';
 import WorkoutTimer from '../components/WorkoutTimer';
+import WorkoutSummary from '../components/WorkoutSummary';
+import WorkoutCompletion from '../components/WorkoutCompletion';
 
 
 interface DayDetailProps {
@@ -41,6 +43,19 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const [isSavingFocus, setIsSavingFocus] = useState(false);
   const handleWorkoutTimerUpdated = (updatedWorkout: Workout) => {
     setWorkout(updatedWorkout);
+  };
+
+  const getWorkoutFlowStage = (workout: Workout | null): 'pre_workout' | 'during_workout' | 'post_workout' => {
+    if (!workout) return 'pre_workout';
+    
+    // If workout has finished timing, show completion
+    if (workout.finish_time) return 'post_workout';
+    
+    // If workout has started timing, show during workout
+    if (workout.start_time) return 'during_workout';
+    
+    // If no timing but exercises exist, show pre-workout
+    return 'pre_workout';
   };
 
   useEffect(() => {
@@ -325,122 +340,123 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
           </div>
 
           <div className="bg-white shadow rounded-lg p-6">
-            {day.focus || isEditingFocus ? (
-              <div className="mb-4">
-                <h2 className="text-sm font-medium text-gray-500">Focus</h2>
-                <div className="mt-1 relative">
-                  {isEditingFocus ? (
+            {/* Option A: Side-by-Side Focus/Notes, Workout Overview Below */}
+            <div className="space-y-4 mb-6">
+              {/* Focus and Notes - Side by Side */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Focus Section */}
+                <div className="space-y-2">
+                  <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Focus</h2>
+                  {day.focus || isEditingFocus ? (
                     <div className="relative">
-                      <div className="bg-white border border-gray-300 rounded-md shadow-lg py-1 z-10 absolute top-0 left-0 min-w-[120px]">
-                        {focusOptions.map(option => (
-                          <button
-                            key={option.value}
-                            onClick={() => handleFocusChange(option.value)}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2"
-                            disabled={isSavingFocus}
-                          >
-                            {option.value ? (
-                              <FocusTag focus={option.value} size="sm" />
-                            ) : (
-                              <span className="text-gray-500 italic text-sm">No focus</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      {/* Invisible overlay to capture blur */}
-                      <div 
-                        className="fixed inset-0 z-0" 
-                        onClick={() => setIsEditingFocus(false)}
-                      />
+                      {isEditingFocus ? (
+                        <div className="relative">
+                          <div className="bg-white border border-gray-300 rounded-md shadow-lg py-1 z-10 absolute top-0 left-0 min-w-[120px]">
+                            {focusOptions.map(option => (
+                              <button
+                                key={option.value}
+                                onClick={() => handleFocusChange(option.value)}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2"
+                                disabled={isSavingFocus}
+                              >
+                                {option.value ? (
+                                  <FocusTag focus={option.value} size="sm" />
+                                ) : (
+                                  <span className="text-gray-500 italic text-sm">No focus</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="fixed inset-0 z-0" onClick={() => setIsEditingFocus(false)} />
+                        </div>
+                      ) : (
+                        <div 
+                          onClick={handleFocusClick}
+                          className={`inline-block cursor-pointer p-1 rounded transition-all duration-200 hover:bg-gray-100 ${isSavingFocus ? 'opacity-50' : ''}`}
+                        >
+                          <FocusTag focus={day.focus || ''} size="sm" />
+                          {isSavingFocus && (
+                            <div className="inline-block ml-2">
+                              <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div 
                       onClick={handleFocusClick}
-                      className={`
-                        inline-block cursor-pointer p-1 rounded transition-all duration-200
-                        hover:bg-gray-100 
-                        ${isSavingFocus ? 'opacity-50' : ''}
-                      `}
+                      className="cursor-pointer p-1 rounded transition-all duration-200 hover:bg-gray-100"
                     >
-                      <FocusTag focus={day.focus || ''} size="lg" />
-                      {isSavingFocus && (
-                        <div className="inline-block ml-2">
-                          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                      <span className="text-gray-400 italic text-xs px-2 py-1 border border-gray-200 rounded">
+                        Click to set focus...
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes Section */}
+                <div className="space-y-2">
+                  <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Notes</h2>
+                  {notesContent || isEditingNotes ? (
+                    <div className="relative">
+                      <div
+                        ref={contentEditableRef}
+                        contentEditable
+                        suppressContentEditableWarning={true}
+                        onFocus={handleNotesClick}
+                        onBlur={handleNotesBlur}
+                        onKeyDown={handleNotesKeyDown}
+                        onInput={handleNotesChange}
+                        className={`min-h-[2rem] p-2 text-sm rounded border-2 transition-all duration-200 outline-none ${
+                          isEditingNotes 
+                            ? 'border-blue-300 bg-blue-50 shadow-sm' 
+                            : 'border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text'
+                        } ${isSavingNotes ? 'opacity-50' : ''}`}
+                        style={{
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}
+                      >
+                        {!isEditingNotes && notesContent}
+                      </div>
+                      {isSavingNotes && (
+                        <div className="absolute right-2 top-2">
+                          <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        </div>
+                      )}
+                      {!isEditingNotes && !day.notes && (
+                        <div 
+                          onClick={handleNotesClick}
+                          className="absolute inset-0 flex items-center text-gray-400 italic cursor-text p-2 text-sm"
+                        >
+                          Click to add notes...
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="mb-4">
-                <h2 className="text-sm font-medium text-gray-500">Focus</h2>
-                <div 
-                  onClick={handleFocusClick}
-                  className="mt-1 inline-block cursor-pointer p-1 rounded transition-all duration-200 hover:bg-gray-100"
-                >
-                  <span className="text-gray-400 italic text-sm px-3 py-1.5 border border-gray-200 rounded-full">
-                    Click to set focus...
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {notesContent || isEditingNotes ? (
-              <div>
-                <h2 className="text-sm font-medium text-gray-500">Notes</h2>
-                <div className="mt-1 relative">
-                  <div
-                    ref={contentEditableRef}
-                    contentEditable
-                    suppressContentEditableWarning={true}
-                    onFocus={handleNotesClick}
-                    onBlur={handleNotesBlur}
-                    onKeyDown={handleNotesKeyDown}
-                    onInput={handleNotesChange}
-                    className={`
-                      min-h-[1.5rem] p-2 rounded border-2 transition-all duration-200 outline-none
-                      ${isEditingNotes 
-                        ? 'border-blue-300 bg-blue-50 shadow-sm' 
-                        : 'border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text'
-                      }
-                      ${isSavingNotes ? 'opacity-50' : ''}
-                    `}
-                    style={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word'
-                    }}
-                  >
-                    { !isEditingNotes && notesContent }
-                  </div>
-                  
-                  {isSavingNotes && (
-                    <div className="absolute right-2 top-2">
-                      <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    </div>
-                  )}
-                  
-                  {!isEditingNotes && !day.notes && (
+                  ) : (
                     <div 
                       onClick={handleNotesClick}
-                      className="absolute inset-0 flex items-center text-gray-400 italic cursor-text p-2"
+                      className="min-h-[2rem] p-2 cursor-pointer rounded transition-all duration-200 hover:bg-gray-100 border border-gray-200"
                     >
-                      Click to add notes...
+                      <span className="text-gray-400 italic text-sm">Click to add notes...</span>
                     </div>
                   )}
                 </div>
               </div>
-            ) : (
-              <div>
-                <h2 className="text-sm font-medium text-gray-500">Notes</h2>
-                <div 
-                  onClick={handleNotesClick}
-                  className="mt-1 p-2 rounded border-2 border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text min-h-[1.5rem] text-gray-400 italic"
-                >
-                  Click to add notes...
+
+              {/* Workout Overview - Full Width Below Focus/Notes */}
+              {workout && (getWorkoutFlowStage(workout) === 'pre_workout' || getWorkoutFlowStage(workout) === 'post_workout') && (
+                <div className="w-full">
+                  {getWorkoutFlowStage(workout) === 'pre_workout' && (
+                    <WorkoutSummary workout={workout} />
+                  )}
+                  {getWorkoutFlowStage(workout) === 'post_workout' && (
+                    <WorkoutCompletion workout={workout} />
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <div className="bg-white shadow rounded-lg p-6">
@@ -474,12 +490,16 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                   </div>
                 </div>
 
-                <WorkoutTimer
-                  workout={workout}
-                  onWorkoutUpdated={handleWorkoutTimerUpdated}
-                  readOnly={user?.role !== 'athlete' && workout.athlete_id !== user?.user_id}
-                />
-
+                {/* Enhanced Workout Flow Components - Only WorkoutTimer */}
+                <div className="space-y-4">
+                  {/* Workout Timer */}
+                  <WorkoutTimer
+                    workout={workout}
+                    onWorkoutUpdated={handleWorkoutTimerUpdated}
+                    readOnly={user?.role !== 'athlete' && workout.athlete_id !== user?.user_id}
+                  />
+                </div>
+                
                 <ExerciseList
                   exercises={workout.exercises}
                   workoutId={workout.workout_id}

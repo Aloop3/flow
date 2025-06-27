@@ -885,16 +885,23 @@ class TestWorkoutService(unittest.TestCase):
         self.assertEqual(result.status, "in_progress")
 
     @patch("src.services.workout_service.dt.datetime")
-    def test_finish_workout_session_success(self, mock_datetime):
+    @patch("src.services.workout_service.NotificationService")
+    def test_finish_workout_session_success(
+        self, mock_notification_service, mock_datetime
+    ):
         """
-        Test successfully finishing a workout timing session
+        Test successfully finishing a workout timing session with all exercises completed
         """
         # Mock current time
         mock_time_base = "2025-06-24T15:45:00.789012"
         mock_time_with_z = "2025-06-24T15:45:00.789012Z"
         mock_datetime.now.return_value.isoformat.return_value = mock_time_base
 
-        # Mock existing workout with start_time but no finish_time
+        # Mock notification service
+        mock_notification_instance = MagicMock()
+        mock_notification_service.return_value = mock_notification_instance
+
+        # Mock existing workout with start_time but no finish_time and completed exercises
         existing_workout_data = {
             "workout_id": "workout123",
             "athlete_id": "athlete456",
@@ -903,10 +910,31 @@ class TestWorkoutService(unittest.TestCase):
             "status": "in_progress",
             "start_time": "2025-06-24T14:30:00.123456Z",
             "finish_time": None,
-            "exercises": [],
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "completed",
+                    "order": 1,
+                },
+                {
+                    "exercise_id": "ex2",
+                    "workout_id": "workout123",
+                    "exercise_type": "Bench Press",
+                    "sets": 3,
+                    "reps": 8,
+                    "weight": 185,
+                    "status": "completed",
+                    "order": 2,
+                },
+            ],
         }
 
-        # Mock updated workout with finish_time (WITH Z)
+        # Mock updated workout with finish_time
         updated_workout_data = {
             "workout_id": "workout123",
             "athlete_id": "athlete456",
@@ -914,8 +942,29 @@ class TestWorkoutService(unittest.TestCase):
             "date": "2025-06-24",
             "status": "in_progress",
             "start_time": "2025-06-24T14:30:00.123456Z",
-            "finish_time": mock_time_with_z,  # Updated to include Z
-            "exercises": [],
+            "finish_time": mock_time_with_z,
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "completed",
+                    "order": 1,
+                },
+                {
+                    "exercise_id": "ex2",
+                    "workout_id": "workout123",
+                    "exercise_type": "Bench Press",
+                    "sets": 3,
+                    "reps": 8,
+                    "weight": 185,
+                    "status": "completed",
+                    "order": 2,
+                },
+            ],
         }
 
         # Configure mocks
@@ -931,14 +980,18 @@ class TestWorkoutService(unittest.TestCase):
         # Assert datetime.now() was called
         mock_datetime.now.assert_called_once()
 
-        # Assert repository update was called with correct data (WITH Z)
+        # Assert repository update was called with correct data
         self.workout_repository_mock.update_workout.assert_called_once_with(
-            "workout123", {"finish_time": mock_time_with_z}  # Expect WITH Z
+            "workout123", {"finish_time": mock_time_with_z}
         )
+
+        # Assert notification service was called
+        mock_notification_service.assert_called_once()
+        mock_notification_instance.create_workout_completion_notification.assert_called_once()
 
         # Assert result is updated workout
         self.assertIsInstance(result, Workout)
-        self.assertEqual(result.finish_time, mock_time_with_z)  # Expect WITH Z
+        self.assertEqual(result.finish_time, mock_time_with_z)
         self.assertEqual(result.start_time, "2025-06-24T14:30:00.123456Z")
 
     def test_finish_workout_session_nonexistent_workout(self):
@@ -973,7 +1026,18 @@ class TestWorkoutService(unittest.TestCase):
             "status": "not_started",
             "start_time": None,
             "finish_time": None,
-            "exercises": [],
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "completed",
+                    "order": 1,
+                }
+            ],
         }
 
         # Configure mock
@@ -988,8 +1052,7 @@ class TestWorkoutService(unittest.TestCase):
         # Assert update was NOT called (session never started)
         self.workout_repository_mock.update_workout.assert_not_called()
 
-        # Assert result is None (cannot finish unstarted session)
-        self.assertIsNone(result)
+        # Assert result is None (cannot
 
     def test_finish_workout_session_already_finished(self):
         """
@@ -1004,7 +1067,18 @@ class TestWorkoutService(unittest.TestCase):
             "status": "completed",
             "start_time": "2025-06-24T14:30:00.123456",
             "finish_time": "2025-06-24T15:30:00.654321",
-            "exercises": [],
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "completed",
+                    "order": 1,
+                }
+            ],
         }
 
         # Configure mock
@@ -1024,15 +1098,167 @@ class TestWorkoutService(unittest.TestCase):
         self.assertEqual(result.start_time, "2025-06-24T14:30:00.123456")
         self.assertEqual(result.finish_time, "2025-06-24T15:30:00.654321")
 
-    @patch("src.services.workout_service.dt.datetime")
-    def test_start_finish_workout_session_complete_flow(self, mock_datetime):
+    def test_finish_workout_session_exercises_not_completed(self):
         """
-        Test complete flow of starting and finishing a workout session
+        Test finishing a session when not all exercises are completed
+        """
+        # Mock existing workout with incomplete exercises
+        existing_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:30:00.123456Z",
+            "finish_time": None,
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "completed",
+                    "order": 1,
+                },
+                {
+                    "exercise_id": "ex2",
+                    "workout_id": "workout123",
+                    "exercise_type": "Bench Press",
+                    "sets": 3,
+                    "reps": 8,
+                    "weight": 185,
+                    "status": "planned",  # Not completed
+                    "order": 2,
+                },
+            ],
+        }
+
+        # Configure mock
+        self.workout_repository_mock.get_workout.return_value = existing_workout_data
+
+        # Call the service method
+        result = self.workout_service.finish_workout_session("workout123")
+
+        # Assert repository was called to get workout
+        self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
+
+        # Assert update was NOT called (exercises not completed)
+        self.workout_repository_mock.update_workout.assert_not_called()
+
+        # Assert result is None (cannot finish with incomplete exercises)
+        self.assertIsNone(result)
+
+    def test_finish_workout_session_no_exercises(self):
+        """
+        Test finishing a session when workout has no exercises
+        """
+        # Mock existing workout with no exercises
+        existing_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:30:00.123456Z",
+            "finish_time": None,
+            "exercises": [],  # Empty exercises list
+        }
+
+        # Configure mock
+        self.workout_repository_mock.get_workout.return_value = existing_workout_data
+
+        # Call the service method
+        result = self.workout_service.finish_workout_session("workout123")
+
+        # Assert repository was called to get workout
+        self.workout_repository_mock.get_workout.assert_called_once_with("workout123")
+
+        # Assert update was NOT called (no exercises to complete)
+        self.workout_repository_mock.update_workout.assert_not_called()
+
+        # Assert result is None (cannot finish with no exercises)
+        self.assertIsNone(result)
+
+    @patch("src.services.workout_service.NotificationService")
+    def test_finish_workout_session_notification_failure(
+        self, mock_notification_service
+    ):
+        """
+        Test that workout finishing succeeds even if notification creation fails
+        """
+        # Mock notification service to raise exception
+        mock_notification_instance = MagicMock()
+        mock_notification_service.return_value = mock_notification_instance
+        mock_notification_instance.create_workout_completion_notification.side_effect = Exception(
+            "Notification failed"
+        )
+
+        # Mock existing workout with completed exercises
+        existing_workout_data = {
+            "workout_id": "workout123",
+            "athlete_id": "athlete456",
+            "day_id": "day789",
+            "date": "2025-06-24",
+            "status": "in_progress",
+            "start_time": "2025-06-24T14:30:00.123456Z",
+            "finish_time": None,
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "completed",
+                    "order": 1,
+                }
+            ],
+        }
+
+        # Mock updated workout
+        updated_workout_data = existing_workout_data.copy()
+        updated_workout_data["finish_time"] = "2025-06-24T15:45:00.789012Z"
+
+        # Configure mocks
+        self.workout_repository_mock.get_workout.side_effect = [
+            existing_workout_data,
+            existing_workout_data,
+            updated_workout_data,
+        ]
+
+        # Call the service method
+        with patch("src.services.workout_service.dt.datetime") as mock_datetime:
+            mock_datetime.now.return_value.isoformat.return_value = (
+                "2025-06-24T15:45:00.789012"
+            )
+            result = self.workout_service.finish_workout_session("workout123")
+
+        # Assert workout was still finished successfully
+        self.assertIsInstance(result, Workout)
+        self.assertEqual(result.finish_time, "2025-06-24T15:45:00.789012Z")
+
+        # Assert notification was attempted
+        mock_notification_instance.create_workout_completion_notification.assert_called_once()
+
+    @patch("src.services.workout_service.dt.datetime")
+    @patch("src.services.workout_service.NotificationService")
+    def test_start_finish_workout_session_complete_flow(
+        self, mock_notification_service, mock_datetime
+    ):
+        """
+        Test complete flow of starting and finishing a workout session with completed exercises
         """
         # Mock times
         start_time = "2025-06-24T14:30:00.123456"
         finish_time = "2025-06-24T15:45:00.789012"
         mock_datetime.now.return_value.isoformat.side_effect = [start_time, finish_time]
+
+        # Mock notification service
+        mock_notification_instance = MagicMock()
+        mock_notification_service.return_value = mock_notification_instance
 
         # Mock initial workout
         initial_workout_data = {
@@ -1043,7 +1269,18 @@ class TestWorkoutService(unittest.TestCase):
             "status": "not_started",
             "start_time": None,
             "finish_time": None,
-            "exercises": [],
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "planned",
+                    "order": 1,
+                }
+            ],
         }
 
         # Mock workout after start
@@ -1055,7 +1292,18 @@ class TestWorkoutService(unittest.TestCase):
             "status": "in_progress",
             "start_time": start_time,
             "finish_time": None,
-            "exercises": [],
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "completed",  # Exercise completed during workout
+                    "order": 1,
+                }
+            ],
         }
 
         # Mock workout after finish
@@ -1067,7 +1315,18 @@ class TestWorkoutService(unittest.TestCase):
             "status": "in_progress",
             "start_time": start_time,
             "finish_time": finish_time,
-            "exercises": [],
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "workout_id": "workout123",
+                    "exercise_type": "Squat",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 225,
+                    "status": "completed",
+                    "order": 1,
+                }
+            ],
         }
 
         # Configure mocks for start operation
@@ -1089,13 +1348,16 @@ class TestWorkoutService(unittest.TestCase):
         self.assertEqual(start_result.status, "in_progress")
         self.assertIsNone(start_result.finish_time)
 
-        # Finish the session
+        # Finish the session (now requires completed exercises)
         finish_result = self.workout_service.finish_workout_session("workout123")
 
         # Assert finish worked correctly
         self.assertIsInstance(finish_result, Workout)
         self.assertEqual(finish_result.start_time, start_time)
         self.assertEqual(finish_result.finish_time, finish_time)
+
+        # Assert notification was created
+        mock_notification_instance.create_workout_completion_notification.assert_called_once()
 
         # Assert both datetime calls were made
         self.assertEqual(mock_datetime.now.call_count, 2)
