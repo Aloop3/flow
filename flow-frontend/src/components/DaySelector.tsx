@@ -68,8 +68,9 @@ const DaySelector = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
       {isLoading ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="space-y-4">
+          <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
         </div>
       ) : (
         <div className="space-y-4">

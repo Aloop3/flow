@@ -10,6 +10,8 @@ import DayForm from '../components/DayForm';
 import FormButton from '../components/FormButton';
 import { formatDate } from '../utils/dateUtils';
 import { toast } from 'react-toastify';
+import { BlockDetailSkeleton } from '../components/SkeletonLoader';
+
 
 
 interface BlockDetailProps {
@@ -596,88 +598,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
         {isLoading ? (
-          <div className="space-y-6">
-            {/* Block Header Skeleton */}
-            <div className="flex justify-between items-center">
-              <div className="h-8 bg-gray-200 rounded w-64 animate-pulse"></div>
-              <div className="h-9 bg-gray-200 rounded w-24 animate-pulse"></div>
-            </div>
-
-            {/* Horizontal Block Info Card Skeleton */}
-            <div className="bg-white shadow rounded-lg p-4">
-              {/* Description skeleton */}
-              <div className="mb-3">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-1 animate-pulse"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
-              </div>
-              
-              {/* Horizontal layout skeleton */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-6">
-                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
-                </div>
-                <div className="h-5 bg-gray-200 rounded w-12 animate-pulse"></div>
-              </div>
-            </div>
-
-            {/* Week Tabs Skeleton */}
-            <div className="bg-white shadow rounded-lg overflow-visible">
-              <div className="border-b border-gray-200">
-                <nav className="flex">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="py-4 px-6">
-                      <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
-                    </div>
-                  ))}
-                </nav>
-              </div>
-
-              {/* Days Grid Skeleton */}
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <div className="h-6 bg-gray-200 rounded w-20 mb-2 animate-pulse"></div>
-                    <div className="h-3 bg-gray-200 rounded w-40 animate-pulse"></div>
-                  </div>
-                  <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
-                </div>
-
-                <div className="overflow-visible border border-gray-200 rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Focus</th>
-                        <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                        <tr key={i} className="animate-pulse">
-                          <td className="px-3 py-2">
-                            <div className="h-4 bg-gray-200 rounded w-12"></div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="h-4 bg-gray-200 rounded w-20"></div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="h-5 bg-gray-200 rounded w-16"></div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex justify-center">
-                              <div className="h-6 bg-gray-200 rounded w-16"></div>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+          <BlockDetailSkeleton />
         ) : block ? (
           <>
             <div className="flex justify-between items-center">

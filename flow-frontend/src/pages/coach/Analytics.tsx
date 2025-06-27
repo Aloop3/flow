@@ -26,6 +26,7 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
+import { AnalyticsSkeleton } from '../../components/SkeletonLoader';
 
 interface AnalyticsProps {
   user: any;
@@ -301,19 +302,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
       .join(' ');
   };
 
-  // Loading skeleton component
-  const LoadingSkeleton = () => (
-    <div className="animate-pulse space-y-6">
-      <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="h-64 bg-gray-200 rounded-lg"></div>
-        <div className="h-64 bg-gray-200 rounded-lg"></div>
-        <div className="h-64 bg-gray-200 rounded-lg"></div>
-        <div className="h-64 bg-gray-200 rounded-lg"></div>
-      </div>
-    </div>
-  );
-
   // Error state component
   const ErrorState = () => (
     <div className="text-center py-12">
@@ -435,7 +423,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
 
         {/* Content */}
         {isLoading ? (
-          <LoadingSkeleton />
+          <AnalyticsSkeleton />
         ) : error ? (
           <ErrorState />
         ) : !hasData ? (
