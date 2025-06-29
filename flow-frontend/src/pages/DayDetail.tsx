@@ -452,7 +452,10 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                     <WorkoutSummary workout={workout} />
                   )}
                   {getWorkoutFlowStage(workout) === 'post_workout' && (
-                    <WorkoutCompletion workout={workout} />
+                    <WorkoutCompletion 
+                      key={`${workout.workout_id}-${workout.exercises.length}-${JSON.stringify(workout.exercises.map(ex => ex.sets_data?.length || 0))}`}
+                      workout={workout} 
+                    />
                   )}
                 </div>
               )}
