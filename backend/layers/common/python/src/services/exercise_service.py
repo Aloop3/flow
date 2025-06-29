@@ -241,8 +241,16 @@ class ExerciseService:
             "sets": actual_sets_count,
         }
 
-        if completed and exercise.status == "planned":
-            update_data["status"] = "in_progress"
+        if completed:
+            if exercise.status == "planned":
+                update_data["status"] = "in_progress"
+            elif exercise.status == "completed":
+                # When adding sets to a completed exercise, move back to in_progress
+                update_data["status"] = "in_progress"
+        else:
+            # When adding incomplete sets to completed exercise, also move to in_progress
+            if exercise.status == "completed":
+                update_data["status"] = "in_progress"
 
         # Update in repository and return
         self.exercise_repository.update_exercise(exercise_id, update_data)
