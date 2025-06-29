@@ -332,7 +332,9 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       {/* Weight - Always visible input with debounced performance */}
       <td className="px-1 py-2 w-16">
         <input
-          type="text"
+          type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={displayData.weight}
           onChange={(e) => handleWeightChange(e.target.value)}
           onBlur={handleWeightBlur}
@@ -346,7 +348,9 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       {/* Reps - Always visible input with debounced performance */}
       <td className="px-1 py-2 w-12">
         <input
-          type="text"
+          type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={displayData.reps}
           onChange={(e) => handleRepsChange(e.target.value)}
           onBlur={handleRepsBlur}
@@ -360,7 +364,9 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       {/* RPE - Always visible input with debounced performance */}
       <td className="px-1 py-2 w-12">
         <input
-          type="text"
+          type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={displayData.rpe || ''}
           onChange={(e) => handleRpeChange(e.target.value)}
           onBlur={handleRpeBlur}

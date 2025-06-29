@@ -265,7 +265,9 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
               <div className="flex-shrink-0">
                 <label className="block text-xs text-gray-500">Weight ({displayUnit})</label>
                 <input
-                  type="text"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   defaultValue={set.weight || ''}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -284,7 +286,9 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
               <div className="flex-shrink-0">
                 <label className="block text-xs text-gray-500">Reps</label>
                 <input
-                  type="text"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   defaultValue={set.reps}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -302,7 +306,9 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
               <div className="flex-shrink-0">
                 <label className="block text-xs text-gray-500">RPE</label>
                 <input
-                  type="text"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   defaultValue={set.rpe}
                   onChange={(e) => {
                     const value = e.target.value;
