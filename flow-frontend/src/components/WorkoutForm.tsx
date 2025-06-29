@@ -408,7 +408,8 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
             userId={userIdForExercises}
           />
           
-          <div className="flex justify-between">
+          {/* Exercise management section */}
+          <div className="flex justify-start">
             <FormButton
               onClick={handleAddExercise}
               disabled={!selectedExercise}
@@ -417,17 +418,24 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
             >
               Add Exercise
             </FormButton>
-
-            <FormButton
-              onClick={handleSaveWorkout}
-              disabled={exercises.length === 0 || isSaving}
-              type="button"
-              variant="primary"
-              isLoading={isSaving}
-            >
-              Save Workout
-            </FormButton>
           </div>
+          
+          {/* Workout save section - separated with visual gap */}
+          {exercises.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex justify-center">
+                <FormButton
+                  onClick={handleSaveWorkout}
+                  disabled={exercises.length === 0 || isSaving}
+                  type="button"
+                  variant="primary"
+                  isLoading={isSaving}
+                >
+                  Save Workout
+                </FormButton>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
