@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ExerciseSetData } from '../services/api';
@@ -13,31 +13,6 @@ interface SortableInlineSetRowProps {
   readOnly?: boolean;
   onSetUpdated: () => void;
 }
-
-// Custom debounce hook for performance optimization
-const useDebounce = (callback: (...args: any[]) => void, delay: number) => {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const debouncedCallback = useCallback((...args: any[]) => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    timeoutRef.current = setTimeout(() => {
-      callback(...args);
-    }, delay);
-  }, [callback, delay]);
-  
-  // Cleanup function to cancel pending calls
-  const cancel = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-  
-  return { debouncedCallback, cancel };
-};
 
 const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
   const {
@@ -88,7 +63,7 @@ const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
   );
 };
 
-// Enhanced content component with always-visible inputs and debounced performance
+// Enhanced content component with simple auto-save pattern
 const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   exerciseId,
   setNumber,
@@ -103,7 +78,6 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   const [error, setError] = React.useState<string | null>(null);
   const [notesExpanded, setNotesExpanded] = React.useState(false);
 
-  
   // Single state for display values
   const [displayData, setDisplayData] = React.useState<{
     reps: number;
@@ -116,6 +90,9 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     rpe: existingData?.rpe ?? previousSetData?.rpe ?? undefined,
     notes: existingData?.notes ?? '',
   });
+
+  // Simple auto-save state tracking
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
 
   const notesRef = React.useRef<HTMLTextAreaElement>(null);
   const isCompleted = existingData?.completed ?? false;
@@ -144,6 +121,18 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     }
   }, [existingData]);
 
+  // Background auto-save effect
+  React.useEffect(() => {
+    if (hasUnsavedChanges) {
+      const timeoutId = setTimeout(() => {
+        commitSetData(displayData);
+        setHasUnsavedChanges(false);
+      }, 500); // 500ms delay for auto-save
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [displayData, hasUnsavedChanges]);
+
   const parseNumber = (value: string, fallback: number, min?: number, max?: number): number => {
     if (!value || value.trim() === '') return fallback;
     const num = parseFloat(value);
@@ -155,7 +144,6 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
 
   const commitSetData = async (updatedData: Partial<typeof displayData>) => {
     const newData = { ...displayData, ...updatedData };
-    setDisplayData(newData);
     setError(null);
 
     // Only save if this set has been interacted with (has existing data or user made changes)
@@ -179,9 +167,6 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         console.error('Error persisting set changes:', err);
         setError('Failed to save changes');
         
-        // Revert value on error
-        setDisplayData(displayData);
-        
         // Retry after brief delay
         setTimeout(() => {
           commitSetData(updatedData);
@@ -193,60 +178,24 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     }
   };
 
-  // Debounced commit functions for real-time performance
-  const debouncedCommitWeight = useDebounce((weight: number) => {
-    commitSetData({ weight });
-  }, 150); // 150ms debounce for optimal balance
-
-  const debouncedCommitReps = useDebounce((reps: number) => {
-    commitSetData({ reps });
-  }, 150);
-
-  const debouncedCommitRpe = useDebounce((rpe: number | undefined) => {
-    commitSetData({ rpe });
-  }, 150);
-
-  // Individual field change handlers with debounced performance optimization
+  // Simple change handlers - update local state immediately
   const handleWeightChange = (value: string) => {
     const weight = parseNumber(value, displayData.weight, 0);
     setDisplayData(prev => ({ ...prev, weight }));
-    
-    // Debounced API call for real-time persistence
-    debouncedCommitWeight.debouncedCallback(weight);
-  };
-
-  const handleWeightBlur = () => {
-    // Cancel pending debounced call and commit immediately for data integrity
-    debouncedCommitWeight.cancel();
-    commitSetData({ weight: displayData.weight });
+    setHasUnsavedChanges(true);
   };
 
   const handleRepsChange = (value: string) => {
     const reps = parseNumber(value, displayData.reps, 1);
     setDisplayData(prev => ({ ...prev, reps }));
-    
-    // Debounced API call for real-time persistence
-    debouncedCommitReps.debouncedCallback(reps);
-  };
-
-  const handleRepsBlur = () => {
-    // Cancel pending debounced call and commit immediately for data integrity
-    debouncedCommitReps.cancel();
-    commitSetData({ reps: displayData.reps });
+    setHasUnsavedChanges(true);
   };
 
   const handleRpeChange = (value: string) => {
-    const rpe = value.trim() ? parseNumber(value, displayData.rpe || 0, 0, 10) : undefined;
+    const rpe = value.trim() ? 
+      parseNumber(value, displayData.rpe || 0, 0, 10) : undefined;
     setDisplayData(prev => ({ ...prev, rpe }));
-    
-    // Debounced API call for real-time persistence
-    debouncedCommitRpe.debouncedCallback(rpe);
-  };
-
-  const handleRpeBlur = () => {
-    // Cancel pending debounced call and commit immediately for data integrity
-    debouncedCommitRpe.cancel();
-    commitSetData({ rpe: displayData.rpe });
+    setHasUnsavedChanges(true);
   };
 
   const validateData = () => {
@@ -329,7 +278,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         </div>
       </td>
 
-      {/* Weight - Always visible input with debounced performance */}
+      {/* Weight - Always visible input with auto-save */}
       <td className="px-1 py-2 w-16">
         <input
           type="number"
@@ -337,15 +286,14 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
           pattern="[0-9]*"
           value={displayData.weight}
           onChange={(e) => handleWeightChange(e.target.value)}
-          onBlur={handleWeightBlur}
           onFocus={(e) => e.target.select()}
           className={`w-12 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block`}
-                        disabled={readOnly}
+          disabled={readOnly}
           placeholder={`${plannedWeight}`}
         />
       </td>
 
-      {/* Reps - Always visible input with debounced performance */}
+      {/* Reps - Always visible input with auto-save */}
       <td className="px-1 py-2 w-12">
         <input
           type="number"
@@ -353,7 +301,6 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
           pattern="[0-9]*"
           value={displayData.reps}
           onChange={(e) => handleRepsChange(e.target.value)}
-          onBlur={handleRepsBlur}
           onFocus={(e) => e.target.select()}
           className={`w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block`}
           disabled={readOnly}
@@ -361,7 +308,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         />
       </td>
 
-      {/* RPE - Always visible input with debounced performance */}
+      {/* RPE - Always visible input with auto-save */}
       <td className="px-1 py-2 w-12">
         <input
           type="number"
@@ -369,7 +316,6 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
           pattern="[0-9]*"
           value={displayData.rpe || ''}
           onChange={(e) => handleRpeChange(e.target.value)}
-          onBlur={handleRpeBlur}
           onFocus={(e) => e.target.select()}
           className={`w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block`}
           placeholder="RPE"
@@ -409,7 +355,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
                   if (notesRef.current) {
                     const newNotes = notesRef.current.value;
                     setDisplayData(prev => ({ ...prev, notes: newNotes }));
-                    commitSetData({ notes: newNotes });
+                    setHasUnsavedChanges(true);
                   }
                   setNotesExpanded(false);
                 }}
