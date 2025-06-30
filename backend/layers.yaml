@@ -7,23 +7,56 @@ Parameters:
     Type: String
     Default: v0-1-0
     Description: Semantic version for layer exports
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+    Description: Environment name for resource naming
+
+Conditions:
+  IsProdEnvironment: !Equals [!Ref Environment, "prod"]
+  IsDevEnvironment: !Equals [!Ref Environment, "dev"]
 
 Resources:
-  VendorLayer:
+  VendorLayerProd:
     Type: AWS::Serverless::LayerVersion
+    Condition: IsProdEnvironment
     Properties:
-      LayerName: flow-vendor-layer
-      Description: Third-party dependencies for Flow app
+      LayerName: !Sub "flow-${Environment}-vendor-layer"
+      Description: !Sub "Third-party dependencies for Flow app (${Environment})"
+      ContentUri: layers/vendor/
+      CompatibleRuntimes:
+        - python3.9
+      RetentionPolicy: Retain
+
+  VendorLayerDev:
+    Type: AWS::Serverless::LayerVersion
+    Condition: IsDevEnvironment
+    Properties:
+      LayerName: !Sub "flow-${Environment}-vendor-layer"
+      Description: !Sub "Third-party dependencies for Flow app (${Environment})"
       ContentUri: layers/vendor/
       CompatibleRuntimes:
         - python3.9
       RetentionPolicy: Delete
 
-  CommonLayer:
+  CommonLayerProd:
     Type: AWS::Serverless::LayerVersion
+    Condition: IsProdEnvironment
     Properties:
-      LayerName: flow-common-layer
-      Description: Common utilities and shared code for Flow app
+      LayerName: !Sub "flow-${Environment}-common-layer"
+      Description: !Sub "Common utilities and shared code for Flow app (${Environment})"
+      ContentUri: layers/common/
+      CompatibleRuntimes:
+        - python3.9
+      RetentionPolicy: Retain
+
+  CommonLayerDev:
+    Type: AWS::Serverless::LayerVersion
+    Condition: IsDevEnvironment
+    Properties:
+      LayerName: !Sub "flow-${Environment}-common-layer"
+      Description: !Sub "Common utilities and shared code for Flow app (${Environment})"
       ContentUri: layers/common/
       CompatibleRuntimes:
         - python3.9
@@ -31,13 +64,13 @@ Resources:
 
 Outputs:
   VendorLayerArn:
-    Description: ARN for the Vendor Layer
-    Value: !Ref VendorLayer
+    Description: "ARN for the Vendor Layer"
+    Value: !If [IsProdEnvironment, !Ref VendorLayerProd, !Ref VendorLayerDev]
     Export:
-      Name: !Sub "flow-layers-VendorLayerArn-${LayerVersion}"
+      Name: !Sub "flow-${Environment}-VendorLayerArn-${LayerVersion}"
 
   CommonLayerArn:
-    Description: ARN for the Common Layer
-    Value: !Ref CommonLayer
+    Description: "ARN for the Common Layer"
+    Value: !If [IsProdEnvironment, !Ref CommonLayerProd, !Ref CommonLayerDev]
     Export:
-      Name: !Sub "flow-layers-CommonLayerArn-${LayerVersion}"
+      Name: !Sub "flow-${Environment}-CommonLayerArn-${LayerVersion}"

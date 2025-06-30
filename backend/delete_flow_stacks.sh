@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Flow 3-Stack Architecture Deletion Script
+# Flow Environment-Isolated Architecture Deletion Script
 # Delete in reverse order (app -> data -> layers)
 set -e
 
@@ -10,13 +10,14 @@ if [[ ! "$ENVIRONMENT" =~ ^(dev|prod)$ ]]; then
     echo "Error: Environment must be 'dev' or 'prod'"
     echo "Usage: $0 <environment>"
     echo "Example: $0 dev"
+    echo "Example: $0 prod"
     exit 1
 fi
 
 STACKS=(
   "flow-app-${ENVIRONMENT}"
   "flow-data-${ENVIRONMENT}" 
-  "flow-layers"
+  "flow-layers-${ENVIRONMENT}"
 )
 
 echo "Deleting Flow stacks for environment: $ENVIRONMENT"
@@ -46,3 +47,6 @@ for STACK in "${STACKS[@]}"; do
 done
 
 echo "Stack deletion process completed for environment: $ENVIRONMENT"
+echo ""
+echo "ℹ️  Note: This deletes only ${ENVIRONMENT} environment."
+echo "   Other environments (dev/prod) remain unaffected."
