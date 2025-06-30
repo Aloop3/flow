@@ -253,14 +253,6 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
 
   const toggleNotes = () => {
     setNotesExpanded(!notesExpanded);
-    if (!notesExpanded && notesRef.current) {
-      setTimeout(() => {
-        if (notesRef.current) {
-          notesRef.current.value = displayData.notes;
-          notesRef.current.focus();
-        }
-      }, 0);
-    }
   };
 
   return (
@@ -341,6 +333,8 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
           <div className="absolute z-10 mt-1 p-2 bg-white border border-gray-300 rounded-lg shadow-lg min-w-48">
             <textarea
               ref={notesRef}
+              value={displayData.notes}
+              onChange={(e) => setDisplayData(prev => ({ ...prev, notes: e.target.value }))}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') setNotesExpanded(false);
               }}
@@ -352,11 +346,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
             <div className="flex justify-end mt-2 space-x-2">
               <button
                 onClick={() => {
-                  if (notesRef.current) {
-                    const newNotes = notesRef.current.value;
-                    setDisplayData(prev => ({ ...prev, notes: newNotes }));
-                    setHasUnsavedChanges(true);
-                  }
+                  commitSetData({ notes: displayData.notes });
                   setNotesExpanded(false);
                 }}
                 className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
