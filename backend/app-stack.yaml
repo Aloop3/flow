@@ -31,9 +31,9 @@ Globals:
     MemorySize: 256
     Layers:
       - !ImportValue 
-        Fn::Sub: "flow-layers-VendorLayerArn-${LayerVersion}"
+        Fn::Sub: "flow-${Environment}-VendorLayerArn-${LayerVersion}"
       - !ImportValue
-        Fn::Sub: "flow-layers-CommonLayerArn-${LayerVersion}"
+        Fn::Sub: "flow-${Environment}-CommonLayerArn-${LayerVersion}"
     Environment:
       Variables:
         USERS_TABLE: !ImportValue 
