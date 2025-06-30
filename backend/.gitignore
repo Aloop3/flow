@@ -16,3 +16,5 @@ layers/*/python/*/
 !layers/*/python/src
 .samignore
 .DS_Store
+setup_demo.py
+cleanup_all_demo_data.py
