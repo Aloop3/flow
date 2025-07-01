@@ -274,8 +274,8 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       <td className="px-1 py-2 w-16">
         <input
           type="number"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          inputMode="decimal"
+          step="0.5"
           value={displayData.weight}
           onChange={(e) => handleWeightChange(e.target.value)}
           onFocus={(e) => e.target.select()}
@@ -304,8 +304,10 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       <td className="px-1 py-2 w-12">
         <input
           type="number"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          inputMode="decimal"
+          step="0.5"
+          min="1"
+          max="10"
           value={displayData.rpe || ''}
           onChange={(e) => handleRpeChange(e.target.value)}
           onFocus={(e) => e.target.select()}
