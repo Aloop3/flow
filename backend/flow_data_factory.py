@@ -79,8 +79,8 @@ class FlowDataFactory:
         return {
             AthleteLevel.NOVICE: AthleteProfile(
                 level=AthleteLevel.NOVICE,
-                name="Athlete 1",
-                email="athlete1@example.com",
+                name="Alex Novice",
+                email="alex.novice@flowdemo.com",
                 starting_maxes={"squat": 100, "bench": 80, "deadlift": 120},
                 progression_rate={"squat": 7.5, "bench": 5, "deadlift": 10},
                 missed_session_rate=0.15,
@@ -88,8 +88,8 @@ class FlowDataFactory:
             ),
             AthleteLevel.INTERMEDIATE: AthleteProfile(
                 level=AthleteLevel.INTERMEDIATE,
-                name="Athlete 2",
-                email="athlete2@example.com",
+                name="Jordan Intermediate",
+                email="jordan.intermediate@flowdemo.com",
                 starting_maxes={"squat": 150, "bench": 110, "deadlift": 180},
                 progression_rate={"squat": 3.75, "bench": 2.5, "deadlift": 5},
                 missed_session_rate=0.08,
@@ -97,8 +97,8 @@ class FlowDataFactory:
             ),
             AthleteLevel.ADVANCED: AthleteProfile(
                 level=AthleteLevel.ADVANCED,
-                name="Athlete 3",
-                email="athlete3@example.com",
+                name="Casey Advanced",
+                email="casey.advanced@flowdemo.com",
                 starting_maxes={"squat": 175, "bench": 112, "deadlift": 190},
                 progression_rate={"squat": 1.25, "bench": 1.25, "deadlift": 2.5},
                 missed_session_rate=0.05,
@@ -113,7 +113,7 @@ class FlowDataFactory:
         coach_id = str(uuid.uuid4())
         coach_data = {
             "user_id": coach_id,
-            "email": "coach@example.com",
+            "email": "coach.demo@flowdemo.com",
             "name": "Coach Demo",
             "role": "coach",
             "weight_unit_preference": "kg",
@@ -635,7 +635,7 @@ class FlowDataFactory:
                         {"Name": "name", "Value": name},
                         {"Name": "email_verified", "Value": "true"},
                     ],
-                    TemporaryPassword="FlowDemo123!",
+                    TemporaryPassword="Password.1",
                     MessageAction="SUPPRESS",  # Don't send welcome email
                 )
 
@@ -643,7 +643,7 @@ class FlowDataFactory:
                 cognito.admin_set_user_password(
                     UserPoolId=user_pool_id,
                     Username=email,
-                    Password="FlowDemo123!",
+                    Password="Password.1",
                     Permanent=True,
                 )
 

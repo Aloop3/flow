@@ -606,8 +606,12 @@ Resources:
         Variables:
           ENVIRONMENT: !Ref Environment
       Policies:
-        - SNSPublishMessagePolicy:
-            TopicName: !Sub "flow-${Environment}-feedback-alerts"
+        - !If 
+          - IsProdEnvironment
+          - SNSPublishMessagePolicy:
+              TopicName: !Sub "flow-${Environment}-monitoring-alerts"
+          - SNSPublishMessagePolicy:
+              TopicName: !Sub "flow-${Environment}-feedback-alerts"
 
       Events:
         SubmitFeedback:
