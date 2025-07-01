@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FocusTag from '../components/FocusTag';
 import { getBlock, getWeeks, getDays, updateDay, updateBlock } from '../services/api';
@@ -20,6 +20,7 @@ interface BlockDetailProps {
 
 const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const { blockId } = useParams<{ blockId: string }>();
+  const location = useLocation();
   const [block, setBlock] = useState<Block | null>(null);
   const [weeks, setWeeks] = useState<Week[]>([]);
   const [daysMap, setDaysMap] = useState<{ [weekId: string]: Day[] }>({});
@@ -220,6 +221,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
           return;
         }
         setBlock(blockData);
+        setDescriptionContent(blockData.description || '');
 
         // Process weeks data
         const sortedWeeks = Array.isArray(weeksData)
@@ -257,7 +259,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     };
 
     fetchInitialData();
-  }, [blockId]);
+  }, [blockId, location.pathname]);
 
   // Week tab click handler with preloading
   const handleWeekTabClick = async (weekId: string) => {
