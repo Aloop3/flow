@@ -266,8 +266,8 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
                 <label className="block text-xs text-gray-500">Weight ({displayUnit})</label>
                 <input
                   type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  inputMode="decimal"
+                  step="0.5"
                   defaultValue={set.weight || ''}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -307,8 +307,8 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
                 <label className="block text-xs text-gray-500">RPE</label>
                 <input
                   type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  inputMode="decimal"
+                  step="0.5"
                   defaultValue={set.rpe}
                   onChange={(e) => {
                     const value = e.target.value;
