@@ -38,12 +38,11 @@ const BlockEdit = ({ user, signOut }: BlockEditProps) => {
   }, [blockId]);
 
   const handleUpdateBlock = async (blockData: Partial<Block>) => {
-    if (!blockId) return;
-    
     setIsSaving(true);
     try {
-      await updateBlock(blockId, blockData);
-      navigate(`/blocks/${blockId}`);
+      await updateBlock(blockId!, blockData);
+      setBlock(prev => prev ? { ...prev, ...blockData } : null); // Sync local state
+      navigate(`/blocks/${blockId!}`);
     } catch (error) {
       console.error('Error updating block:', error);
     } finally {
