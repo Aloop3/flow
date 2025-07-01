@@ -97,8 +97,8 @@ class FlowDataFactory:
             ),
             AthleteLevel.ADVANCED: AthleteProfile(
                 level=AthleteLevel.ADVANCED,
-                name="Athlete 3",
-                email="athlete3@example.com",
+                name="Athlete 2",
+                email="athlete2@example.com",
                 starting_maxes={"squat": 175, "bench": 112, "deadlift": 190},
                 progression_rate={"squat": 1.25, "bench": 1.25, "deadlift": 2.5},
                 missed_session_rate=0.05,
@@ -635,7 +635,7 @@ class FlowDataFactory:
                         {"Name": "name", "Value": name},
                         {"Name": "email_verified", "Value": "true"},
                     ],
-                    TemporaryPassword="FlowDemo123!",
+                    TemporaryPassword="Password.1",
                     MessageAction="SUPPRESS",  # Don't send welcome email
                 )
 
@@ -643,7 +643,7 @@ class FlowDataFactory:
                 cognito.admin_set_user_password(
                     UserPoolId=user_pool_id,
                     Username=email,
-                    Password="FlowDemo123!",
+                    Password="Password.1",
                     Permanent=True,
                 )
 
