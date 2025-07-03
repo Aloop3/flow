@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
@@ -148,12 +149,10 @@ class TestFeedbackLambda(BaseTest):
         self.assertEqual(response_body["error"], "Invalid JSON in request body")
 
     def test_missing_authorizer(self):
-        """Test handling when authorizer is missing - ensures add_cors_headers path is tested"""
+        """Test handling when authorizer is missing"""
         # Setup - requestContext without authorizer
         event = self.valid_event.copy()
-        event["requestContext"] = {
-            "some_key": "some_value"
-        }  # Valid dict but no authorizer
+        event["requestContext"] = {"some_key": "some_value"}
 
         # Call the Lambda handler
         response = feedback_lambda.handler(event, self.context)
@@ -162,11 +161,17 @@ class TestFeedbackLambda(BaseTest):
         self.assertEqual(response["statusCode"], 401)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Unauthorized - no authorizer")
-        # This should use add_cors_headers (minimal headers)
+
+        # Updated assertion - now CORS headers ARE present
         self.assertIn("headers", response)
         self.assertEqual(response["headers"]["Content-Type"], "application/json")
-        # Should NOT have full CORS headers like Access-Control-Allow-Origin
-        self.assertNotIn("Access-Control-Allow-Origin", response["headers"])
+        # CORS headers should now be present
+        self.assertIn("Access-Control-Allow-Origin", response["headers"])
+        # Should use environment CORS_ORIGIN or default to "*"
+        expected_origin = os.environ.get("CORS_ORIGIN", "*")
+        self.assertEqual(
+            response["headers"]["Access-Control-Allow-Origin"], expected_origin
+        )
 
     def test_missing_claims(self):
         """Test handling when claims are missing - ensures add_cors_headers path is tested"""
@@ -183,23 +188,15 @@ class TestFeedbackLambda(BaseTest):
         self.assertEqual(response["statusCode"], 401)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Unauthorized - no claims")
-        # This should use add_cors_headers (minimal headers)
         self.assertIn("headers", response)
         self.assertEqual(response["headers"]["Content-Type"], "application/json")
-        # Should NOT have full CORS headers like Access-Control-Allow-Origin
-        self.assertNotIn("Access-Control-Allow-Origin", response["headers"])
-        """Test handling of missing required fields"""
-        # Setup - Missing category field
-        event = self.valid_event.copy()
-        event["body"] = json.dumps({"message": "Test feedback message"})
 
-        # Call the Lambda handler
-        response = feedback_lambda.handler(event, self.context)
-
-        # Assert
-        self.assertEqual(response["statusCode"], 400)
-        response_body = json.loads(response["body"])
-        self.assertEqual(response_body["error"], "Missing required field: category")
+        # CORS headers should now be present
+        self.assertIn("Access-Control-Allow-Origin", response["headers"])
+        expected_origin = os.environ.get("CORS_ORIGIN", "*")
+        self.assertEqual(
+            response["headers"]["Access-Control-Allow-Origin"], expected_origin
+        )
 
     def test_invalid_category(self):
         """Test handling of invalid feedback category"""
