@@ -732,7 +732,7 @@ class TestExerciseService(unittest.TestCase):
             **exercise.to_dict(),
             "sets_data": [
                 {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
-            ], 
+            ],
             "status": "in_progress",
         }
 
@@ -920,7 +920,6 @@ class TestExerciseService(unittest.TestCase):
         self.assertNotIn(
             "status", update_data
         )  # Status not updated when already in progress
-
 
     @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.update_exercise")

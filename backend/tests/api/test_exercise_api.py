@@ -32,7 +32,12 @@ class TestExerciseAPI(BaseTest):
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="lb")
     @patch("src.services.exercise_service.ExerciseService.create_exercise")
     def test_create_exercise_success(
-        self, mock_create_exercise, mock_convert_kg, mock_get_unit, mock_convert_display, mock_get_pref
+        self,
+        mock_create_exercise,
+        mock_convert_kg,
+        mock_get_unit,
+        mock_convert_display,
+        mock_get_pref,
     ):
         """
         Test successful exercise creation
@@ -967,9 +972,15 @@ class TestExerciseAPI(BaseTest):
         # Assert
         self.assertEqual(mock_get_unit.call_count, 1)
         call_args = mock_get_unit.call_args
-        self.assertEqual(call_args[0][0], "Squat")  # First positional arg: exercise_type
-        self.assertEqual(call_args[0][1], "auto")   # Second positional arg: user_preference
-        self.assertEqual(call_args[0][2], None)     # Third positional arg: exercise_category
+        self.assertEqual(
+            call_args[0][0], "Squat"
+        )  # First positional arg: exercise_type
+        self.assertEqual(
+            call_args[0][1], "auto"
+        )  # Second positional arg: user_preference
+        self.assertEqual(
+            call_args[0][2], None
+        )  # Third positional arg: exercise_category
 
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="lb")
     @patch("src.api.exercise_api.convert_weight_from_kg", return_value=225.0)
@@ -997,9 +1008,15 @@ class TestExerciseAPI(BaseTest):
         mock_get_unit.assert_called_once_with("Dumbbell Curl", "lb", None)
         self.assertEqual(mock_get_unit.call_count, 1)
         call_args = mock_get_unit.call_args
-        self.assertEqual(call_args[0][0], "Dumbbell Curl")  # First positional arg: exercise_type
-        self.assertEqual(call_args[0][1], "lb")             # Second positional arg: user_preference
-        self.assertEqual(call_args[0][2], None)             # Third positional arg: exercise_category
+        self.assertEqual(
+            call_args[0][0], "Dumbbell Curl"
+        )  # First positional arg: exercise_type
+        self.assertEqual(
+            call_args[0][1], "lb"
+        )  # Second positional arg: user_preference
+        self.assertEqual(
+            call_args[0][2], None
+        )  # Third positional arg: exercise_category
 
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch(
