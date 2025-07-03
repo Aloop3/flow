@@ -367,3 +367,60 @@ def get_block_comparison(event, context):
     except Exception as e:
         logger.error(f"Error comparing blocks: {str(e)}")
         return create_response(500, {"error": "Internal server error"})
+
+
+@with_middleware([log_request, handle_errors])
+def get_all_time_1rm(event, context):
+    """
+    Handle GET /analytics/1rm-alltime/{athlete_id} request
+    Query parameters: exercise_type (required)
+    Returns single value - highest weight ever lifted for exercise
+    """
+    try:
+        # Extract path parameters
+        athlete_id = event["pathParameters"]["athlete_id"]
+
+        # Extract query parameters
+        query_params = event.get("queryStringParameters") or {}
+        exercise_type = query_params.get("exercise_type")
+
+        # Validate required parameters
+        if not exercise_type:
+            return create_response(
+                400, {"error": "exercise_type query parameter is required"}
+            )
+
+        # Validate exercise_type is main lift
+        valid_exercises = ["deadlift", "squat", "bench press"]
+        if exercise_type.lower() not in [ex.lower() for ex in valid_exercises]:
+            return create_response(
+                400,
+                {
+                    "error": f"exercise_type must be one of: {', '.join(valid_exercises)}"
+                },
+            )
+
+        # Validate user access
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if not validate_athlete_access(user_id, athlete_id):
+            return create_response(
+                403, {"error": "Unauthorized access to athlete data"}
+            )
+
+        # Get all-time max weight
+        max_weight = analytics_service.get_all_time_max_weight(
+            athlete_id, exercise_type
+        )
+
+        return create_response(
+            200,
+            {
+                "athlete_id": athlete_id,
+                "exercise_type": exercise_type,
+                "all_time_max_weight": max_weight,
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting all-time 1RM: {str(e)}")
+        return create_response(500, {"error": "Internal server error"})

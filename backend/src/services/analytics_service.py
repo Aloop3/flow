@@ -85,6 +85,52 @@ class AnalyticsService:
 
         return max_weight
 
+    def get_all_time_max_weight(self, athlete_id: str, exercise_type: str) -> float:
+        """
+        Get the absolute highest weight ever lifted for a specific exercise.
+        Used for 1RM display - returns single value, not time series.
+
+        :param athlete_id: The ID of the athlete
+        :param exercise_type: Type of exercise ('deadlift', 'squat', 'bench press')
+        :return: Highest weight ever lifted for this exercise
+        """
+        if not athlete_id or not exercise_type:
+            return 0.0
+
+        try:
+            # Get ALL exercises for athlete (no date filtering)
+            exercises = self.exercise_repository.get_exercises_with_workout_context(
+                athlete_id=athlete_id
+            )
+
+            # Filter by exercise_type (case-insensitive)
+            exercises_of_type = [
+                exercise
+                for exercise in exercises
+                if exercise.get("exercise_type", "").lower() == exercise_type.lower()
+            ]
+
+            # Filter for analytics-complete exercises only
+            completed_exercises = [
+                exercise
+                for exercise in exercises_of_type
+                if self._is_exercise_analytics_complete(exercise)
+            ]
+
+            # Find absolute maximum weight across ALL time
+            all_time_max = 0.0
+
+            for exercise in completed_exercises:
+                exercise_max = self._get_max_weight_from_exercise(exercise)
+                if exercise_max > all_time_max:
+                    all_time_max = exercise_max
+
+            return all_time_max
+
+        except Exception as e:
+            print(f"Error in get_all_time_max_weight: {e}")
+            return 0.0
+
     def get_max_weight_history(
         self, athlete_id: str, exercise_type: str
     ) -> List[Dict[str, Any]]:
