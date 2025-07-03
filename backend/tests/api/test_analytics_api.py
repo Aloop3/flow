@@ -7,6 +7,7 @@ from src.api.analytics_api import (
     get_exercise_frequency,
     get_block_analysis,
     get_block_comparison,
+    get_all_time_1rm,
     validate_athlete_access,
     validate_date_format,
 )
@@ -1016,6 +1017,368 @@ class TestAnalyticsAPI(unittest.TestCase):
         self.assertIn("coach-id", logged_message)
         self.assertIn("athlete-id", logged_message)
         self.assertIn("Database connection failed", logged_message)
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_success(self, mock_validate_access):
+        """Test get_all_time_1rm with valid request and successful response"""
+        # Setup
+        mock_validate_access.return_value = True
+        self.mock_analytics_service.get_all_time_max_weight.return_value = 150.0
+
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"exercise_type": "deadlift"},
+        }
+
+        # Execute
+        response = get_all_time_1rm(event, self.context)
+
+        # Verify
+        self.assertEqual(response["statusCode"], 200)
+
+        response_body = json.loads(response["body"])
+        expected_body = {
+            "athlete_id": "test-athlete-id",
+            "exercise_type": "deadlift",
+            "all_time_max_weight": 150.0,
+        }
+        self.assertEqual(response_body, expected_body)
+
+        # Verify service calls
+        mock_validate_access.assert_called_once_with("test-user-id", "test-athlete-id")
+        self.mock_analytics_service.get_all_time_max_weight.assert_called_once_with(
+            "test-athlete-id", "deadlift"
+        )
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_missing_exercise_type(self, mock_validate_access):
+        """Test get_all_time_1rm returns 400 when exercise_type parameter is missing"""
+        # Setup - no exercise_type in query parameters
+        event = {**self.base_event, "queryStringParameters": {}}
+
+        # Execute
+        response = get_all_time_1rm(event, self.context)
+
+        # Verify
+        self.assertEqual(response["statusCode"], 400)
+
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["error"], "exercise_type query parameter is required"
+        )
+
+        # Should not validate access or call service
+        mock_validate_access.assert_not_called()
+        self.mock_analytics_service.get_all_time_max_weight.assert_not_called()
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_null_query_parameters(self, mock_validate_access):
+        """Test get_all_time_1rm handles null queryStringParameters gracefully"""
+        # Setup - null query parameters (API Gateway behavior)
+        event = {**self.base_event, "queryStringParameters": None}
+
+        # Execute
+        response = get_all_time_1rm(event, self.context)
+
+        # Verify
+        self.assertEqual(response["statusCode"], 400)
+
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["error"], "exercise_type query parameter is required"
+        )
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_invalid_exercise_type(self, mock_validate_access):
+        """Test get_all_time_1rm returns 400 for invalid exercise types"""
+        # Split empty string test from invalid exercise types
+        invalid_exercise_types = ["bicep curl", "tricep extension", "invalid_exercise"]
+
+        for exercise_type in invalid_exercise_types:
+            with self.subTest(exercise_type=exercise_type):
+                event = {
+                    **self.base_event,
+                    "queryStringParameters": {"exercise_type": exercise_type},
+                }
+
+                # Execute
+                response = get_all_time_1rm(event, self.context)
+
+                # Verify
+                self.assertEqual(response["statusCode"], 400)
+
+                response_body = json.loads(response["body"])
+                self.assertIn("exercise_type must be one of", response_body["error"])
+                self.assertIn("deadlift", response_body["error"])
+                self.assertIn("squat", response_body["error"])
+                self.assertIn("bench press", response_body["error"])
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_valid_exercise_types_case_insensitive(
+        self, mock_validate_access
+    ):
+        """Test get_all_time_1rm accepts valid exercise types in different cases"""
+        mock_validate_access.return_value = True
+        self.mock_analytics_service.get_all_time_max_weight.return_value = 100.0
+
+        valid_exercise_types = [
+            ("deadlift", "deadlift"),
+            ("DEADLIFT", "DEADLIFT"),
+            ("Deadlift", "Deadlift"),
+            ("squat", "squat"),
+            ("SQUAT", "SQUAT"),
+            ("bench press", "bench press"),
+            ("BENCH PRESS", "BENCH PRESS"),
+            ("Bench Press", "Bench Press"),
+        ]
+
+        for input_type, expected_type in valid_exercise_types:
+            with self.subTest(exercise_type=input_type):
+                event = {
+                    **self.base_event,
+                    "queryStringParameters": {"exercise_type": input_type},
+                }
+
+                # Execute
+                response = get_all_time_1rm(event, self.context)
+
+                # Verify success
+                self.assertEqual(response["statusCode"], 200)
+
+                response_body = json.loads(response["body"])
+                self.assertEqual(response_body["exercise_type"], expected_type)
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_unauthorized_access(self, mock_validate_access):
+        """Test get_all_time_1rm returns 403 when user lacks access to athlete data"""
+        # Setup
+        mock_validate_access.return_value = False
+
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"exercise_type": "deadlift"},
+        }
+
+        # Execute
+        response = get_all_time_1rm(event, self.context)
+
+        # Verify
+        self.assertEqual(response["statusCode"], 403)
+
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Unauthorized access to athlete data")
+
+        # Should validate access but not call service
+        mock_validate_access.assert_called_once_with("test-user-id", "test-athlete-id")
+        self.mock_analytics_service.get_all_time_max_weight.assert_not_called()
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_zero_weight_result(self, mock_validate_access):
+        """Test get_all_time_1rm handles zero weight result (no data for exercise)"""
+        # Setup
+        mock_validate_access.return_value = True
+        self.mock_analytics_service.get_all_time_max_weight.return_value = 0.0
+
+        event = {**self.base_event, "queryStringParameters": {"exercise_type": "squat"}}
+
+        # Execute
+        response = get_all_time_1rm(event, self.context)
+
+        # Verify
+        self.assertEqual(response["statusCode"], 200)
+
+        response_body = json.loads(response["body"])
+        expected_body = {
+            "athlete_id": "test-athlete-id",
+            "exercise_type": "squat",
+            "all_time_max_weight": 0.0,
+        }
+        self.assertEqual(response_body, expected_body)
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_service_exception(self, mock_validate_access):
+        """Test get_all_time_1rm handles analytics service exceptions gracefully"""
+        # Setup
+        mock_validate_access.return_value = True
+        self.mock_analytics_service.get_all_time_max_weight.side_effect = Exception(
+            "Database connection failed"
+        )
+
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"exercise_type": "bench press"},
+        }
+
+        # Execute
+        with patch("src.api.analytics_api.logger") as mock_logger:
+            response = get_all_time_1rm(event, self.context)
+
+        # Verify
+        self.assertEqual(response["statusCode"], 500)
+
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Internal server error")
+
+        # Verify error logging
+        mock_logger.error.assert_called_once()
+        log_call_args = mock_logger.error.call_args[0][0]
+        self.assertIn("Error getting all-time 1RM", log_call_args)
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_missing_path_parameters(self, mock_validate_access):
+        """Test get_all_time_1rm handles missing athlete_id in path parameters"""
+        # Setup - missing pathParameters (middleware converts KeyError to 500)
+        event = {
+            "queryStringParameters": {"exercise_type": "deadlift"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+            # pathParameters is missing entirely
+        }
+
+        # Execute
+        with patch("src.api.analytics_api.logger") as mock_logger:
+            response = get_all_time_1rm(event, self.context)
+
+        # Verify - middleware catches KeyError and returns 500
+        self.assertEqual(response["statusCode"], 500)
+
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Internal server error")
+
+        # Verify error logging occurred
+        mock_logger.error.assert_called_once()
+        log_call_args = mock_logger.error.call_args[0][0]
+        self.assertIn("Error getting all-time 1RM", log_call_args)
+
+        # Should not validate access or call service due to early error
+        mock_validate_access.assert_not_called()
+        self.mock_analytics_service.get_all_time_max_weight.assert_not_called()
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_missing_athlete_id_in_path(self, mock_validate_access):
+        """Test get_all_time_1rm handles missing athlete_id key in pathParameters"""
+        # Setup - pathParameters exists but athlete_id key is missing
+        event = {
+            "pathParameters": {"some_other_param": "value"},  # athlete_id key missing
+            "queryStringParameters": {"exercise_type": "deadlift"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
+
+        # Execute
+        with patch("src.api.analytics_api.logger") as mock_logger:
+            response = get_all_time_1rm(event, self.context)
+
+        # Verify - middleware catches KeyError and returns 500
+        self.assertEqual(response["statusCode"], 500)
+
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Internal server error")
+
+        # Verify error logging occurred
+        mock_logger.error.assert_called_once()
+        log_call_args = mock_logger.error.call_args[0][0]
+        self.assertIn("Error getting all-time 1RM", log_call_args)
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_empty_exercise_type(self, mock_validate_access):
+        """Test get_all_time_1rm returns 400 for empty exercise_type"""
+        # Empty string is treated as missing parameter
+        event = {**self.base_event, "queryStringParameters": {"exercise_type": ""}}
+
+        # Execute
+        response = get_all_time_1rm(event, self.context)
+
+        # Verify
+        self.assertEqual(response["statusCode"], 400)
+
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["error"], "exercise_type query parameter is required"
+        )
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_different_athlete_ids(self, mock_validate_access):
+        """Test get_all_time_1rm with different athlete IDs in path"""
+        mock_validate_access.return_value = True
+        self.mock_analytics_service.get_all_time_max_weight.return_value = 200.5
+
+        test_athlete_ids = [
+            "athlete-123",
+            "44823433-b385-4359-8964-16a68b1b97c7",
+            "different-uuid",
+        ]
+
+        for athlete_id in test_athlete_ids:
+            with self.subTest(athlete_id=athlete_id):
+                event = {
+                    "pathParameters": {"athlete_id": athlete_id},
+                    "queryStringParameters": {"exercise_type": "deadlift"},
+                    "requestContext": {
+                        "authorizer": {"claims": {"sub": "test-user-id"}}
+                    },
+                }
+
+                # Execute
+                response = get_all_time_1rm(event, self.context)
+
+                # Verify
+                self.assertEqual(response["statusCode"], 200)
+
+                response_body = json.loads(response["body"])
+                self.assertEqual(response_body["athlete_id"], athlete_id)
+                self.assertEqual(response_body["all_time_max_weight"], 200.5)
+
+                # Verify correct service call
+                self.mock_analytics_service.get_all_time_max_weight.assert_called_with(
+                    athlete_id, "deadlift"
+                )
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_with_decimal_weights(self, mock_validate_access):
+        """Test get_all_time_1rm handles decimal weight values correctly"""
+        mock_validate_access.return_value = True
+
+        decimal_weights = [102.5, 87.75, 150.25, 99.9]
+
+        for weight in decimal_weights:
+            with self.subTest(weight=weight):
+                self.mock_analytics_service.get_all_time_max_weight.return_value = (
+                    weight
+                )
+
+                event = {
+                    **self.base_event,
+                    "queryStringParameters": {"exercise_type": "deadlift"},
+                }
+
+                # Execute
+                response = get_all_time_1rm(event, self.context)
+
+                # Verify
+                self.assertEqual(response["statusCode"], 200)
+
+                response_body = json.loads(response["body"])
+                self.assertEqual(response_body["all_time_max_weight"], weight)
+
+    @patch("src.api.analytics_api.validate_athlete_access")
+    def test_get_all_time_1rm_validate_access_exception(self, mock_validate_access):
+        """Test get_all_time_1rm handles validate_athlete_access exceptions"""
+        # Setup
+        mock_validate_access.side_effect = Exception("Auth service unavailable")
+
+        event = {**self.base_event, "queryStringParameters": {"exercise_type": "squat"}}
+
+        # Execute
+        with patch("src.api.analytics_api.logger") as mock_logger:
+            response = get_all_time_1rm(event, self.context)
+
+        # Verify
+        self.assertEqual(response["statusCode"], 500)
+
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Internal server error")
+
+        # Should not call analytics service
+        self.mock_analytics_service.get_all_time_max_weight.assert_not_called()
 
 
 if __name__ == "__main__":

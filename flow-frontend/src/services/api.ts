@@ -1675,6 +1675,41 @@ export const getBlockComparison = async (
   }
 };
 
+export const get1RMAllTime = async (
+  athleteId: string,
+  exerciseType: string
+): Promise<{all_time_max_weight: number}> => {
+  try {
+    const headers = await getAuthHeaders();
+    
+    const params = new URLSearchParams();
+    params.append('exercise_type', exerciseType);
+    
+    const queryString = params.toString();
+    const path = `/analytics/1rm-alltime/${athleteId}?${queryString}`;
+    
+    console.log('Fetching 1RM for athlete:', athleteId, 'exercise_type:', exerciseType);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path,
+      options: { headers },
+    });
+
+    const actualResponse = await apiResponse.response;
+    
+    if (actualResponse && actualResponse.body) {
+      const responseData = await actualResponse.body.json() as any;
+      console.log('1RM result:', responseData);
+      return responseData;
+    }
+
+    return { all_time_max_weight: 0 };
+  } catch (error) {
+    console.error('Error fetching 1RM:', error);
+    return { all_time_max_weight: 0 };
+  }
+};
+
 // Notification endpoints
 export const getNotifications = async (): Promise<Notification[]> => {
   try {

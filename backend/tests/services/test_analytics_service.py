@@ -1261,6 +1261,386 @@ class TestAnalyticsService(unittest.TestCase):
         expected_days = (dt.datetime(2024, 1, 8) - dt.datetime(2000, 1, 1)).days
         self.assertEqual(result["period_days"], expected_days)
 
+    def test_get_max_weight_from_exercise_with_completed_sets(self):
+        """
+        Test _get_max_weight_from_exercise helper method with completed sets_data
+        Should return the highest weight from completed sets only
+        """
+        exercise = {
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                {"set_number": 2, "reps": 3, "weight": 120, "completed": True},
+                {
+                    "set_number": 3,
+                    "reps": 1,
+                    "weight": 140,
+                    "completed": False,
+                },  # Not completed
+                {"set_number": 4, "reps": 2, "weight": 110, "completed": True},
+            ]
+        }
+
+        max_weight = self.analytics_service._get_max_weight_from_exercise(exercise)
+
+        # Should return 120 (highest completed weight), not 140 (incomplete)
+        expected_max = 120.0
+        self.assertEqual(max_weight, expected_max)
+
+    def test_get_max_weight_from_exercise_no_completed_sets(self):
+        """
+        Test _get_max_weight_from_exercise with no completed sets
+        Should return 0.0 when no sets are completed
+        """
+        exercise = {
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 100, "completed": False},
+                {"set_number": 2, "reps": 3, "weight": 120, "completed": False},
+            ]
+        }
+
+        max_weight = self.analytics_service._get_max_weight_from_exercise(exercise)
+        self.assertEqual(max_weight, 0.0)
+
+    def test_get_max_weight_from_exercise_empty_sets_data(self):
+        """
+        Test _get_max_weight_from_exercise with empty or missing sets_data
+        Should return 0.0 when no sets_data available
+        """
+        exercise_empty = {"sets_data": []}
+        exercise_missing = {}
+
+        max_weight_empty = self.analytics_service._get_max_weight_from_exercise(
+            exercise_empty
+        )
+        max_weight_missing = self.analytics_service._get_max_weight_from_exercise(
+            exercise_missing
+        )
+
+        self.assertEqual(max_weight_empty, 0.0)
+        self.assertEqual(max_weight_missing, 0.0)
+
+    def test_get_max_weight_from_exercise_invalid_data_types(self):
+        """
+        Test _get_max_weight_from_exercise with invalid weight data types
+        Should handle ValueError/TypeError gracefully and skip invalid sets
+        """
+        exercise = {
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": "invalid", "completed": True},
+                {"set_number": 2, "reps": 3, "weight": 120, "completed": True},
+                {"set_number": 3, "reps": 2, "weight": None, "completed": True},
+            ]
+        }
+
+        max_weight = self.analytics_service._get_max_weight_from_exercise(exercise)
+
+        # Should return 120, skipping invalid weights
+        self.assertEqual(max_weight, 120.0)
+
+    def test_get_all_time_max_weight_single_exercise_type(self):
+        """
+        Test get_all_time_max_weight with single exercise type across multiple workouts
+        Should return the absolute highest weight across all time periods
+        """
+        # Mock repository to return deadlift exercises from different dates
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "deadlift",
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-01-01",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                    {"set_number": 2, "reps": 3, "weight": 120, "completed": True},
+                ],
+            },
+            {
+                "exercise_id": "ex2",
+                "exercise_type": "deadlift",
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-02-01",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 130, "completed": True},
+                    {
+                        "set_number": 2,
+                        "reps": 1,
+                        "weight": 150,
+                        "completed": True,
+                    },  # All-time max
+                ],
+            },
+            {
+                "exercise_id": "ex3",
+                "exercise_type": "deadlift",
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-03-01",
+                "sets_data": [
+                    {"set_number": 1, "reps": 3, "weight": 140, "completed": True},
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        max_weight = self.analytics_service.get_all_time_max_weight(
+            "test-athlete-id", "deadlift"
+        )
+
+        # Should return 150 (absolute highest across all workouts)
+        self.assertEqual(max_weight, 150.0)
+        self.exercise_repository_mock.get_exercises_with_workout_context.assert_called_once_with(
+            athlete_id="test-athlete-id"
+        )
+
+    def test_get_all_time_max_weight_case_insensitive_exercise_type(self):
+        """
+        Test get_all_time_max_weight with case variations in exercise_type
+        Should match exercise types case-insensitively
+        """
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "Deadlift",  # Capital D
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-01-01",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                ],
+            },
+            {
+                "exercise_id": "ex2",
+                "exercise_type": "DEADLIFT",  # All caps
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-02-01",
+                "sets_data": [
+                    {"set_number": 1, "reps": 3, "weight": 120, "completed": True},
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        max_weight = self.analytics_service.get_all_time_max_weight(
+            "test-athlete-id", "deadlift"
+        )
+
+        # Should find both exercises and return max weight 120
+        self.assertEqual(max_weight, 120.0)
+
+    def test_get_all_time_max_weight_filters_incomplete_exercises(self):
+        """
+        Test get_all_time_max_weight filters out exercises that don't pass analytics complete check
+        Should only consider exercises that are analytically complete
+        """
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "deadlift",
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-01-01",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                ],
+            },
+            {
+                "exercise_id": "ex2",
+                "exercise_type": "deadlift",
+                "status": "draft",  # Not completed
+                "workout_status": "completed",
+                "workout_date": "2025-02-01",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 1,
+                        "weight": 200,
+                        "completed": True,
+                    },  # Higher weight but incomplete
+                ],
+            },
+            {
+                "exercise_id": "ex3",
+                "exercise_type": "deadlift",
+                "status": "completed",
+                "workout_status": "draft",  # Workout not completed
+                "workout_date": "2025-03-01",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 1,
+                        "weight": 180,
+                        "completed": True,
+                    },  # Higher weight but incomplete workout
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        max_weight = self.analytics_service.get_all_time_max_weight(
+            "test-athlete-id", "deadlift"
+        )
+
+        # Should only consider ex1 (completed), returning 100, not 200 or 180
+        self.assertEqual(max_weight, 100.0)
+
+    def test_get_all_time_max_weight_no_matching_exercises(self):
+        """
+        Test get_all_time_max_weight with no exercises matching the exercise type
+        Should return 0.0 when no exercises of specified type exist
+        """
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "squat",  # Different exercise type
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-01-01",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 100, "completed": True},
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        max_weight = self.analytics_service.get_all_time_max_weight(
+            "test-athlete-id", "deadlift"
+        )
+
+        # Should return 0.0 when no deadlifts found
+        self.assertEqual(max_weight, 0.0)
+
+    def test_get_all_time_max_weight_empty_parameters(self):
+        """
+        Test get_all_time_max_weight with empty or None parameters
+        Should return 0.0 for invalid inputs
+        """
+        max_weight_no_athlete = self.analytics_service.get_all_time_max_weight(
+            "", "deadlift"
+        )
+        max_weight_no_exercise = self.analytics_service.get_all_time_max_weight(
+            "test-athlete-id", ""
+        )
+        max_weight_none_athlete = self.analytics_service.get_all_time_max_weight(
+            None, "deadlift"
+        )
+        max_weight_none_exercise = self.analytics_service.get_all_time_max_weight(
+            "test-athlete-id", None
+        )
+
+        self.assertEqual(max_weight_no_athlete, 0.0)
+        self.assertEqual(max_weight_no_exercise, 0.0)
+        self.assertEqual(max_weight_none_athlete, 0.0)
+        self.assertEqual(max_weight_none_exercise, 0.0)
+
+    def test_get_all_time_max_weight_repository_exception(self):
+        """
+        Test get_all_time_max_weight handles repository exceptions gracefully
+        Should return 0.0 and log error when repository throws exception
+        """
+        # Mock repository to throw exception
+        self.exercise_repository_mock.get_exercises_with_workout_context.side_effect = (
+            Exception("Database error")
+        )
+
+        with patch("builtins.print") as mock_print:
+            max_weight = self.analytics_service.get_all_time_max_weight(
+                "test-athlete-id", "deadlift"
+            )
+
+        # Should return 0.0 and log error
+        self.assertEqual(max_weight, 0.0)
+        mock_print.assert_called_once()
+        self.assertIn("Error in get_all_time_max_weight", mock_print.call_args[0][0])
+
+    def test_get_all_time_max_weight_multiple_exercise_types_filtered(self):
+        """
+        Test get_all_time_max_weight correctly filters by exercise type among mixed exercises
+        Should only consider the specified exercise type, ignoring others
+        """
+        mock_exercises = [
+            {
+                "exercise_id": "ex1",
+                "exercise_type": "deadlift",
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-01-01",
+                "sets_data": [
+                    {"set_number": 1, "reps": 5, "weight": 120, "completed": True},
+                ],
+            },
+            {
+                "exercise_id": "ex2",
+                "exercise_type": "squat",
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-01-01",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 200,
+                        "completed": True,
+                    },  # Higher weight but different exercise
+                ],
+            },
+            {
+                "exercise_id": "ex3",
+                "exercise_type": "bench press",
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-01-01",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 5,
+                        "weight": 150,
+                        "completed": True,
+                    },  # Higher weight but different exercise
+                ],
+            },
+            {
+                "exercise_id": "ex4",
+                "exercise_type": "deadlift",
+                "status": "completed",
+                "workout_status": "completed",
+                "workout_date": "2025-02-01",
+                "sets_data": [
+                    {
+                        "set_number": 1,
+                        "reps": 3,
+                        "weight": 140,
+                        "completed": True,
+                    },  # Highest deadlift
+                ],
+            },
+        ]
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            mock_exercises
+        )
+
+        max_weight = self.analytics_service.get_all_time_max_weight(
+            "test-athlete-id", "deadlift"
+        )
+
+        # Should return 140 (highest deadlift), ignoring 200 (squat) and 150 (bench press)
+        self.assertEqual(max_weight, 140.0)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

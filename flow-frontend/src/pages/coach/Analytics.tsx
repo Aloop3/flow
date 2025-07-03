@@ -8,6 +8,7 @@ import {
   getBlocks,
   getCoachRelationships,
   getUser,
+  get1RMAllTime,
   type MaxWeightData,
   type VolumeData,
   type FrequencyData,
@@ -50,6 +51,13 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
   const [error, setError] = useState<string | null>(null);
   const [currentAthleteName, setCurrentAthleteName] = useState<string>('');
   const [volumeTimeRange, setVolumeTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  const [sbdData, setSbdData] = useState<{
+    exerciseType: string;
+    exerciseName: string;
+    latestData: { max_weight: number; unit: string } | null;
+    weight: number;
+    unit: string;
+  }[]>([]);
 
   // Determine current athlete ID (self or selected athlete for coaches)
   const currentAthleteId = selectedAthleteId || user.user_id;
@@ -164,6 +172,44 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
     reloadVolumeData();
   }, [volumeTimeRange, currentAthleteId]); // Only depends on volume time range and athlete
 
+  useEffect(() => {
+  console.log('🔍 1RM useEffect triggered. currentAthleteId:', currentAthleteId);
+  
+  const load1RMData = async () => {
+    if (!currentAthleteId) {
+      console.log('❌ No currentAthleteId, skipping 1RM load');
+      return;
+    }
+    
+    console.log('🚀 Starting 1RM data load for:', currentAthleteId);
+    
+    try {
+      const data = await Promise.all(['squat', 'bench press', 'deadlift'].map(async exerciseType => {
+        console.log('📡 Calling getTime for:', exerciseType);
+        const response = await get1RMAllTime(currentAthleteId, exerciseType);
+        const weight = response.all_time_max_weight || 0;
+        const unit = 'kg';
+
+        const exerciseName = capitalizeExerciseName(exerciseType);
+        
+        return {
+          exerciseType,
+          exerciseName,
+          latestData: weight > 0 ? { max_weight: weight, unit } : null,
+          weight,
+          unit
+        };
+      }));
+      
+      console.log('✅ 1RM data loaded:', data);
+      setSbdData(data);
+    } catch (error) {
+      console.error('❌ Error loading 1RM data:', error);
+    }
+  };
+  
+  load1RMData();
+}, [currentAthleteId]);
   // Handle athlete selection changes
   const handleAthleteChange = (athleteId: string) => {
     console.log('Athlete selection changed to:', athleteId);
@@ -485,20 +531,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
               </h3>
               <div className="space-y-2">
                 {(() => {
-                  // Calculate individual 1RMs and total
-                  const sbdData = ['squat', 'bench press', 'deadlift'].map(exerciseType => {
-                    const exerciseData = maxWeightData[exerciseType] || [];
-                    const latestData = exerciseData[exerciseData.length - 1];
-                    const exerciseName = capitalizeExerciseName(exerciseType);
-                    
-                    return {
-                      exerciseType,
-                      exerciseName,
-                      latestData,
-                      weight: latestData?.max_weight || 0,
-                      unit: latestData?.unit || 'kg'
-                    };
-                  });
                   
                   // Calculate total (only if all three lifts have data)
                   const allHaveData = sbdData.every(data => data.latestData);
