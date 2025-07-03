@@ -61,16 +61,39 @@ Resources:
       CompatibleRuntimes:
         - python3.9
       RetentionPolicy: Delete
-
-Outputs:
-  VendorLayerArn:
-    Description: "ARN for the Vendor Layer"
-    Value: !If [IsProdEnvironment, !Ref VendorLayerProd, !Ref VendorLayerDev]
-    Export:
-      Name: !Sub "flow-${Environment}-VendorLayerArn-${LayerVersion}"
-
-  CommonLayerArn:
-    Description: "ARN for the Common Layer"
-    Value: !If [IsProdEnvironment, !Ref CommonLayerProd, !Ref CommonLayerDev]
-    Export:
-      Name: !Sub "flow-${Environment}-CommonLayerArn-${LayerVersion}"
+  
+  CommonLayerParameterProd:
+    Type: AWS::SSM::Parameter
+    Condition: IsProdEnvironment
+    Properties:
+      Name: !Sub "/flow/${Environment}/layers/common/arn"
+      Type: String
+      Value: !Ref CommonLayerProd
+      Description: !Sub "Common layer ARN for ${Environment}"
+      
+  CommonLayerParameterDev:
+    Type: AWS::SSM::Parameter
+    Condition: IsDevEnvironment
+    Properties:
+      Name: !Sub "/flow/${Environment}/layers/common/arn"
+      Type: String
+      Value: !Ref CommonLayerDev
+      Description: !Sub "Common layer ARN for ${Environment}"
+      
+  VendorLayerParameterProd:
+    Type: AWS::SSM::Parameter
+    Condition: IsProdEnvironment
+    Properties:
+      Name: !Sub "/flow/${Environment}/layers/vendor/arn"
+      Type: String
+      Value: !Ref VendorLayerProd
+      Description: !Sub "Vendor layer ARN for ${Environment}"
+      
+  VendorLayerParameterDev:
+    Type: AWS::SSM::Parameter
+    Condition: IsDevEnvironment
+    Properties:
+      Name: !Sub "/flow/${Environment}/layers/vendor/arn"
+      Type: String
+      Value: !Ref VendorLayerDev
+      Description: !Sub "Vendor layer ARN for ${Environment}"
