@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, Any, Union
 from decimal import Decimal
 
@@ -20,13 +21,16 @@ def create_response(
     :param body: The response body content
     :return: A dictionary representing the API response
     """
+    # Get CORS origin from environment variable, fallback to '*' for dev
+    cors_origin = os.environ.get("CORS_ORIGIN", "*")
+
     return {
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": cors_origin,
             "Access-Control-Allow-Methods": "OPTIONS,GET,POST,PUT,DELETE",
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
         },
         "body": json.dumps(body, cls=DecimalEncoder),
     }

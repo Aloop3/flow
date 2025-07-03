@@ -52,7 +52,8 @@ Globals:
           Fn::Sub: "flow-${Environment}-NotificationsTable"
         LOG_LEVEL: INFO
         REGION: !Ref AWS::Region
-        LAYER_VERSION: !Ref LayerVersion 
+        LAYER_VERSION: !Ref LayerVersion
+        CORS_ORIGIN: !Ref CorsOrigin
 
 Conditions:
   IsProdEnvironment: !Equals [!Ref Environment, "prod"]
@@ -538,6 +539,13 @@ Resources:
           Properties:
             RestApiId: !Ref FlowAPI
             Path: /analytics/max-weight/{athlete_id}
+            Method: get
+        
+        AllTime1RM:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FlowAPI
+            Path: /analytics/1rm-alltime/{athlete_id}
             Method: get
         
         VolumeCalculation:
