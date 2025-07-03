@@ -36,9 +36,13 @@ def get_user_weight_preference(user_id: str) -> str:
         return "auto"
 
 
-def convert_exercise_weights_for_display(exercise_dict, user_preference, exercise_type):
+def convert_exercise_weights_for_display(
+    exercise_dict, user_preference, exercise_type, exercise_category=None
+):
     """Convert exercise weights from kg (storage) to display unit"""
-    display_unit = get_exercise_default_unit(exercise_type, user_preference)
+    display_unit = get_exercise_default_unit(
+        exercise_type, user_preference, exercise_category
+    )
 
     # Convert template weight
     if "weight" in exercise_dict and exercise_dict["weight"] is not None:
@@ -86,10 +90,37 @@ def create_exercise(event, context):
         user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
         user_preference = get_user_weight_preference(user_id)
 
+        # Get exercise category for custom exercises if not provided
+        if not exercise_category and exercise_type:
+            try:
+                user = user_service.get_user(user_id)
+                if user and user.custom_exercises:
+                    for custom_ex in user.custom_exercises:
+                        if custom_ex.get("name") == exercise_type:
+                            exercise_category = custom_ex.get("category", "").lower()
+                            logger.info(
+                                f"DEBUG - Found custom exercise: name={custom_ex.get('name')}, category_raw={custom_ex.get('category')}, category_lower={exercise_category}"
+                            )
+                            # Convert enum name to lowercase if needed
+                            if exercise_category in [
+                                "dumbbell",
+                                "machine",
+                                "cable",
+                                "barbell",
+                                "bodyweight",
+                            ]:
+                                exercise_category = exercise_category.lower()
+                            break
+
+            except Exception as e:
+                logger.warning(f"Failed to lookup custom exercise category: {str(e)}")
+
         # Convert weight from display unit to kg for storage
         weight_kg = weight
         if weight is not None:
-            display_unit = get_exercise_default_unit(exercise_type, user_preference)
+            display_unit = get_exercise_default_unit(
+                exercise_type, user_preference, exercise_category
+            )
             weight_kg = convert_weight_to_kg(weight, display_unit)
 
         # Create exercise
@@ -107,7 +138,7 @@ def create_exercise(event, context):
 
         # Convert response back to display units
         response_data = convert_exercise_weights_for_display(
-            exercise.to_dict(), user_preference, exercise_type
+            exercise.to_dict(), user_preference, exercise_type, exercise_category
         )
         return create_response(201, response_data)
 
@@ -137,7 +168,10 @@ def get_exercises_for_workout(event, context):
         for exercise in exercises:
             exercise_dict = exercise.to_dict()
             converted_exercise = convert_exercise_weights_for_display(
-                exercise_dict, user_preference, exercise.exercise_type
+                exercise_dict,
+                user_preference,
+                exercise.exercise_type,
+                exercise.exercise_category,
             )
             converted_exercises.append(converted_exercise)
 
@@ -222,7 +256,10 @@ def complete_exercise(event, context):
 
         # Convert response back to display units
         response_data = convert_exercise_weights_for_display(
-            updated_exercise.to_dict(), user_preference, updated_exercise.exercise_type
+            updated_exercise.to_dict(),
+            user_preference,
+            updated_exercise.exercise_type,
+            updated_exercise.exercise_category,
         )
         return create_response(200, response_data)
 
@@ -322,7 +359,10 @@ def reorder_sets(event, context):
 
         # Convert response back to display units
         response_data = convert_exercise_weights_for_display(
-            updated_exercise.to_dict(), user_preference, updated_exercise.exercise_type
+            updated_exercise.to_dict(),
+            user_preference,
+            updated_exercise.exercise_type,
+            updated_exercise.exercise_category,
         )
         return create_response(200, response_data)
 
@@ -393,7 +433,10 @@ def track_set(event, context):
 
         # Convert response back to display units for frontend
         response_data = convert_exercise_weights_for_display(
-            updated_exercise.to_dict(), user_preference, updated_exercise.exercise_type
+            updated_exercise.to_dict(),
+            user_preference,
+            updated_exercise.exercise_type,
+            updated_exercise.exercise_category,
         )
         return create_response(200, response_data)
 

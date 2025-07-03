@@ -18,21 +18,22 @@ class ExerciseService:
         exercise_data = self.exercise_repository.get_exercise(exercise_id)
 
         if exercise_data:
+            exercise_data.pop("is_predefined", None)
             return Exercise(**exercise_data)
         return None
 
     def get_exercises_for_workout(self, workout_id: str) -> List[Exercise]:
-        """
-        Retrieves all exercises for a given workout_id
-
-        :param workout_id: The ID of the workout to retrieve exercises for
-        :return: A list of Exercise objects
-        """
         exercises_data = self.exercise_repository.get_exercises_by_workout(workout_id)
-
-        # Sort by order
         exercises_data.sort(key=lambda x: x.get("order", 999))
-        return [Exercise(**exercise_data) for exercise_data in exercises_data]
+
+        # Remove computed properties before creating Exercise objects
+        exercises = []
+        for exercise_data in exercises_data:
+            clean_data = exercise_data.copy()
+            clean_data.pop("is_predefined", None)
+            exercises.append(Exercise(**clean_data))
+
+        return exercises
 
     def create_exercise(
         self,
@@ -82,6 +83,7 @@ class ExerciseService:
             status=status,
             notes=notes,
             order=order,
+            exercise_category=exercise_category,
         )
 
         self.exercise_repository.create_exercise(exercise.to_dict())

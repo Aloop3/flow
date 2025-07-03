@@ -2,6 +2,9 @@
 Weight conversion utilities
 All weights are stored in kg internally and converted at API boundaries.
 """
+import logging
+
+logger = logging.getLogger()
 
 
 def lb_to_kg(weight_lb: float) -> float:
@@ -56,12 +59,15 @@ def convert_weight_from_kg(weight_kg: float, to_unit: str) -> float:
         raise ValueError(f"Unsupported weight unit: {to_unit}")
 
 
-def get_exercise_default_unit(exercise_type, user_preference="auto"):
+def get_exercise_default_unit(
+    exercise_type, user_preference="auto", exercise_category=None
+):
     """
     Determine the appropriate weight unit for an exercise
 
     :param exercise_type: ExerciseType object or string name of the exercise
     :param user_preference: User's weight preference ("auto", "kg", "lb")
+    :param exercise_category: Optional category hint for custom exercises
     :return: "kg" or "lb"
     """
     if user_preference == "kg":
@@ -75,10 +81,15 @@ def get_exercise_default_unit(exercise_type, user_preference="auto"):
     else:
         exercise_name = str(exercise_type)
 
-    # Auto behavior: Equipment-first hierarchy, then Big 3 → kg, accessories → lb
     exercise_lower = exercise_name.lower()
 
-    # Check for equipment type (dumbbell/machine → lb)
+    # Check category first (for custom exercises)
+    if exercise_category:
+        category_lower = str(exercise_category).lower()
+        if category_lower in ["dumbbell", "machine", "cable"]:
+            return "lb"
+
+    # Equipment name check (fallback)
     equipment_keywords = ["dumbbell", "machine", "cable"]
     is_equipment_based = any(
         keyword in exercise_lower for keyword in equipment_keywords
@@ -87,8 +98,11 @@ def get_exercise_default_unit(exercise_type, user_preference="auto"):
     if is_equipment_based:
         return "lb"
 
-    # Check for Big 3 movements (barbell variants → kg)
+    # Big 3 movements (barbell variants → kg)
     big_three_keywords = ["squat", "bench press", "deadlift"]
     is_big_three = any(keyword in exercise_lower for keyword in big_three_keywords)
 
-    return "kg" if is_big_three else "lb"
+    if is_big_three:
+        return "kg"
+    else:
+        return "lb"
