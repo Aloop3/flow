@@ -9,6 +9,10 @@ from src.services.relationship_service import RelationshipService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
 from src.middleware.common_middleware import log_request, handle_errors
+from .exercise_api import (
+    convert_exercise_weights_for_display,
+    get_user_weight_preference,
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -201,8 +205,27 @@ def get_workout_by_day(event, context):
         if not workout:
             return create_response(404, {"error": "Workout not found"})
 
-        return create_response(200, workout.to_dict())
+        # Get user preference for weight conversion
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        user_preference = get_user_weight_preference(user_id)
 
+        # Convert workout to dict and process exercises
+        workout_dict = workout.to_dict()
+
+        # Convert exercise weights to display units
+        if "exercises" in workout_dict and workout_dict["exercises"]:
+            converted_exercises = []
+            for exercise in workout_dict["exercises"]:
+                converted_exercise = convert_exercise_weights_for_display(
+                    exercise,
+                    user_preference,
+                    exercise.get("exercise_type"),
+                    exercise.get("exercise_category"),
+                )
+                converted_exercises.append(converted_exercise)
+            workout_dict["exercises"] = converted_exercises
+
+        return create_response(200, workout_dict)
     except Exception as e:
         logger.error(f"Error getting workout by day: {str(e)}")
         return create_response(500, {"error": str(e)})

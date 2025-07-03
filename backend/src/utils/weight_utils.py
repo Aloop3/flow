@@ -83,7 +83,14 @@ def get_exercise_default_unit(
 
     exercise_lower = exercise_name.lower()
 
-    # Check category first (for custom exercises)
+    # Big 3 movements
+    big_three_exact = ["squat", "bench press", "deadlift"]
+    is_big_three = exercise_lower in big_three_exact
+
+    if is_big_three:
+        return "kg"
+
+    # Check category second (for custom exercises)
     if exercise_category:
         category_lower = str(exercise_category).lower()
         if category_lower in ["dumbbell", "machine", "cable"]:
@@ -98,11 +105,5 @@ def get_exercise_default_unit(
     if is_equipment_based:
         return "lb"
 
-    # Big 3 movements (barbell variants → kg)
-    big_three_keywords = ["squat", "bench press", "deadlift"]
-    is_big_three = any(keyword in exercise_lower for keyword in big_three_keywords)
-
-    if is_big_three:
-        return "kg"
-    else:
-        return "lb"
+    # Default for other exercises
+    return "lb"
