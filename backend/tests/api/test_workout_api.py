@@ -350,10 +350,14 @@ class TestWorkoutAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Test exception")
 
+    @patch("src.api.workout_api.convert_exercise_weights_for_display")
+    @patch("src.api.workout_api.get_user_weight_preference")
     @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
-    def test_get_workout_by_day_success(self, mock_get_workout):
+    def test_get_workout_by_day_success(
+        self, mock_get_workout, mock_get_preference, mock_convert_weights
+    ):
         """
-        Test successful workout retrieval by day
+        Test successful workout retrieval by day with weight conversion
         """
         # Setup
         mock_workout = MagicMock()
@@ -361,10 +365,32 @@ class TestWorkoutAPI(BaseTest):
             "workout_id": "workout123",
             "athlete_id": "athlete456",
             "day_id": "day789",
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "exercise_type": "Bench Press",
+                    "weight": 100.0,
+                    "sets": 3,
+                    "reps": 10,
+                }
+            ],
         }
         mock_get_workout.return_value = mock_workout
 
-        event = {"pathParameters": {"athlete_id": "athlete456", "day_id": "day789"}}
+        # Mock user preference
+        mock_get_preference.return_value = "auto"
+
+        # Mock weight conversion (returns exercise unchanged for simplicity)
+        mock_convert_weights.side_effect = lambda exercise, pref, ex_type, ex_cat: {
+            **exercise,
+            "display_unit": "kg",
+        }
+
+        # Add required requestContext structure
+        event = {
+            "pathParameters": {"athlete_id": "athlete456", "day_id": "day789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
         context = {}
 
         # Call API
@@ -374,6 +400,10 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 200)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["workout_id"], "workout123")
+
+        # Verify new functions were called
+        mock_get_preference.assert_called_once_with("test-user-id")
+        self.assertTrue(mock_convert_weights.called)
         mock_get_workout.assert_called_once_with("athlete456", "day789")
 
     @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
