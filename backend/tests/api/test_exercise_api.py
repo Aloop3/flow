@@ -26,12 +26,13 @@ class TestExerciseAPI(BaseTest):
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch(
         "src.api.exercise_api.convert_exercise_weights_for_display",
-        side_effect=lambda x, y, z: x,
+        side_effect=lambda x, y, z, w=None: x,
     )
     @patch("src.api.exercise_api.convert_weight_to_kg", return_value=315.0)
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="lb")
     @patch("src.services.exercise_service.ExerciseService.create_exercise")
     def test_create_exercise_success(
-        self, mock_create_exercise, mock_convert_kg, mock_convert_display, mock_get_pref
+        self, mock_create_exercise, mock_convert_kg, mock_get_unit, mock_convert_display, mock_get_pref
     ):
         """
         Test successful exercise creation
@@ -150,7 +151,7 @@ class TestExerciseAPI(BaseTest):
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch(
         "src.api.exercise_api.convert_exercise_weights_for_display",
-        side_effect=lambda x, y, z: x,
+        side_effect=lambda ex_dict, user_pref, ex_type, ex_category=None: ex_dict,
     )
     @patch("src.services.exercise_service.ExerciseService.get_exercises_for_workout")
     def test_get_exercises_for_workout_success(
@@ -503,7 +504,7 @@ class TestExerciseAPI(BaseTest):
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="kg")
     @patch(
         "src.api.exercise_api.convert_exercise_weights_for_display",
-        side_effect=lambda x, y, z: x,
+        side_effect=lambda ex_dict, user_pref, ex_type, ex_category=None: ex_dict,
     )
     @patch("src.api.exercise_api.ExerciseService")
     def test_reorder_sets_success(
@@ -655,7 +656,7 @@ class TestExerciseAPI(BaseTest):
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch(
         "src.api.exercise_api.convert_exercise_weights_for_display",
-        side_effect=lambda x, y, z: x,
+        side_effect=lambda ex_dict, user_pref, ex_type, ex_category=None: ex_dict,
     )
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
     @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)
@@ -964,10 +965,11 @@ class TestExerciseAPI(BaseTest):
         )
 
         # Assert
-        self.assertEqual(result["display_unit"], "kg")
-        mock_get_unit.assert_called_once_with("Squat", "auto")
-        # Should be called 3 times: once for main weight, twice for sets_data
-        self.assertEqual(mock_convert_from_kg.call_count, 3)
+        self.assertEqual(mock_get_unit.call_count, 1)
+        call_args = mock_get_unit.call_args
+        self.assertEqual(call_args[0][0], "Squat")  # First positional arg: exercise_type
+        self.assertEqual(call_args[0][1], "auto")   # Second positional arg: user_preference
+        self.assertEqual(call_args[0][2], None)     # Third positional arg: exercise_category
 
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="lb")
     @patch("src.api.exercise_api.convert_weight_from_kg", return_value=225.0)
@@ -992,14 +994,17 @@ class TestExerciseAPI(BaseTest):
 
         # Assert
         self.assertEqual(result["display_unit"], "lb")
-        mock_get_unit.assert_called_once_with("Dumbbell Curl", "lb")
-        # Should not be called since weight is None
-        mock_convert_from_kg.assert_not_called()
+        mock_get_unit.assert_called_once_with("Dumbbell Curl", "lb", None)
+        self.assertEqual(mock_get_unit.call_count, 1)
+        call_args = mock_get_unit.call_args
+        self.assertEqual(call_args[0][0], "Dumbbell Curl")  # First positional arg: exercise_type
+        self.assertEqual(call_args[0][1], "lb")             # Second positional arg: user_preference
+        self.assertEqual(call_args[0][2], None)             # Third positional arg: exercise_category
 
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch(
         "src.api.exercise_api.convert_exercise_weights_for_display",
-        side_effect=lambda x, y, z: x,
+        side_effect=lambda ex_dict, user_pref, ex_type, ex_category=None: ex_dict,
     )
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
     @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)

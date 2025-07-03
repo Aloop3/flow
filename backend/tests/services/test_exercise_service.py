@@ -42,13 +42,13 @@ class TestExerciseService(unittest.TestCase):
             "workout_id": "workout456",
             "exercise_type": "Squat",
             "exercise_category": "barbell",
-            "is_predefined": True,
             "sets": 5,
             "reps": 5,
             "weight": 315.0,
             "rpe": 8.5,
             "notes": "Use belt",
             "order": 1,
+            "status": "planned",
         }
 
         # Configure mock to return our test data
@@ -72,6 +72,7 @@ class TestExerciseService(unittest.TestCase):
         self.assertEqual(result.rpe, 8.5)
         self.assertEqual(result.notes, "Use belt")
         self.assertEqual(result.order, 1)
+        self.assertEqual(result.status, "planned")
 
     def test_get_exercise_not_found(self):
         """
@@ -102,7 +103,6 @@ class TestExerciseService(unittest.TestCase):
                 "workout_id": "workout123",
                 "exercise_type": "Squat",
                 "exercise_category": "barbell",
-                "is_predefined": True,
                 "sets": 5,
                 "reps": 5,
                 "weight": 315.0,
@@ -113,7 +113,6 @@ class TestExerciseService(unittest.TestCase):
                 "workout_id": "workout123",
                 "exercise_type": "Bench Press",
                 "exercise_category": "barbell",
-                "is_predefined": True,
                 "sets": 5,
                 "reps": 5,
                 "weight": 225.0,
@@ -218,7 +217,6 @@ class TestExerciseService(unittest.TestCase):
             "workout_id": "workout456",
             "exercise_type": "Squat",
             "exercise_category": "barbell",
-            "is_predefined": True,
             "sets": 3,  # Updated from 5 to 3
             "reps": 5,
             "weight": 335.0,  # Updated weight
@@ -290,7 +288,6 @@ class TestExerciseService(unittest.TestCase):
                 "workout_id": "workout123",
                 "exercise_type": "Squat",
                 "exercise_category": "barbell",
-                "is_predefined": True,
                 "sets": 5,
                 "reps": 5,
                 "weight": 315.0,
@@ -301,7 +298,6 @@ class TestExerciseService(unittest.TestCase):
                 "workout_id": "workout123",
                 "exercise_type": "Bench Press",
                 "exercise_category": "barbell",
-                "is_predefined": True,
                 "sets": 5,
                 "reps": 5,
                 "weight": 225.0,
@@ -312,7 +308,6 @@ class TestExerciseService(unittest.TestCase):
                 "workout_id": "workout123",
                 "exercise_type": "Deadlift",
                 "exercise_category": "barbell",
-                "is_predefined": True,
                 "sets": 3,
                 "reps": 5,
                 "weight": 405.0,
@@ -356,7 +351,6 @@ class TestExerciseService(unittest.TestCase):
                 "workout_id": "workout123",
                 "exercise_type": "Squat",
                 "exercise_category": "barbell",
-                "is_predefined": True,
                 "sets": 5,
                 "reps": 5,
                 "weight": 315.0,
@@ -367,7 +361,6 @@ class TestExerciseService(unittest.TestCase):
                 "workout_id": "workout123",
                 "exercise_type": "Bench Press",
                 "exercise_category": "barbell",
-                "is_predefined": True,
                 "sets": 5,
                 "reps": 5,
                 "weight": 225.0,
@@ -418,6 +411,7 @@ class TestExerciseService(unittest.TestCase):
             "reps": 10,
             "weight": 100,
             "sets_data": original_sets_data,
+            "status": "planned",
         }
 
         # Mock repository responses
@@ -583,6 +577,7 @@ class TestExerciseService(unittest.TestCase):
             "reps": 10,
             "weight": 100,
             "sets_data": original_sets_data,
+            "status": "planned",
         }
 
         self.exercise_repository_mock.get_exercise.return_value = exercise_dict
@@ -726,15 +721,19 @@ class TestExerciseService(unittest.TestCase):
             reps=5,
             weight=225.0,
             sets_data=[],
+            status="planned",
         )
 
         # Setup repository behavior
-        mock_repo.get_exercise.return_value = exercise.to_dict()
+        exercise_dict = exercise.to_dict()
+        exercise_dict.pop("is_predefined", None)
+        mock_repo.get_exercise.return_value = exercise_dict
         mock_repo.update_exercise.return_value = {
             **exercise.to_dict(),
             "sets_data": [
                 {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
-            ],
+            ], 
+            "status": "in_progress",
         }
 
         # Call service method
@@ -774,7 +773,9 @@ class TestExerciseService(unittest.TestCase):
         )
 
         # Setup repository behavior
-        mock_repo.get_exercise.return_value = exercise.to_dict()
+        exercise_dict = exercise.to_dict()
+        exercise_dict.pop("is_predefined", None)
+        mock_repo.get_exercise.return_value = exercise_dict
         updated_exercise_dict = {
             **exercise.to_dict(),
             "status": "in_progress",
@@ -819,7 +820,7 @@ class TestExerciseService(unittest.TestCase):
 
     @patch("src.repositories.exercise_repository.ExerciseRepository")
     def test_track_set_with_rpe_and_notes(self, mock_repo):
-        """Test for lines 188 and 191: Adding RPE and notes to the set data"""
+        """Test for adding RPE and notes to the set data"""
         # Setup
         service = ExerciseService()
         service.exercise_repository = mock_repo
@@ -836,7 +837,9 @@ class TestExerciseService(unittest.TestCase):
         )
 
         # Setup repository behavior
-        mock_repo.get_exercise.return_value = exercise.to_dict()
+        exercise_dict = exercise.to_dict()
+        exercise_dict.pop("is_predefined", None)
+        mock_repo.get_exercise.return_value = exercise_dict
         mock_repo.update_exercise.return_value = {
             **exercise.to_dict(),
             "sets_data": [
@@ -857,8 +860,8 @@ class TestExerciseService(unittest.TestCase):
             set_number=1,
             reps=5,
             weight=225.0,
-            rpe=8,  # Adding RPE to test line 188
-            notes="Felt good",  # Adding notes to test line 191
+            rpe=8,  # Adding RPE
+            notes="Felt good",  # Adding notes
             completed=True,
         )
 
@@ -875,7 +878,7 @@ class TestExerciseService(unittest.TestCase):
 
     @patch("src.repositories.exercise_repository.ExerciseRepository")
     def test_track_set_already_in_progress(self, mock_repo):
-        """Test for line 200: Exercise already in progress"""
+        """Test for Exercise already in progress"""
         # Setup
         service = ExerciseService()
         service.exercise_repository = mock_repo
@@ -888,14 +891,16 @@ class TestExerciseService(unittest.TestCase):
             sets=3,
             reps=5,
             weight=225.0,
-            status="in_progress",  # Already in progress
+            status="in_progress",
             sets_data=[
                 {"set_number": 1, "reps": 5, "weight": 225.0, "completed": True}
             ],
         )
 
         # Setup repository behavior
-        mock_repo.get_exercise.return_value = exercise.to_dict()
+        exercise_dict = exercise.to_dict()
+        exercise_dict.pop("is_predefined", None)
+        mock_repo.get_exercise.return_value = exercise_dict
         mock_repo.update_exercise.return_value = {
             **exercise.to_dict(),
             "sets_data": [
@@ -916,35 +921,6 @@ class TestExerciseService(unittest.TestCase):
             "status", update_data
         )  # Status not updated when already in progress
 
-    # @patch("src.repositories.exercise_repository.ExerciseRepository")
-    # def test_track_set_update_fails(self, mock_repo):
-    #     """Test for line 208: Repository update returns None"""
-    #     # Setup
-    #     service = ExerciseService()
-    #     service.exercise_repository = mock_repo
-
-    #     # Mock existing exercise
-    #     exercise = Exercise(
-    #         exercise_id="test123",
-    #         workout_id="workout123",
-    #         exercise_type="Squat",
-    #         sets=3,
-    #         reps=5,
-    #         weight=225.0,
-    #         sets_data=[],
-    #     )
-
-    #     # Setup repository behavior
-    #     mock_repo.get_exercise.return_value = exercise.to_dict()
-    #     mock_repo.update_exercise.return_value = None  # Repository update fails
-
-    #     # Call service method
-    #     result = service.track_set(
-    #         exercise_id="test123", set_number=1, reps=5, weight=225.0, completed=True
-    #     )
-
-    #     # Verify result is None when repository update fails
-    #     self.assertIsNone(result)
 
     @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.update_exercise")

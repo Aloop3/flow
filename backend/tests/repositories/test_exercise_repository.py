@@ -479,6 +479,176 @@ class TestExerciseRepository(unittest.TestCase):
 
             # Assert the result is the number of deleted exercises
             self.assertEqual(result, 3)
+    
+    @patch('src.repositories.workout_repository.WorkoutRepository')
+    def test_get_exercises_with_workout_context_basic(self, mock_workout_repo_class):
+        """
+        Test getting exercises with workout context - basic scenario
+        """
+        # Setup mock workout repository
+        mock_workout_repo = MagicMock()
+        mock_workout_repo_class.return_value = mock_workout_repo
+        
+        # Mock workout data
+        mock_workouts = [
+            {
+                "workout_id": "workout1",
+                "date": "2025-03-01",
+                "status": "completed"
+            },
+            {
+                "workout_id": "workout2", 
+                "date": "2025-03-02",
+                "status": "in_progress"
+            }
+        ]
+        mock_workout_repo.get_workouts_by_athlete.return_value = mock_workouts
+        
+        # Mock exercise data for each workout
+        workout1_exercises = [
+            {
+                "exercise_id": "ex1",
+                "workout_id": "workout1",
+                "exercise_type": "Squat",
+                "sets": 3,
+                "reps": 5,
+                "weight": Decimal("225.0")
+            }
+        ]
+        
+        workout2_exercises = [
+            {
+                "exercise_id": "ex2",
+                "workout_id": "workout2", 
+                "exercise_type": "Bench Press",
+                "sets": 3,
+                "reps": 8,
+                "weight": Decimal("185.0")
+            }
+        ]
+        
+        # Configure table mock for exercise queries
+        self.table_mock.query.side_effect = [
+            {"Items": workout1_exercises},
+            {"Items": workout2_exercises}
+        ]
+        
+        # Call the method
+        result = self.repository.get_exercises_with_workout_context("athlete123")
+        
+        # Verify workout repository was called
+        mock_workout_repo.get_workouts_by_athlete.assert_called_once_with("athlete123")
+        
+        # Verify table queries for exercises
+        self.assertEqual(self.table_mock.query.call_count, 2)
+        
+        # Verify results have workout context added
+        self.assertEqual(len(result), 2)
+        
+        # Check first exercise has workout context
+        first_exercise = result[0]
+        self.assertEqual(first_exercise["exercise_id"], "ex1")
+        self.assertEqual(first_exercise["workout_date"], "2025-03-01")
+        self.assertEqual(first_exercise["workout_status"], "completed")
+        
+        # Check second exercise has workout context  
+        second_exercise = result[1]
+        self.assertEqual(second_exercise["exercise_id"], "ex2")
+        self.assertEqual(second_exercise["workout_date"], "2025-03-02")
+        self.assertEqual(second_exercise["workout_status"], "in_progress")
+
+    @patch('src.repositories.workout_repository.WorkoutRepository')
+    def test_get_exercises_with_workout_context_with_filters(self, mock_workout_repo_class):
+        """
+        Test getting exercises with workout context with exercise_type and date filters
+        """
+        # Setup mock workout repository
+        mock_workout_repo = MagicMock()
+        mock_workout_repo_class.return_value = mock_workout_repo
+        
+        # Mock workout data (some before start_date, some after)
+        mock_workouts = [
+            {
+                "workout_id": "workout1",
+                "date": "2025-02-28",  # Before start_date
+                "status": "completed"
+            },
+            {
+                "workout_id": "workout2",
+                "date": "2025-03-01",  # On/after start_date
+                "status": "completed"
+            }
+        ]
+        mock_workout_repo.get_workouts_by_athlete.return_value = mock_workouts
+        
+        # Mock exercise data - mixed exercise types
+        workout2_exercises = [
+            {
+                "exercise_id": "ex1",
+                "workout_id": "workout2",
+                "exercise_type": "Squat",  # Matches filter
+                "sets": 3,
+                "reps": 5,
+                "weight": Decimal("225.0")
+            },
+            {
+                "exercise_id": "ex2", 
+                "workout_id": "workout2",
+                "exercise_type": "Bench Press",  # Doesn't match filter
+                "sets": 3,
+                "reps": 8,
+                "weight": Decimal("185.0")
+            }
+        ]
+        
+        # Configure table mock - only one workout should be queried (after date filter)
+        self.table_mock.query.return_value = {"Items": workout2_exercises}
+        
+        # Call the method with filters
+        result = self.repository.get_exercises_with_workout_context(
+            athlete_id="athlete123",
+            exercise_type="Squat",
+            start_date="2025-03-01"
+        )
+        
+        # Verify workout repository was called
+        mock_workout_repo.get_workouts_by_athlete.assert_called_once_with("athlete123")
+        
+        # Verify only one table query (workout1 filtered out by date)
+        self.table_mock.query.assert_called_once()
+        
+        # Verify results - only Squat exercise should remain after exercise_type filter
+        self.assertEqual(len(result), 1)
+        
+        exercise = result[0]
+        self.assertEqual(exercise["exercise_id"], "ex1")
+        self.assertEqual(exercise["exercise_type"], "Squat")
+        self.assertEqual(exercise["workout_date"], "2025-03-01")
+        self.assertEqual(exercise["workout_status"], "completed")
+
+    @patch('src.repositories.workout_repository.WorkoutRepository')
+    def test_get_exercises_with_workout_context_no_workouts(self, mock_workout_repo_class):
+        """
+        Test getting exercises with workout context when athlete has no workouts
+        """
+        # Setup mock workout repository
+        mock_workout_repo = MagicMock()
+        mock_workout_repo_class.return_value = mock_workout_repo
+        
+        # Mock empty workout data
+        mock_workout_repo.get_workouts_by_athlete.return_value = []
+        
+        # Call the method
+        result = self.repository.get_exercises_with_workout_context("athlete123")
+        
+        # Verify workout repository was called
+        mock_workout_repo.get_workouts_by_athlete.assert_called_once_with("athlete123")
+        
+        # Verify no table queries for exercises
+        self.table_mock.query.assert_not_called()
+        
+        # Verify empty result
+        self.assertEqual(len(result), 0)
 
 
 if __name__ == "__main__":  # pragma: no cover
