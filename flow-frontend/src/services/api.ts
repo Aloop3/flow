@@ -68,6 +68,7 @@ export interface Exercise {
   notes?: string;
   order?: number;
   exercise_category?: string;
+  display_unit?: 'kg' | 'lb';
 }
 
 export interface ExerciseTypeLibrary {

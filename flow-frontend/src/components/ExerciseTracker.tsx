@@ -47,7 +47,8 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   });
 
   const { getDisplayUnit } = useWeightUnit();
-  const displayUnit = getDisplayUnit(exercise.exercise_type);
+  const displayUnit = exercise.display_unit || 'lb';
+  console.log('ExerciseTracker displayUnit:', displayUnit, 'exercise.display_unit:', exercise.display_unit);
 
   // Weight conversion utility functions (matching backend logic)
   const convertKgToLbs = (kg: number): number => {
