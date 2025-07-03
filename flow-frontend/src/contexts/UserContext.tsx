@@ -44,12 +44,21 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, user }) =>
     if (weightPreference === 'kg') return 'kg';
     if (weightPreference === 'lb') return 'lb';
     
-    // Auto behavior - Equipment-first hierarchy, then SBD default to kg, accessories to lb
     if (!exerciseType) {
-      return 'lb'; // Default for undefined/empty exercise types
+      return 'lb';
     }
     
     const exerciseLower = exerciseType.toLowerCase();
+    
+    // Check for Big 3 movements FIRST (before equipment check)
+    const bigThree = ['squat', 'bench press', 'deadlift'];
+    const isBigThree = bigThree.some(lift => 
+      exerciseLower.includes(lift)
+    );
+    
+    if (isBigThree) {
+      return 'kg';
+    }
     
     // Check for equipment type (dumbbell/machine → lb)
     const equipmentKeywords = ['dumbbell', 'machine', 'cable'];
@@ -61,13 +70,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, user }) =>
       return 'lb';
     }
     
-    // Check for Big 3 movements (barbell variants → kg)
-    const bigThree = ['squat', 'bench press', 'deadlift'];
-    const isBigThree = bigThree.some(lift => 
-      exerciseLower.includes(lift)
-    );
-    
-    return isBigThree ? 'kg' : 'lb';
+    return 'lb';
   };
 
 
