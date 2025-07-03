@@ -122,6 +122,7 @@ class TestExerciseModel(unittest.TestCase):
             "rpe": 8.5,
             "notes": "Focus on bracing into belt",
             "order": 1,
+            "status": "completed",
         }
 
         exercise = Exercise.from_dict(data)
@@ -145,6 +146,7 @@ class TestExerciseModel(unittest.TestCase):
             "sets": 3,
             "reps": 12,
             "weight": 100.0,
+            "status": "planned",
         }
 
         exercise = Exercise.from_dict(data)

@@ -327,10 +327,8 @@ Resources:
       Runtime: python3.9
       Timeout: 30
       Layers:
-        - !ImportValue
-          Fn::Sub: "flow-${Environment}-VendorLayerArn-${LayerVersion}"
-        - !ImportValue
-          Fn::Sub: "flow-${Environment}-CommonLayerArn-${LayerVersion}"
+        - !Sub "{{resolve:ssm:/flow/${Environment}/layers/vendor/arn}}"
+        - !Sub "{{resolve:ssm:/flow/${Environment}/layers/common/arn}}"
       Environment:
         Variables:
           USERS_TABLE: !Ref UsersTable

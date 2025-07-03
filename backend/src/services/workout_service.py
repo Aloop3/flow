@@ -136,7 +136,6 @@ class WorkoutService:
                 notes=exercise_data.get("notes"),
                 order=i + 1,
                 exercise_category=exercise_data.get("exercise_category"),
-                is_predefined=exercise_data.get("is_predefined"),
                 sets_data=exercise_data.get("sets_data"),
             )
 
@@ -182,6 +181,8 @@ class WorkoutService:
                 if exercise_id and exercise_id in existing_exercises:
                     # Start with the existing exercise data
                     updated_exercise = existing_exercises[exercise_id].to_dict()
+                    # Remove computed properties before updating
+                    updated_exercise.pop("is_predefined", None)
                     # Update with new values
                     updated_exercise.update(exercise_data)
                     exercises_to_update.append(updated_exercise)
@@ -199,7 +200,6 @@ class WorkoutService:
                         "notes": exercise_data.get("notes"),
                         "order": len(exercises_to_update) + 1,
                         "exercise_category": exercise_data.get("exercise_category"),
-                        "is_predefined": exercise_data.get("is_predefined"),
                     }
                     exercises_to_update.append(new_exercise)
             # Add the updated exercises list to the update data
@@ -263,7 +263,9 @@ class WorkoutService:
 
         # Convert to Exercise object and return
         if updated_exercise_data:
-            return Exercise(**updated_exercise_data)
+            exercise_data = updated_exercise_data.copy()
+            exercise_data.pop("is_predefined", None)
+            return Exercise(**exercise_data)
 
         return None
 

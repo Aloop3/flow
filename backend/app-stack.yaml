@@ -30,10 +30,8 @@ Globals:
     Runtime: python3.9
     MemorySize: 256
     Layers:
-      - !ImportValue 
-        Fn::Sub: "flow-${Environment}-VendorLayerArn-${LayerVersion}"
-      - !ImportValue
-        Fn::Sub: "flow-${Environment}-CommonLayerArn-${LayerVersion}"
+      - !Sub "{{resolve:ssm:/flow/${Environment}/layers/common/arn}}"
+      - !Sub "{{resolve:ssm:/flow/${Environment}/layers/vendor/arn}}"
     Environment:
       Variables:
         USERS_TABLE: !ImportValue 
@@ -54,6 +52,7 @@ Globals:
           Fn::Sub: "flow-${Environment}-NotificationsTable"
         LOG_LEVEL: INFO
         REGION: !Ref AWS::Region
+        LAYER_VERSION: !Ref LayerVersion 
 
 Conditions:
   IsProdEnvironment: !Equals [!Ref Environment, "prod"]
