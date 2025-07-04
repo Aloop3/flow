@@ -24,20 +24,6 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
   
   // Local progress tracking for instant updates
   const [localProgressMap, setLocalProgressMap] = useState<Record<string, { completed: number; total: number }>>({});
-  
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'skipped':
-        return 'bg-gray-100 text-gray-800';
-      case 'planned':
-      default:
-        return 'bg-blue-100 text-blue-800';
-    }
-  };
 
   useEffect(() => {
     const getUserId = async () => {
@@ -177,27 +163,6 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
     };
   };
 
-  // Get display status for UI (separate from backend status)
-  const getDisplayStatus = (exercise: Exercise, setProgress: { completed: number; total: number }) => {
-    // If exercise is completed, show completed
-    if (exercise.status === 'completed') {
-      return 'completed';
-    }
-    
-    // If exercise is skipped, show skipped
-    if (exercise.status === 'skipped') {
-      return 'skipped';
-    }
-    
-    // Dynamic status based on progress
-    if (setProgress.completed > 0 && setProgress.completed < setProgress.total) {
-      return 'in_progress';
-    }
-    
-    // Default to planned
-    return exercise.status || 'planned';
-  };
-
   // Handler for exercise progress updates from ExerciseTracker
   const handleExerciseProgressUpdate = (exerciseId: string, completed: number, total: number) => {
     setLocalProgressMap(prev => ({
@@ -219,7 +184,6 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
           const setProgress = getSetProgress(exercise);
           const hasSetData = exercise.sets_data && exercise.sets_data.length > 0;
           const isExpanded = expandedExerciseId === exercise.exercise_id;
-          const displayStatus = getDisplayStatus(exercise, setProgress);
           
           return (
             <div key={exercise.exercise_id} className="py-3">
@@ -231,24 +195,19 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                   className="flex-grow"
                   onClick={() => handleExerciseClick(exercise)}
                 >
-                  <div className="flex justify-between items-center mb-1">
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-medium">{exercise.exercise_type}</h3>
-                      {/* Expansion indicator */}
-                      {!readOnly && (
-                        <svg 
-                          className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(displayStatus)}`}>
-                      {displayStatus || 'planned'}
-                    </span>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <h3 className="font-medium">{exercise.exercise_type}</h3>
+                    {/* Expansion indicator */}
+                    {!readOnly && (
+                      <svg 
+                        className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    )}
                   </div>
                   
                   <p className="text-sm text-gray-600">

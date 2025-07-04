@@ -41,7 +41,7 @@ const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
       className={`border-b hover:bg-gray-50 ${isDragging ? 'opacity-75 bg-blue-50' : ''}`}
     >
       {/* Drag Handle Column */}
-      <td className="px-0.5 py-2 text-center w-4">
+      <td className="px-0.5 md:px-2 py-2 text-center w-4 md:w-8">
         <div
           {...attributes}
           {...listeners}
@@ -256,7 +256,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   return (
     <>
       {/* Set Number */}
-      <td className="px-0.5 py-2 text-center font-medium w-10">
+      <td className="px-0.5 md:px-2 py-2 text-center font-medium w-10 md:w-16">
         <div className="flex items-center justify-center">
           <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
             isCompleted 
@@ -269,7 +269,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       </td>
 
       {/* Weight - Wider for values like 110.23 */}
-      <td className="px-0.5 py-2 w-20">
+      <td className="px-0.5 md:px-2 py-2 w-20 md:w-32">
         <input
           type="number"
           inputMode="decimal"
@@ -285,7 +285,8 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       </td>
 
       {/* Reps - With onBlur save */}
-      <td className="px-0.5 py-2 w-13">
+      <td className="px-0.5 md:px-2 py-2 w-13 md:w-24">
+
         <input
           type="number"
           inputMode="numeric"
@@ -301,7 +302,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       </td>
 
       {/* RPE - With onBlur save */}
-      <td className="px-0.5 py-2 w-13">
+      <td className="px-0.5 md:px-2 py-2 w-13 md:w-24">
         <input
           type="number"
           inputMode="decimal"
@@ -319,19 +320,21 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       </td>
 
       {/* Notes */}
-      <td className="px-0.5 py-2 w-11">
-        <button
-          onClick={toggleNotes}
-          className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
-            displayData.notes 
-              ? 'bg-blue-100 text-blue-600' 
-              : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-          }`}
-          title={displayData.notes ? 'View notes' : 'Add notes'}
-          disabled={readOnly}
-        >
-          <span className="text-xs">📝</span>
-        </button>
+      <td className="px-0.5 md:px-2 py-2 w-11 md:w-28">
+        <div className="flex justify-center items-center">
+          <button
+            onClick={toggleNotes}
+            className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+              displayData.notes 
+                ? 'bg-blue-100 text-blue-600' 
+                : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+            }`}
+            title={displayData.notes ? 'View notes' : 'Add notes'}
+            disabled={readOnly}
+          >
+            <span className="text-xs">📝</span>
+          </button>
+        </div>
         {notesExpanded && (
           <div className="absolute z-10 mt-1 p-2 bg-white border border-gray-300 rounded-lg shadow-lg min-w-48">
             <textarea
@@ -368,7 +371,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       </td>
 
       {/* Completion Status - Instant Visual Feedback */}
-      <td className="px-0.5 py-2 text-center w-11">
+      <td className="px-0.5 md:px-2 py-2 text-center w-11 md:w-16">
         <button
           onClick={handleToggleCompletion}
           disabled={readOnly}
