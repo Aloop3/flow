@@ -18,7 +18,6 @@ import { trackExerciseSet, deleteSet, completeExercise, reorderExerciseSets } fr
 import type { Exercise, ExerciseSetData } from '../services/api';
 import FormButton from './FormButton';
 import SortableInlineSetRow from './SortableInlineSetRow';
-import { useWeightUnit } from '../contexts/UserContext';
 
 interface ExerciseTrackerProps {
   exercise: Exercise;
@@ -27,6 +26,10 @@ interface ExerciseTrackerProps {
   forceExpanded?: boolean;
   onProgressUpdate?: (completed: number, total: number) => void;
 }
+
+const roundDisplayWeight = (weight: number): number => {
+  return weight > 0 ? Math.round(weight * 10) / 10 : weight;
+};
 
 const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   exercise,
@@ -49,30 +52,16 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     return savedState ? JSON.parse(savedState) : false;
   });
 
-  const { getDisplayUnit } = useWeightUnit();
   const displayUnit = exercise.display_unit || 'lb';
-
-  const convertKgToLbs = (kg: number): number => {
-    const lbs = kg * 2.20462;
-    return Math.round(lbs * 2) / 2;
-  };
-
-  const getDisplayWeight = (storageWeight: number, exerciseType: string): number => {
-    const targetUnit = getDisplayUnit(exerciseType);
-    
-    if (targetUnit === 'lb' && storageWeight > 0) {
-      return convertKgToLbs(storageWeight);
-    }
-    
-    return storageWeight;
-  };
+  
 
   const convertSetDataForDisplay = (setData: ExerciseSetData): ExerciseSetData => {
     return {
       ...setData,
-      weight: setData.weight > 0 ? getDisplayWeight(setData.weight, exerciseState.exercise_type) : setData.weight
+      weight: roundDisplayWeight(setData.weight)
     };
   };
+
 
   useEffect(() => {
     setExerciseState(exercise);
@@ -262,7 +251,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
               )}
             </div>
             <p className="text-sm text-gray-600">
-              {exerciseState.sets} sets × {exerciseState.reps} reps @ {getDisplayWeight(exerciseState.weight, exerciseState.exercise_type)}{displayUnit}
+              {exerciseState.sets} sets × {exerciseState.reps} reps @ {roundDisplayWeight(exerciseState.weight)}{displayUnit}
               {exerciseState.rpe && ` @ RPE ${exerciseState.rpe}`}
             </p>
           </div>
