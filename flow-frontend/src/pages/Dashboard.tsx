@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { getBlocks, getCoachRelationships, getUser } from '../services/api';
 import type { Block } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
+import TodaysWorkoutCard from '../components/TodaysWorkoutCard';
 
 interface DashboardProps {
   user: any;
@@ -150,6 +151,11 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                 </div>
               </div>
             )}
+            
+            {/* Today's Workout Card - Insert this new section here */}
+            <div className="mt-8">
+              <TodaysWorkoutCard activeBlock={activeBlock} userId={user.user_id} />
+            </div>
             
             <div className="mt-8">
               <div className="flex items-center justify-between mb-4">
