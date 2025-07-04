@@ -5,14 +5,40 @@ interface WorkoutSummaryProps {
   workout: Workout;
 }
 
-// Utility function to calculate total volume
+// Utility function to calculate total volume using sets_data
 const calculateVolume = (workout: Workout): { lb: number; kg: number } => {
-  const totalLb = workout.exercises.reduce((total, exercise) => {
-    const exerciseVolume = (exercise.sets || 0) * (exercise.reps || 0) * (exercise.weight || 0);
-    return total + exerciseVolume;
-  }, 0);
+  let totalKg = 0;
+  let totalLb = 0;
   
-  const totalKg = totalLb * 0.453592;
+  workout.exercises.forEach(exercise => {
+    const displayUnit = exercise.display_unit || 'kg';
+    
+    if (exercise.sets_data && exercise.sets_data.length > 0) {
+      // Use detailed sets_data for accurate calculation
+      exercise.sets_data.forEach(set => {
+        const setVolume = (set.weight || 0) * (set.reps || 0);
+        
+        if (displayUnit === 'kg') {
+          totalKg += setVolume;
+          totalLb += setVolume * 2.20462; // Convert kg to lb
+        } else {
+          totalLb += setVolume;
+          totalKg += setVolume * 0.453592; // Convert lb to kg
+        }
+      });
+    } else {
+      // Fallback to exercise-level data if sets_data is not available
+      const exerciseVolume = (exercise.sets || 0) * (exercise.reps || 0) * (exercise.weight || 0);
+      
+      if (displayUnit === 'kg') {
+        totalKg += exerciseVolume;
+        totalLb += exerciseVolume * 2.20462;
+      } else {
+        totalLb += exerciseVolume;
+        totalKg += exerciseVolume * 0.453592;
+      }
+    }
+  });
   
   return {
     lb: Math.round(totalLb),
@@ -20,11 +46,25 @@ const calculateVolume = (workout: Workout): { lb: number; kg: number } => {
   };
 };
 
-// Utility function to find highest RPE
+// Utility function to find highest RPE using sets_data
 const getHighestRPE = (workout: Workout): number => {
-  const rpeValues = workout.exercises
-    .map(exercise => exercise.rpe || 0)
-    .filter(rpe => rpe > 0);
+  const rpeValues: number[] = [];
+  
+  workout.exercises.forEach(exercise => {
+    if (exercise.sets_data && exercise.sets_data.length > 0) {
+      // Use detailed sets_data for accurate RPE calculation
+      exercise.sets_data.forEach(set => {
+        if (set.rpe && set.rpe > 0) {
+          rpeValues.push(set.rpe);
+        }
+      });
+    } else {
+      // Fallback to exercise-level RPE if sets_data is not available
+      if (exercise.rpe && exercise.rpe > 0) {
+        rpeValues.push(exercise.rpe);
+      }
+    }
+  });
   
   return rpeValues.length > 0 ? Math.max(...rpeValues) : 0;
 };
