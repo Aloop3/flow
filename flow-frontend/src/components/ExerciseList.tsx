@@ -22,6 +22,9 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>();
   
+  // Local progress tracking for instant updates
+  const [localProgressMap, setLocalProgressMap] = useState<Record<string, { completed: number; total: number }>>({});
+  
   const getStatusBadge = (status?: string) => {
     switch (status) {
       case 'completed':
@@ -50,13 +53,25 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
     getUserId();
   }, []);
 
+  // Initialize local progress map from exercises
+  useEffect(() => {
+    const progressMap = exercises.reduce((map, exercise) => {
+      const completedSets = exercise.sets_data?.filter(set => set.completed).length || 0;
+      map[exercise.exercise_id] = {
+        completed: completedSets,
+        total: exercise.sets
+      };
+      return map;
+    }, {} as Record<string, { completed: number; total: number }>);
+    setLocalProgressMap(progressMap);
+  }, [exercises]);
+
   // Use athleteId when provided (coach context), otherwise current user
   const userIdForExercises = athleteId || userId;
 
-  // CHANGED: Toggle expansion instead of opening modal
+  // Toggle expansion instead of opening modal
   const handleExerciseClick = (exercise: Exercise) => {
     if (!readOnly) {
-      // Toggle expansion - if clicking same exercise, collapse it
       setExpandedExerciseId(
         expandedExerciseId === exercise.exercise_id ? null : exercise.exercise_id
       );
@@ -142,8 +157,15 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
     }
   };
 
-  // Calculate progress for sets
+  // Get set progress with local progress fallback for instant updates
   const getSetProgress = (exercise: Exercise) => {
+    // Use local progress if available, otherwise calculate from exercise data
+    const localProgress = localProgressMap[exercise.exercise_id];
+    if (localProgress) {
+      return localProgress;
+    }
+    
+    // Fallback to exercise data calculation
     if (!exercise.sets_data || exercise.sets_data.length === 0) {
       return { completed: 0, total: exercise.sets };
     }
@@ -153,6 +175,35 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
       completed: completedSets, 
       total: exercise.sets
     };
+  };
+
+  // Get display status for UI (separate from backend status)
+  const getDisplayStatus = (exercise: Exercise, setProgress: { completed: number; total: number }) => {
+    // If exercise is completed, show completed
+    if (exercise.status === 'completed') {
+      return 'completed';
+    }
+    
+    // If exercise is skipped, show skipped
+    if (exercise.status === 'skipped') {
+      return 'skipped';
+    }
+    
+    // Dynamic status based on progress
+    if (setProgress.completed > 0 && setProgress.completed < setProgress.total) {
+      return 'in_progress';
+    }
+    
+    // Default to planned
+    return exercise.status || 'planned';
+  };
+
+  // Handler for exercise progress updates from ExerciseTracker
+  const handleExerciseProgressUpdate = (exerciseId: string, completed: number, total: number) => {
+    setLocalProgressMap(prev => ({
+      ...prev,
+      [exerciseId]: { completed, total }
+    }));
   };
 
   return (
@@ -168,6 +219,7 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
           const setProgress = getSetProgress(exercise);
           const hasSetData = exercise.sets_data && exercise.sets_data.length > 0;
           const isExpanded = expandedExerciseId === exercise.exercise_id;
+          const displayStatus = getDisplayStatus(exercise, setProgress);
           
           return (
             <div key={exercise.exercise_id} className="py-3">
@@ -194,8 +246,8 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                         </svg>
                       )}
                     </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(exercise.status)}`}>
-                      {exercise.status || 'planned'}
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(displayStatus)}`}>
+                      {displayStatus || 'planned'}
                     </span>
                   </div>
                   
@@ -208,8 +260,8 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                     <p className="mt-1 text-xs text-gray-500">{exercise.notes}</p>
                   )}
                   
-                  {/* Set progress bar */}
-                  {hasSetData && (
+                  {/* Set progress bar - uses local progress for instant updates */}
+                  {(hasSetData || setProgress.completed > 0) && (
                     <div className="mt-2">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
                         <span>Set progress</span>
@@ -217,8 +269,8 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
-                          className="bg-blue-600 h-2 rounded-full" 
-                          style={{ width: `${(setProgress.completed / setProgress.total) * 100}%` }}
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                          style={{ width: `${setProgress.total > 0 ? (setProgress.completed / setProgress.total) * 100 : 0}%` }}
                         ></div>
                       </div>
                     </div>
@@ -258,6 +310,9 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                     onComplete={handleComplete}
                     readOnly={readOnly}
                     forceExpanded={true}
+                    onProgressUpdate={(completed, total) => 
+                      handleExerciseProgressUpdate(exercise.exercise_id, completed, total)
+                    }
                   />
                 </div>
               )}
