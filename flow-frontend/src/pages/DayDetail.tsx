@@ -340,7 +340,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
           </div>
 
           <div className="bg-white shadow rounded-lg p-6">
-            {/* Option A: Side-by-Side Focus/Notes, Workout Overview Below */}
+            {/* Side-by-Side Focus/Notes, Workout Overview Below */}
             <div className="space-y-4 mb-6">
               {/* Focus and Notes - Side by Side */}
               <div className="grid grid-cols-2 gap-4">
@@ -389,7 +389,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                       className="cursor-pointer p-1 rounded transition-all duration-200 hover:bg-gray-100"
                     >
                       <span className="text-gray-400 italic text-xs px-2 py-1 border border-gray-200 rounded">
-                        Click to set focus...
+                        Set focus...
                       </span>
                     </div>
                   )}
