@@ -61,6 +61,9 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
     { id: '1', reps: 5, rpe: 7, weight: 0 }
   ]);
 
+  // Edit mode state
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState<number | null>(null);
+
   // Generate a unique ID for sets
   const generateSetId = () => {
     return Math.random().toString(36).substring(2, 11);
@@ -109,21 +112,64 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
     ));
   };
 
-  const handleSaveExercise = () => {
-    const newExercise: ExerciseConfig = {
+  const handleEditExercise = (index: number) => {
+    const exercise = exercises[index];
+    setEditingExerciseIndex(index);
+    setSelectedExercise(exercise.exerciseType);
+    setCurrentSets(exercise.sets);
+    setIsConfiguring(true);
+  };
+
+  const handleSaveEditedExercise = () => {
+    if (editingExerciseIndex === null) return;
+    
+    const updatedExercise: ExerciseConfig = {
       exerciseType: selectedExercise,
       sets: currentSets,
       status: 'planned'
     };
     
-    setExercises([...exercises, newExercise]);
+    setExercises(prev => 
+      prev.map((exercise, index) => 
+        index === editingExerciseIndex ? updatedExercise : exercise
+      )
+    );
+    
+    // Reset edit state
+    setEditingExerciseIndex(null);
     setIsConfiguring(false);
     setSelectedExercise('');
   };
 
-  const handleCancelExercise = () => {
+  const handleCancelEdit = () => {
+    setEditingExerciseIndex(null);
     setIsConfiguring(false);
     setSelectedExercise('');
+  };
+
+  const handleSaveExercise = () => {
+    if (editingExerciseIndex !== null) {
+      handleSaveEditedExercise();
+    } else {
+      const newExercise: ExerciseConfig = {
+        exerciseType: selectedExercise,
+        sets: currentSets,
+        status: 'planned'
+      };
+      
+      setExercises([...exercises, newExercise]);
+      setIsConfiguring(false);
+      setSelectedExercise('');
+    }
+  };
+
+  const handleCancelExercise = () => {
+    if (editingExerciseIndex !== null) {
+      handleCancelEdit();
+    } else {
+      setIsConfiguring(false);
+      setSelectedExercise('');
+    }
   };
 
   const handleRemoveExercise = (index: number) => {
@@ -252,10 +298,13 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
     if (!isConfiguring) return null;
     
     const displayUnit = getDisplayUnit(selectedExercise);
+    const isEditing = editingExerciseIndex !== null;
     
     return (
       <div className="border rounded p-4 bg-white">
-        <h3 className="font-medium mb-3">Configure {selectedExercise}</h3>
+        <h3 className="font-medium mb-3">
+          {isEditing ? `Edit ${selectedExercise}` : `Configure ${selectedExercise}`}
+        </h3>
         
         <div className="space-y-4">
           {currentSets.map((set, index) => (
@@ -357,7 +406,7 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
               onClick={handleSaveExercise}
               className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              Add Exercise
+              {editingExerciseIndex !== null ? 'Save Changes' : 'Add Exercise'}
             </button>
           </div>
         </div>
@@ -387,15 +436,32 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
                     <p key={i} className="text-xs text-gray-600 break-words">{line}</p>
                   ))}
                 </div>
-                <button
-                  onClick={() => handleRemoveExercise(index)}
-                  className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 flex-shrink-0 mt-0.5"
-                  title="Remove exercise"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                
+                <div className="flex items-center space-x-2 ml-4">
+                  {/* Edit Button */}
+                  <button
+                    onClick={() => handleEditExercise(index)}
+                    disabled={isConfiguring}
+                    className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Edit exercise"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  
+                  {/* Remove Button */}
+                  <button
+                    onClick={() => handleRemoveExercise(index)}
+                    disabled={isConfiguring}
+                    className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Remove exercise"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
