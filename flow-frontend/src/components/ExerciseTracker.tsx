@@ -25,50 +25,48 @@ interface ExerciseTrackerProps {
   onComplete: () => void;
   readOnly?: boolean;
   forceExpanded?: boolean;
+  onProgressUpdate?: (completed: number, total: number) => void;
 }
 
 const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   exercise,
   onComplete,
   readOnly = false,
-  forceExpanded = false, // Default to false for backward compatibility
+  forceExpanded = false,
+  onProgressUpdate,
 }) => {
   const [exerciseState, setExerciseState] = useState<Exercise>(exercise);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  //  Conditional expansion state - only used when NOT force expanded
+  // Local sets completion tracking for instant progress updates
+  const [localSetsCompletion, setLocalSetsCompletion] = useState<Record<number, boolean>>({});
+  
   const [isExpanded, setIsExpanded] = useState(() => {
-    if (forceExpanded) return true; // Always expanded when forced
+    if (forceExpanded) return true;
     
-    // Remember expansion state per exercise (existing logic)
     const savedState = localStorage.getItem(`exercise-expanded-${exercise.exercise_id}`);
     return savedState ? JSON.parse(savedState) : false;
   });
 
   const { getDisplayUnit } = useWeightUnit();
   const displayUnit = exercise.display_unit || 'lb';
-  console.log('ExerciseTracker displayUnit:', displayUnit, 'exercise.display_unit:', exercise.display_unit);
 
-  // Weight conversion utility functions (matching backend logic)
   const convertKgToLbs = (kg: number): number => {
     const lbs = kg * 2.20462;
-    return Math.round(lbs * 2) / 2; // Round to nearest 0.5 lb
+    return Math.round(lbs * 2) / 2;
   };
-
 
   const getDisplayWeight = (storageWeight: number, exerciseType: string): number => {
     const targetUnit = getDisplayUnit(exerciseType);
     
-    // Storage is always in kg, convert to display unit if needed
     if (targetUnit === 'lb' && storageWeight > 0) {
       return convertKgToLbs(storageWeight);
     }
     
-    return storageWeight; // Already in kg, no conversion needed
+    return storageWeight;
   };
 
-  // Convert sets data for display
   const convertSetDataForDisplay = (setData: ExerciseSetData): ExerciseSetData => {
     return {
       ...setData,
@@ -76,19 +74,27 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     };
   };
 
-  // Update exercise state when prop changes
   useEffect(() => {
     setExerciseState(exercise);
   }, [exercise]);
 
-  //  Only save expansion state if NOT force expanded
+  // Initialize local completion state from exercise data
+  useEffect(() => {
+    const completionMap = (exerciseState.sets_data || []).reduce((map, setData) => {
+      if (setData && typeof setData.set_number === 'number') {
+        map[setData.set_number] = setData.completed || false;
+      }
+      return map;
+    }, {} as Record<number, boolean>);
+    setLocalSetsCompletion(completionMap);
+  }, [exerciseState.sets_data]);
+
   useEffect(() => {
     if (!forceExpanded) {
       localStorage.setItem(`exercise-expanded-${exerciseState.exercise_id}`, JSON.stringify(isExpanded));
     }
   }, [isExpanded, exerciseState.exercise_id, forceExpanded]);
 
-  // Add drag-and-drop sensors (keeping existing functionality)
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -96,10 +102,8 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     })
   );
 
-  // Generate array of set numbers
   const sets = Array.from({ length: exerciseState.sets }, (_, i) => i + 1);
 
-  // Map existing set data by set number for quick lookup
   const setsDataMap = (exerciseState.sets_data || []).reduce((map, setData) => {
     if (setData && typeof setData.set_number === 'number') {
       map[setData.set_number] = setData;
@@ -107,21 +111,29 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     return map;
   }, {} as Record<number, ExerciseSetData>);
 
-  // Calculate completion status
-  const completedSets = exerciseState.sets_data?.filter(set => set.completed).length || 0;
+  // Calculate progress from local state for instant updates
+  const completedSets = Object.values(localSetsCompletion).filter(Boolean).length;
   const allSetsCompleted = completedSets >= exerciseState.sets && exerciseState.sets > 0;
   const progressPercentage = exerciseState.sets > 0 ? (completedSets / exerciseState.sets) * 100 : 0;
 
-  // Get previous set data for auto-population
+  // Optimistic set completion handler for instant progress updates
+  const handleSetCompletion = (setNumber: number, completed: boolean) => {
+    setLocalSetsCompletion(prev => {
+      const updated = { ...prev, [setNumber]: completed };
+      const newCompleted = Object.values(updated).filter(Boolean).length;
+      onProgressUpdate?.(newCompleted, exerciseState.sets);
+      return updated;
+    });
+  };
+
   const getPreviousSetData = (currentSetNumber: number): ExerciseSetData | undefined => {
     if (currentSetNumber === 1) {
-      return undefined; // First set has no previous
+      return undefined;
     }
     const previousSetData = setsDataMap[currentSetNumber - 1];
     return previousSetData ? convertSetDataForDisplay(previousSetData) : undefined;
   };
 
-  // Handle drag end for set reordering
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -137,7 +149,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
           setError(null);
           
           await reorderExerciseSets(exerciseState.exercise_id, newOrder);
-          onComplete(); // Refresh exercise data
+          onComplete();
         } catch (err: any) {
           console.error('Error reordering sets:', err);
           setError('Failed to reorder sets. Please try again.');
@@ -156,46 +168,40 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     try {
       const newSetCount = exerciseState.sets + 1;
       
-      // Update local state immediately for better UX
       setExerciseState((prev) => ({ ...prev, sets: newSetCount }));
 
-      // Get previous set data to copy values (same logic as getPreviousSetData)
       const previousSetData = newSetCount > 1 ? setsDataMap[newSetCount - 1] : undefined;
       
       let setValuesToUse;
       if (previousSetData) {
-        // Convert previous set to display format first (handles kg/lb conversion)
         const displayPreviousSet = convertSetDataForDisplay(previousSetData);
         setValuesToUse = {
           reps: displayPreviousSet.reps,
-          weight: displayPreviousSet.weight, // This is now in correct display unit
+          weight: displayPreviousSet.weight,
           rpe: displayPreviousSet.rpe,
         };
       } else {
-        // Fallback to planned values if no previous set exists
         setValuesToUse = {
           reps: exerciseState.reps,
-          weight: exerciseState.weight, // exerciseState.weight is already in display units
+          weight: exerciseState.weight,
           rpe: exerciseState.rpe,
         };
       }
 
-      // Create placeholder set with previous set values (not planned values)
       await trackExerciseSet(exerciseState.exercise_id, newSetCount, {
         ...setValuesToUse,
         completed: false,
       });
 
-      onComplete(); // Refresh from server
+      onComplete();
     } catch (err) {
       console.error('Error adding set:', err);
-      setExerciseState((prev) => ({ ...prev, sets: prev.sets })); // Revert on error
+      setExerciseState((prev) => ({ ...prev, sets: prev.sets }));
       setError('Failed to add set. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
-
 
   const removeSet = async (setNumber: number) => {
     if (readOnly || exerciseState.sets <= 1) return;
@@ -205,7 +211,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
 
     try {
       await deleteSet(exerciseState.exercise_id, setNumber);
-      onComplete(); // Refresh exercise data
+      onComplete();
     } catch (err: any) {
       console.error('Error removing set:', err);
       setError('Failed to remove set. Please try again.');
@@ -237,16 +243,10 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     }
   };
 
-  // Determine if content should be shown (force expanded OR user expanded)
   const shouldShowContent = forceExpanded || isExpanded;
-
-  // console.log('🔍 STATE SYNC DEBUG:');
-  // console.log('🔍 exercise.sets_data:', exercise.sets_data?.map(s => ({ set: s.set_number, weight: s.weight })));
-  // console.log('🔍 exerciseState.sets_data:', exerciseState.sets_data?.map(s => ({ set: s.set_number, weight: s.weight })));
 
   return (
     <div className="space-y-4">
-      {/* Conditionally render header - only show when NOT force expanded */}
       {!forceExpanded && (
         <div 
           className="flex justify-between items-start cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
@@ -255,7 +255,6 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <h3 className="text-lg font-semibold text-gray-900">{exerciseState.exercise_type}</h3>
-              {/* Exercise completion visual indicator */}
               {exerciseState.status === 'completed' && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   ✓ Complete
@@ -268,7 +267,6 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
             </p>
           </div>
           
-          {/* Progress indicator with chevron */}
           <div className="flex items-center space-x-3">
             <div className="text-right">
               <div className="text-sm font-medium text-gray-700">
@@ -282,7 +280,6 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
               </div>
             </div>
             
-            {/* Chevron indicator */}
             <div className="flex items-center">
               <svg 
                 className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -297,40 +294,38 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
         </div>
       )}
 
-      {/* Conditionally render expanded content - show if force expanded OR user expanded */}
       {shouldShowContent && (
         <>
-          {/* Error display */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
-          {/* Sets Table - Always visible when expanded */}
+          {/* Sets Table - No Scroll Layout */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-8">
+                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-4">
                     {/* Drag handle column */}
                   </th>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
                     Set
                   </th>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                     {displayUnit}
                   </th>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-13">
                     Reps
                   </th>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-13">
                     RPE
                   </th>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-11">
                     Notes
                   </th>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-11">
                     ✓
                   </th>
                 </tr>
@@ -353,6 +348,7 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
                         plannedWeight={exerciseState.weight}
                         readOnly={readOnly}
                         onSetUpdated={onComplete}
+                        onSetCompletion={handleSetCompletion}
                       />
                     ))}
                   </SortableContext>
@@ -361,10 +357,8 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
             </table>
           </div>
 
-          {/* Action Buttons - Always visible when expanded */}
           <div className="flex justify-between items-center">
             <div className="flex space-x-2">
-              {/* Add Set Button */}
               {!readOnly && (
                 <FormButton
                   type="button"
@@ -377,7 +371,6 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
                 </FormButton>
               )}
 
-              {/* Remove Last Set Button */}
               {!readOnly && 
                 exerciseState.sets > 1 && 
                 !(allSetsCompleted && exerciseState.status !== 'completed') && (
@@ -394,7 +387,6 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
             </div>
 
             <div className="flex space-x-2">
-              {/* Complete Exercise Button */}
               {!readOnly && 
                 exerciseState.status !== 'completed' && 
                 allSetsCompleted && (
