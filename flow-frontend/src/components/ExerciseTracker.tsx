@@ -296,25 +296,25 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-4">
+                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-4 md:w-8">
                     {/* Drag handle column */}
                   </th>
-                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10 md:w-16">
                     Set
                   </th>
-                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20 md:w-32">
                     {displayUnit}
                   </th>
-                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-13">
+                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-13 md:w-24">
                     Reps
                   </th>
-                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-13">
+                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-13 md:w-24">
                     RPE
                   </th>
-                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-11">
+                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-11 md:w-28">
                     Notes
                   </th>
-                  <th className="px-0.5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-11">
+                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-11 md:w-16">
                     ✓
                   </th>
                 </tr>
