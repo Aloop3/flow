@@ -706,6 +706,155 @@ class TestExerciseService(unittest.TestCase):
         # Assert the result is 0 (no exercises deleted)
         self.assertEqual(result, 0)
 
+    def test_capture_planned_snapshot_success(self):
+        """
+        Test capturing planned snapshot when sets_data exists and planned_sets_data is None
+        """
+        # Mock exercise with sets_data but no planned_sets_data
+        mock_exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout456",
+            "exercise_type": "Squat",
+            "sets": 3,
+            "reps": 5,
+            "weight": 225.0,
+            "status": "planned",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 2, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 3, "reps": 5, "weight": 225.0, "completed": False},
+            ],
+            "planned_sets_data": None,
+        }
+
+        # Mock updated exercise after snapshot
+        mock_updated_exercise_data = mock_exercise_data.copy()
+        mock_updated_exercise_data["planned_sets_data"] = [
+            {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+            {"set_number": 2, "reps": 5, "weight": 225.0, "completed": False},
+            {"set_number": 3, "reps": 5, "weight": 225.0, "completed": False},
+        ]
+
+        # Configure mocks
+        self.exercise_repository_mock.get_exercise.side_effect = [
+            mock_exercise_data,  # First call in capture_planned_snapshot
+            mock_updated_exercise_data,  # Second call at end of method
+        ]
+
+        # Call the service method
+        result = self.exercise_service.capture_planned_snapshot("ex123")
+
+        # Assert repository methods were called
+        self.assertEqual(self.exercise_repository_mock.get_exercise.call_count, 2)
+        self.exercise_repository_mock.update_exercise.assert_called_once()
+
+        # Verify update_exercise was called with planned_sets_data
+        update_call_args = self.exercise_repository_mock.update_exercise.call_args
+        self.assertEqual(update_call_args[0][0], "ex123")  # exercise_id
+        self.assertIn("planned_sets_data", update_call_args[0][1])  # update_data
+
+        # Assert the result is an Exercise instance
+        self.assertIsInstance(result, Exercise)
+        self.assertIsNotNone(result.planned_sets_data)
+
+    def test_capture_planned_snapshot_already_captured(self):
+        """
+        Test that capture_planned_snapshot does nothing when planned_sets_data already exists
+        """
+        # Mock exercise with both sets_data and planned_sets_data
+        mock_exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout456",
+            "exercise_type": "Squat",
+            "sets": 3,
+            "reps": 5,
+            "weight": 225.0,
+            "status": "planned",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 230.0, "completed": True},
+            ],
+            "planned_sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+            ],
+        }
+
+        # Configure mock
+        self.exercise_repository_mock.get_exercise.return_value = mock_exercise_data
+
+        # Call the service method
+        result = self.exercise_service.capture_planned_snapshot("ex123")
+
+        # Assert repository get was called but update was NOT called
+        self.exercise_repository_mock.get_exercise.assert_called_once_with("ex123")
+        self.exercise_repository_mock.update_exercise.assert_not_called()
+
+        # Assert the result is the same exercise
+        self.assertIsInstance(result, Exercise)
+        self.assertIsNotNone(result.planned_sets_data)
+
+    def test_capture_planned_snapshot_exercise_not_found(self):
+        """
+        Test that capture_planned_snapshot returns None when exercise doesn't exist
+        """
+        # Configure mock to return None (exercise not found)
+        self.exercise_repository_mock.get_exercise.return_value = None
+
+        # Call the service method
+        result = self.exercise_service.capture_planned_snapshot("nonexistent")
+
+        # Assert repository was called but update was not
+        self.exercise_repository_mock.get_exercise.assert_called_once_with(
+            "nonexistent"
+        )
+        self.exercise_repository_mock.update_exercise.assert_not_called()
+
+        # Assert the result is None
+        self.assertIsNone(result)
+
+    def test_track_set_captures_planned_snapshot(self):
+        """
+        Test that track_set captures planned snapshot on first set tracking
+        """
+        # Mock exercise without planned_sets_data
+        mock_exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout456",
+            "exercise_type": "Squat",
+            "sets": 3,
+            "reps": 5,
+            "weight": 225.0,
+            "status": "planned",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 2, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 3, "reps": 5, "weight": 225.0, "completed": False},
+            ],
+            "planned_sets_data": None,
+        }
+
+        # Use return_value instead of side_effect to avoid StopIteration
+        self.exercise_repository_mock.get_exercise.return_value = mock_exercise_data
+
+        # Call track_set
+        result = self.exercise_service.track_set(
+            exercise_id="ex123", set_number=1, reps=5, weight=230.0, completed=True
+        )
+
+        # Assert that update_exercise was called (at least once for planned snapshot)
+        self.assertTrue(self.exercise_repository_mock.update_exercise.called)
+
+        # Check if any update call included planned_sets_data
+        update_calls = self.exercise_repository_mock.update_exercise.call_args_list
+        planned_snapshot_captured = any(
+            "planned_sets_data" in call[0][1] for call in update_calls
+        )
+        self.assertTrue(
+            planned_snapshot_captured, "Planned snapshot should have been captured"
+        )
+
+        # Assert result is an Exercise
+        self.assertIsInstance(result, Exercise)
+
     @patch("src.repositories.exercise_repository.ExerciseRepository")
     def test_track_set(self, mock_repo):
         # Setup

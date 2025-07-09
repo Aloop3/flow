@@ -307,20 +307,6 @@ class TestExerciseModel(unittest.TestCase):
                 weight=-315.0,  # Negative weight should raise ValueError
             )
 
-    # def test_zero_weight(self):
-    #     """
-    #     Test Exercise with zero weight value
-    #     """
-    #     with self.assertRaises(ValueError):
-    #         Exercise(
-    #             exercise_id="ex123",
-    #             workout_id="workout456",
-    #             exercise_type="Squat",
-    #             sets=3,
-    #             reps=5,
-    #             weight=0.0,  # Zero weight should raise ValueError
-    #         )
-
     def test_missing_weight(self):
         """
         Test Exercise with missing weight value
@@ -455,6 +441,95 @@ class TestExerciseModel(unittest.TestCase):
         self.assertIn("sets_data", exercise_dict)
         self.assertEqual(len(exercise_dict["sets_data"]), 2)
         self.assertEqual(exercise_dict["sets_data"], sets_data)
+
+    def test_to_dict_with_planned_sets_data(self):
+        """Test that to_dict includes planned_sets_data when present"""
+        # Create exercise with both sets_data and planned_sets_data
+        sets_data = [
+            {"set_number": 1, "reps": 5, "weight": 230.0, "completed": True},
+            {"set_number": 2, "reps": 4, "weight": 230.0, "completed": True},
+        ]
+        planned_sets_data = [
+            {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+            {"set_number": 2, "reps": 5, "weight": 225.0, "completed": False},
+        ]
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=2,
+            reps=5,
+            weight=225.0,
+            sets_data=sets_data,
+            planned_sets_data=planned_sets_data,
+        )
+
+        # Convert to dict
+        exercise_dict = exercise.to_dict()
+
+        # Verify both sets_data and planned_sets_data are included
+        self.assertIn("sets_data", exercise_dict)
+        self.assertIn("planned_sets_data", exercise_dict)
+        self.assertEqual(exercise_dict["sets_data"], sets_data)
+        self.assertEqual(exercise_dict["planned_sets_data"], planned_sets_data)
+
+    def test_from_dict_with_planned_sets_data(self):
+        """Test creating Exercise from dict with planned_sets_data"""
+        exercise_data = {
+            "exercise_id": "test123",
+            "workout_id": "workout123",
+            "exercise_type": "Squat",
+            "sets": 2,
+            "reps": 5,
+            "weight": 225.0,
+            "status": "planned",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 230.0, "completed": True},
+                {"set_number": 2, "reps": 4, "weight": 230.0, "completed": True},
+            ],
+            "planned_sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 2, "reps": 5, "weight": 225.0, "completed": False},
+            ],
+        }
+
+        exercise = Exercise.from_dict(exercise_data)
+
+        # Verify planned_sets_data is properly set
+        self.assertIsNotNone(exercise.planned_sets_data)
+        self.assertEqual(len(exercise.planned_sets_data), 2)
+        self.assertEqual(exercise.planned_sets_data[0]["reps"], 5)
+        self.assertEqual(exercise.planned_sets_data[0]["weight"], 225.0)
+        self.assertEqual(exercise.planned_sets_data[1]["reps"], 5)
+        self.assertEqual(exercise.planned_sets_data[1]["weight"], 225.0)
+
+    def test_planned_sets_data_defaults_to_none(self):
+        """Test that planned_sets_data defaults to None when not provided"""
+        exercise = Exercise(
+            exercise_id="test123",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="planned",
+        )
+
+        self.assertIsNone(exercise.planned_sets_data)
+
+        # Test from_dict without planned_sets_data
+        exercise_data = {
+            "exercise_id": "test456",
+            "workout_id": "workout456",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 8,
+            "weight": 185.0,
+            "status": "planned",
+        }
+
+        exercise_from_dict = Exercise.from_dict(exercise_data)
+        self.assertIsNone(exercise_from_dict.planned_sets_data)
 
 
 if __name__ == "__main__":  # pragma: no cover
