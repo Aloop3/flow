@@ -69,6 +69,8 @@ export interface Exercise {
   order?: number;
   exercise_category?: string;
   display_unit?: 'kg' | 'lb';
+  sets_data?: ExerciseSetData[];
+  planned_sets_data?: ExerciseSetData[];
 }
 
 export interface ExerciseTypeLibrary {
@@ -181,11 +183,6 @@ export interface BlockComparisonData {
       change_percentage: number;
     }[];
   };
-}
-
-// Update Exercise interface
-export interface Exercise {
-  sets_data?: ExerciseSetData[];
 }
 
 console.log('API Config:', {

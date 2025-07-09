@@ -58,6 +58,14 @@ def convert_exercise_weights_for_display(
                     set_data["weight"], display_unit
                 )
 
+    # Convert planned_sets_data weights
+    if "planned_sets_data" in exercise_dict and exercise_dict["planned_sets_data"]:
+        for set_data in exercise_dict["planned_sets_data"]:
+            if "weight" in set_data and set_data["weight"] is not None:
+                set_data["weight"] = convert_weight_from_kg(
+                    set_data["weight"], display_unit
+                )
+
     # Add display unit info
     exercise_dict["display_unit"] = display_unit
     return exercise_dict

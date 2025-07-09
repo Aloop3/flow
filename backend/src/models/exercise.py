@@ -17,6 +17,7 @@ class Exercise:
         order: Optional[int] = None,
         exercise_category: Optional[Union[str, ExerciseCategory]] = None,
         sets_data: Optional[List[Dict[str, Any]]] = None,
+        planned_sets_data: Optional[List[Dict[str, Any]]] = None,
     ):
         if not exercise_id:
             raise ValueError("exercise_id cannot be empty")
@@ -66,6 +67,7 @@ class Exercise:
         self.notes: Optional[str] = notes
         self.order: Optional[int] = order
         self.sets_data: Optional[List[Dict[str, Any]]] = sets_data
+        self.planned_sets_data: Optional[List[Dict[str, Any]]] = planned_sets_data
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -82,6 +84,7 @@ class Exercise:
             "order": self.order,
             "is_predefined": self.is_predefined,
             "sets_data": self.sets_data,
+            "planned_sets_data": self.planned_sets_data,
         }
 
     @classmethod
@@ -106,6 +109,7 @@ class Exercise:
             order=data.get("order"),
             exercise_category=exercise_category,
             sets_data=data.get("sets_data"),
+            planned_sets_data=data.get("planned_sets_data"),
         )
 
     def add_set_data(self, set_data: Dict[str, Any]) -> None:

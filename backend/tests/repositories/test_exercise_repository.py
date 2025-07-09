@@ -285,6 +285,43 @@ class TestExerciseRepository(unittest.TestCase):
         self.assertIsInstance(set2["weight"], float)
         self.assertEqual(set2["reps"], 7.0)
 
+    def test_get_exercise_includes_planned_sets_data(self):
+        """
+        Test that get_exercise returns planned_sets_data when present
+        """
+        # Mock exercise data with planned_sets_data
+        exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout456",
+            "exercise_type": "Squat",
+            "sets": 3,
+            "reps": 5,
+            "weight": 225.0,
+            "status": "planned",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 230.0, "completed": True},
+            ],
+            "planned_sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+            ],
+        }
+
+        # Configure mock
+        self.table_mock.get_item.return_value = {"Item": exercise_data}
+
+        # Call the repository method
+        result = self.repository.get_exercise("ex123")
+
+        # Assert the table was called correctly
+        self.table_mock.get_item.assert_called_once_with(Key={"exercise_id": "ex123"})
+
+        # Assert the result includes planned_sets_data
+        self.assertEqual(result, exercise_data)
+        self.assertIn("planned_sets_data", result)
+        self.assertEqual(
+            result["planned_sets_data"], exercise_data["planned_sets_data"]
+        )
+
     def test_create_exercise(self):
         """
         Test creating an exercise
@@ -306,6 +343,59 @@ class TestExerciseRepository(unittest.TestCase):
         self.table_mock.put_item.assert_called_once_with(Item=exercise_data)
 
         # The create method returns the original item
+        self.assertEqual(result, exercise_data)
+
+    def test_create_exercise_with_planned_sets_data(self):
+        """
+        Test creating an exercise with planned_sets_data field
+        """
+        # Mock exercise data with planned_sets_data
+        exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout456",
+            "exercise_type": "Squat",
+            "sets": 3,
+            "reps": 5,
+            "weight": 225.0,
+            "status": "planned",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 2, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 3, "reps": 5, "weight": 225.0, "completed": False},
+            ],
+            "planned_sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 2, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 3, "reps": 5, "weight": 225.0, "completed": False},
+            ],
+        }
+
+        # Configure mock to return the created exercise
+        self.table_mock.put_item.return_value = exercise_data
+
+        # Call the repository method
+        result = self.repository.create_exercise(exercise_data)
+
+        # Assert put_item was called once (without checking exact parameters due to Decimal conversion)
+        self.table_mock.put_item.assert_called_once()
+
+        # Verify the call included the planned_sets_data field
+        call_args = self.table_mock.put_item.call_args[1]
+        self.assertIn("Item", call_args)
+        item = call_args["Item"]
+        self.assertIn("planned_sets_data", item)
+        self.assertEqual(len(item["planned_sets_data"]), 3)
+
+        # Verify the planned_sets_data structure (accounting for Decimal conversion)
+        planned_set_1 = item["planned_sets_data"][0]
+        self.assertEqual(planned_set_1["set_number"], 1)
+        self.assertEqual(planned_set_1["reps"], 5)
+        self.assertEqual(
+            float(planned_set_1["weight"]), 225.0
+        )  # Convert Decimal back to float for comparison
+        self.assertEqual(planned_set_1["completed"], False)
+
+        # Assert the result is corrects
         self.assertEqual(result, exercise_data)
 
     def test_update_exercise(self):
@@ -348,6 +438,96 @@ class TestExerciseRepository(unittest.TestCase):
         # The actual BaseRepository.update method returns the Attributes field from the response
         # So result should be just {"exercise_id": "ex123"}
         self.assertEqual(result, {"exercise_id": "ex123"})
+
+    def test_update_exercise_with_planned_sets_data(self):
+        """
+        Test updating an exercise with planned_sets_data field
+        """
+        exercise_id = "ex123"
+        update_data = {
+            "planned_sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+                {"set_number": 2, "reps": 5, "weight": 225.0, "completed": False},
+            ]
+        }
+
+        # Mock the update response in DynamoDB format (with Attributes wrapper)
+        mock_attributes = {"exercise_id": exercise_id, **update_data}
+        self.table_mock.update_item.return_value = {"Attributes": mock_attributes}
+
+        # Call the repository method
+        result = self.repository.update_exercise(exercise_id, update_data)
+
+        # Assert update_item was called with correct parameters
+        self.table_mock.update_item.assert_called_once()
+        call_args = self.table_mock.update_item.call_args[1]
+
+        # Verify the Key parameter
+        self.assertEqual(call_args["Key"], {"exercise_id": exercise_id})
+
+        # Verify ReturnValues is set
+        self.assertEqual(call_args["ReturnValues"], "ALL_NEW")
+
+        # Verify the UpdateExpression includes planned_sets_data
+        self.assertIn("planned_sets_data", call_args["UpdateExpression"])
+
+        # Verify ExpressionAttributeValues includes planned_sets_data (accounting for Decimal conversion)
+        self.assertIn(":planned_sets_data", call_args["ExpressionAttributeValues"])
+        planned_sets_value = call_args["ExpressionAttributeValues"][
+            ":planned_sets_data"
+        ]
+        self.assertEqual(len(planned_sets_value), 2)
+
+        # Verify ExpressionAttributeNames includes planned_sets_data
+        self.assertIn("#planned_sets_data", call_args["ExpressionAttributeNames"])
+        self.assertEqual(
+            call_args["ExpressionAttributeNames"]["#planned_sets_data"],
+            "planned_sets_data",
+        )
+
+        # Assert the result is correct (should be the converted attributes)
+        self.assertEqual(result, mock_attributes)
+
+    def test_update_exercise_with_multiple_fields_including_planned_sets_data(self):
+        """
+        Test updating an exercise with multiple fields including planned_sets_data
+        """
+        exercise_id = "ex123"
+        update_data = {
+            "status": "in_progress",
+            "sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 230.0, "completed": True},
+            ],
+            "planned_sets_data": [
+                {"set_number": 1, "reps": 5, "weight": 225.0, "completed": False},
+            ],
+        }
+
+        # Mock the update response in DynamoDB format (with Attributes wrapper)
+        mock_attributes = {"exercise_id": exercise_id, **update_data}
+        self.table_mock.update_item.return_value = {"Attributes": mock_attributes}
+
+        # Call the repository method
+        result = self.repository.update_exercise(exercise_id, update_data)
+
+        # Assert update_item was called
+        self.table_mock.update_item.assert_called_once()
+        call_args = self.table_mock.update_item.call_args[1]
+
+        # Verify all fields are in the update expression
+        update_expression = call_args["UpdateExpression"]
+        self.assertIn("status", update_expression)
+        self.assertIn("sets_data", update_expression)
+        self.assertIn("planned_sets_data", update_expression)
+
+        # Verify all fields are in ExpressionAttributeValues
+        expression_values = call_args["ExpressionAttributeValues"]
+        self.assertIn(":status", expression_values)
+        self.assertIn(":sets_data", expression_values)
+        self.assertIn(":planned_sets_data", expression_values)
+
+        # Assert the result is correct (should be the converted attributes)
+        self.assertEqual(result, mock_attributes)
 
     def test_delete_exercise(self):
         """

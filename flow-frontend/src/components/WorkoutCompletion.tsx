@@ -6,9 +6,11 @@ interface WorkoutCompletionProps {
   onClose?: () => void;
 }
 
-// Volume calculation utility (same as WorkoutSummary)
+// Volume calculation utility
 const calculateVolume = (workout: Workout, useActual: boolean = false): { lb: number; kg: number } => {
-  const totalLb = workout.exercises.reduce((total, exercise) => {
+  let totalInDisplayUnit = 0;
+  
+  workout.exercises.forEach((exercise) => {
     let exerciseVolume: number;
     
     if (useActual && exercise.sets_data && exercise.sets_data.length > 0) {
@@ -19,22 +21,39 @@ const calculateVolume = (workout: Workout, useActual: boolean = false): { lb: nu
           return setTotal + (set.reps || 0) * (set.weight || 0);
         }, 0);
     } else {
-      // Calculate planned volume
-      exerciseVolume = (exercise.sets || 0) * (exercise.reps || 0) * (exercise.weight || 0);
+      // Calculate planned volume using planned_sets_data if available
+      if (exercise.planned_sets_data && exercise.planned_sets_data.length > 0) {
+        exerciseVolume = exercise.planned_sets_data.reduce((total, set) => {
+          return total + (set.reps || 0) * (set.weight || 0);
+        }, 0);
+      } else {
+        // Fallback to legacy calculation for backward compatibility
+        exerciseVolume = (exercise.sets || 0) * (exercise.reps || 0) * (exercise.weight || 0);
+      }
     }
     
-    return total + exerciseVolume;
-  }, 0);
+    totalInDisplayUnit += exerciseVolume;
+  });
   
-  const totalKg = totalLb * 0.453592;
+  // Check display unit from first exercise (backend sets this consistently)
+  const displayUnit = workout.exercises[0]?.display_unit || 'lb';
   
-  return {
-    lb: Math.round(totalLb),
-    kg: Math.round(totalKg * 10) / 10
-  };
+  if (displayUnit === 'kg') {
+    // Backend provided kg, convert to lb for display
+    return {
+      kg: Math.round(totalInDisplayUnit * 10) / 10,
+      lb: Math.round(totalInDisplayUnit * 2.20462)
+    };
+  } else {
+    // Backend provided lb, convert to kg for display
+    return {
+      lb: Math.round(totalInDisplayUnit),
+      kg: Math.round(totalInDisplayUnit * 0.453592 * 10) / 10
+    };
+  }
 };
 
-// RPE calculation utility
+// RPE calculation utility with fixed planned vs actual logic
 const getHighestRPE = (workout: Workout, useActual: boolean = false): number => {
   let rpeValues: number[] = [];
   
@@ -55,10 +74,19 @@ const getHighestRPE = (workout: Workout, useActual: boolean = false): number => 
       }
     });
   } else {
-    // Get planned RPE
-    rpeValues = workout.exercises
-      .map(exercise => exercise.rpe || 0)
-      .filter(rpe => rpe > 0);
+    // Get planned RPE using planned_sets_data if available
+    workout.exercises.forEach(exercise => {
+      if (exercise.planned_sets_data && exercise.planned_sets_data.length > 0) {
+        // Get RPE from planned sets
+        const plannedRPEs = exercise.planned_sets_data
+          .filter(set => set.rpe)
+          .map(set => set.rpe!);
+        rpeValues.push(...plannedRPEs);
+      } else if (exercise.rpe) {
+        // Fallback to exercise-level RPE for backward compatibility
+        rpeValues.push(exercise.rpe);
+      }
+    });
   }
   
   return rpeValues.length > 0 ? Math.max(...rpeValues) : 0;

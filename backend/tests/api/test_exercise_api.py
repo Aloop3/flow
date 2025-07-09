@@ -3,7 +3,6 @@ import unittest
 from unittest.mock import patch, MagicMock
 from tests.base_test import BaseTest
 
-# Import exercise after the mocks are set up in BaseTest
 with patch("boto3.resource"):
     from src.api import exercise_api
 
@@ -1017,6 +1016,140 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(
             call_args[0][2], None
         )  # Third positional arg: exercise_category
+
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="lb")
+    @patch("src.api.exercise_api.convert_weight_from_kg", return_value=225.0)
+    def test_convert_exercise_weights_for_display_with_planned_sets_data(
+        self, mock_convert_from_kg, mock_get_unit
+    ):
+        """Test convert_exercise_weights_for_display includes planned_sets_data conversion"""
+        # Setup
+        exercise_dict = {
+            "exercise_id": "ex123",
+            "exercise_type": "Squat",
+            "weight": 102.0,  # kg storage
+            "sets_data": [
+                {"set_number": 1, "weight": 104.0, "reps": 5, "completed": True},
+                {"set_number": 2, "weight": 106.0, "reps": 4, "completed": True},
+            ],
+            "planned_sets_data": [
+                {"set_number": 1, "weight": 102.0, "reps": 5, "completed": False},
+                {"set_number": 2, "weight": 102.0, "reps": 5, "completed": False},
+            ],
+        }
+        user_preference = "auto"
+        exercise_type = "Squat"
+
+        # Call function
+        result = exercise_api.convert_exercise_weights_for_display(
+            exercise_dict, user_preference, exercise_type
+        )
+
+        # Assert the function was called for each weight field
+        # Expected calls: template weight + 2 sets_data weights + 2 planned_sets_data weights = 5 calls
+        self.assertEqual(mock_convert_from_kg.call_count, 5)
+
+        # Verify planned_sets_data is included in result
+        self.assertIn("planned_sets_data", result)
+        self.assertEqual(len(result["planned_sets_data"]), 2)
+
+        # Verify display_unit is set
+        self.assertEqual(result["display_unit"], "lb")
+
+        # Verify get_unit was called correctly
+        mock_get_unit.assert_called_once_with("Squat", "auto", None)
+
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
+    @patch("src.api.exercise_api.convert_weight_from_kg", return_value=100.0)
+    def test_convert_exercise_weights_for_display_planned_sets_data_only(
+        self, mock_convert_from_kg, mock_get_unit
+    ):
+        """Test convert_exercise_weights_for_display with only planned_sets_data"""
+        # Setup
+        exercise_dict = {
+            "exercise_id": "ex123",
+            "exercise_type": "Bench Press",
+            "weight": 100.0,  # kg storage
+            "sets_data": None,  # No actual sets yet
+            "planned_sets_data": [
+                {"set_number": 1, "weight": 100.0, "reps": 8, "completed": False},
+                {"set_number": 2, "weight": 100.0, "reps": 8, "completed": False},
+                {"set_number": 3, "weight": 100.0, "reps": 8, "completed": False},
+            ],
+        }
+        user_preference = "kg"
+        exercise_type = "Bench Press"
+
+        # Call function
+        result = exercise_api.convert_exercise_weights_for_display(
+            exercise_dict, user_preference, exercise_type
+        )
+
+        # Assert the function was called for template weight + 3 planned_sets_data weights = 4 calls
+        self.assertEqual(mock_convert_from_kg.call_count, 4)
+
+        # Verify planned_sets_data is included and properly structured
+        self.assertIn("planned_sets_data", result)
+        self.assertEqual(len(result["planned_sets_data"]), 3)
+
+        # Verify sets_data handling (should remain None)
+        self.assertIsNone(result.get("sets_data"))
+
+        # Verify display_unit is set
+        self.assertEqual(result["display_unit"], "kg")
+
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=lambda x, y, z, w=None: x,
+    )
+    @patch("src.services.exercise_service.ExerciseService.get_exercises_for_workout")
+    def test_get_exercises_for_workout_includes_planned_sets_data(
+        self, mock_get_exercises, mock_convert_display, mock_get_pref
+    ):
+        """Test that get_exercises_for_workout API returns planned_sets_data"""
+        # Setup mock exercises with planned_sets_data
+        mock_exercise = MagicMock()
+        mock_exercise.to_dict.return_value = {
+            "exercise_id": "ex123",
+            "workout_id": "workout456",
+            "exercise_type": "Squat",
+            "exercise_category": "barbell",
+            "sets": 3,
+            "reps": 5,
+            "weight": 225.0,
+            "sets_data": [
+                {"set_number": 1, "weight": 230.0, "reps": 5, "completed": True},
+            ],
+            "planned_sets_data": [
+                {"set_number": 1, "weight": 225.0, "reps": 5, "completed": False},
+            ],
+        }
+        mock_get_exercises.return_value = [mock_exercise]
+
+        # Create test event
+        event = {
+            "pathParameters": {"workout_id": "workout456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
+        context = {}
+
+        # Call API
+        response = exercise_api.get_exercises_for_workout(event, context)
+
+        # Assert
+        self.assertEqual(response["statusCode"], 200)
+        response_body = json.loads(response["body"])
+        self.assertEqual(len(response_body), 1)
+
+        # Verify planned_sets_data is included in response
+        exercise_response = response_body[0]
+        self.assertIn("planned_sets_data", exercise_response)
+        self.assertEqual(len(exercise_response["planned_sets_data"]), 1)
+        self.assertEqual(exercise_response["planned_sets_data"][0]["weight"], 225.0)
+
+        # Verify service was called correctly
+        mock_get_exercises.assert_called_once_with("workout456")
 
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch(
