@@ -1,4 +1,5 @@
 import uuid
+import copy
 from typing import List, Dict, Any, Optional, Union, Literal
 from src.repositories.exercise_repository import ExerciseRepository
 from src.models.exercise import Exercise
@@ -195,6 +196,30 @@ class ExerciseService:
 
         return len(exercises)
 
+    def capture_planned_snapshot(self, exercise_id: str) -> Optional[Exercise]:
+        """
+        Capture planned snapshot of sets_data if not already captured
+
+        :param exercise_id: ID of the exercise
+        :return: Updated Exercise object if found, else None
+        """
+        exercise = self.get_exercise(exercise_id)
+        if not exercise:
+            return None
+
+        # Only capture if not already captured and sets_data exists
+        if exercise.planned_sets_data is None and exercise.sets_data:
+            # Create deep copy of current sets_data as planned snapshot
+            planned_snapshot = copy.deepcopy(exercise.sets_data)
+
+            # Update exercise with planned snapshot
+            update_data = {"planned_sets_data": planned_snapshot}
+            self.exercise_repository.update_exercise(exercise_id, update_data)
+
+            return self.get_exercise(exercise_id)
+
+        return exercise
+
     def track_set(
         self,
         exercise_id: str,
@@ -210,6 +235,12 @@ class ExerciseService:
         exercise = self.get_exercise(exercise_id)
         if not exercise:
             return None
+
+        # Capture planned snapshot on first set tracking if not already captured
+        if exercise.planned_sets_data is None and exercise.sets_data:
+            self.capture_planned_snapshot(exercise_id)
+            # Refresh exercise after snapshot
+            exercise = self.get_exercise(exercise_id)
 
         # Add/update set data as before
         set_data = {
