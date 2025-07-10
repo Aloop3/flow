@@ -30,7 +30,7 @@ def validate_resource_ownership(event: Dict[str, Any], context: Any) -> Dict[str
 
     if not current_user_id:
         logger.error("No user ID found in auth claims")
-        raise ValidationError("Unauthorized - missing user ID")
+        raise ValidationError("Forbidden")
 
     # Extract path parameters
     path_params = event.get("pathParameters", {}) or {}
@@ -79,7 +79,7 @@ def validate_resource_ownership(event: Dict[str, Any], context: Any) -> Dict[str
         raise  # Re-raise validation errors
     except Exception as e:
         logger.error(f"Error validating resource access: {str(e)}")
-        raise ValidationError("Access validation failed")
+        raise ValidationError("Forbidden")
 
     return event
 
@@ -90,7 +90,7 @@ def _validate_user_access(current_user_id: str, target_user_id: str) -> None:
         logger.warning(
             f"User {current_user_id} attempted to access user {target_user_id}"
         )
-        raise ValidationError("Forbidden - cannot access other user's data")
+        raise ValidationError("Forbidden")
 
 
 def _validate_athlete_access(current_user_id: str, athlete_id: str) -> None:
@@ -104,7 +104,7 @@ def _validate_athlete_access(current_user_id: str, athlete_id: str) -> None:
         logger.warning(
             f"User {current_user_id} attempted to access athlete {athlete_id} without permission"
         )
-        raise ValidationError("Forbidden - no active coach relationship")
+        raise ValidationError("Forbidden")
 
 
 def _validate_creation_access(
