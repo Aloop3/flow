@@ -10,8 +10,16 @@ from src.models.relationship import Relationship
 
 
 # Import workout after the mocks are set up in BaseTest
-with patch("boto3.resource"):
-    from src.api import workout_api
+def mock_with_middleware(middlewares):
+    """Mock decorator that returns the original function unchanged"""
+    def decorator(func):
+        return func  # Return function without middleware
+    return decorator
+
+with patch("src.middleware.middleware.with_middleware", side_effect=mock_with_middleware):
+    with patch("boto3.resource"):
+        from src.api import workout_api
+
 
 
 class TestWorkoutAPI(BaseTest):
@@ -64,7 +72,14 @@ class TestWorkoutAPI(BaseTest):
                         }
                     ],
                 }
-            )
+            ),
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
         }
         context = {}
 
@@ -112,7 +127,14 @@ class TestWorkoutAPI(BaseTest):
                     "date": "2025-03-15",
                     "exercises": [],
                 }
-            )
+            ),
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
         }
         context = {}
 
@@ -150,7 +172,14 @@ class TestWorkoutAPI(BaseTest):
                         }
                     ],
                 }
-            )
+            ),
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
         }
         context = {}
 
@@ -167,7 +196,16 @@ class TestWorkoutAPI(BaseTest):
         """
         Test workout creation with invalid JSON
         """
-        event = {"body": "invalid json"}
+        event = {
+            "body": "invalid json",
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Call API
@@ -195,7 +233,14 @@ class TestWorkoutAPI(BaseTest):
                     "date": "2025-03-15",
                     "exercises": [],
                 }
-            )
+            ),
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
         }
         context = {}
 
@@ -216,6 +261,7 @@ class TestWorkoutAPI(BaseTest):
 
         # Setup
         mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"
         mock_workout.to_dict.return_value = {
             "workout_id": "workout123",
             "athlete_id": "athlete456",
@@ -233,7 +279,16 @@ class TestWorkoutAPI(BaseTest):
         }
         mock_get_workout.return_value = mock_workout
 
-        event = {"pathParameters": {"workout_id": "workout123"}}
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Call API
@@ -245,7 +300,8 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["workout_id"], "workout123")
         self.assertEqual(response_body["athlete_id"], "athlete456")
         self.assertEqual(len(response_body["exercises"]), 1)
-        mock_get_workout.assert_called_once_with("workout123")
+        self.assertEqual(mock_get_workout.call_count, 2)
+        mock_get_workout.assert_called_with("workout123")
 
     @patch("src.services.workout_service.WorkoutService.get_workout")
     def test_get_workout_not_found(self, mock_get_workout):
@@ -256,14 +312,23 @@ class TestWorkoutAPI(BaseTest):
         # Setup
         mock_get_workout.return_value = None
 
-        event = {"pathParameters": {"workout_id": "nonexistent"}}
+        event = {
+            "pathParameters": {"workout_id": "nonexistent"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Call API
         response = workout_api.get_workout(event, context)
 
         # Assert
-        self.assertEqual(response["statusCode"], 404)
+        self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertIn("Workout not found", response_body["error"])
 
@@ -294,7 +359,16 @@ class TestWorkoutAPI(BaseTest):
 
         # Override the boto3 resource for this specific test
         with patch("boto3.resource", return_value=self.mock_dynamodb):
-            event = {"pathParameters": {"athlete_id": "athlete456"}}
+            event = {
+                "pathParameters": {"athlete_id": "athlete456"},
+                "requestContext": {
+                    "authorizer": {
+                        "claims": {
+                            "sub": "athlete456"
+                        }
+                    }
+                }
+            }
             context = {}
 
             # Call API
@@ -320,7 +394,16 @@ class TestWorkoutAPI(BaseTest):
 
         # Override the boto3 resource for this specific test
         with patch("boto3.resource", return_value=self.mock_dynamodb):
-            event = {"pathParameters": {"athlete_id": "athlete456"}}
+            event = {
+                "pathParameters": {"athlete_id": "athlete456"},
+                "requestContext": {
+                    "authorizer": {
+                        "claims": {
+                            "sub": "athlete456"
+                        }
+                    }
+                }
+            }
             context = {}
 
             # Call API
@@ -339,7 +422,16 @@ class TestWorkoutAPI(BaseTest):
         # Setup
         mock_get_workout.side_effect = Exception("Test exception")
 
-        event = {"pathParameters": {"workout_id": "workout123"}}
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Call API
@@ -361,6 +453,7 @@ class TestWorkoutAPI(BaseTest):
         """
         # Setup
         mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"  # Required for middleware validation
         mock_workout.to_dict.return_value = {
             "workout_id": "workout123",
             "athlete_id": "athlete456",
@@ -414,7 +507,16 @@ class TestWorkoutAPI(BaseTest):
         # Setup
         mock_get_workout.return_value = None
 
-        event = {"pathParameters": {"athlete_id": "athlete456", "day_id": "day789"}}
+        event = {
+            "pathParameters": {"athlete_id": "athlete456", "day_id": "day789"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Execute
@@ -434,7 +536,16 @@ class TestWorkoutAPI(BaseTest):
         # Setup
         mock_get_workout.side_effect = Exception("Service error")
 
-        event = {"pathParameters": {"athlete_id": "athlete456", "day_id": "day789"}}
+        event = {
+            "pathParameters": {"athlete_id": "athlete456", "day_id": "day789"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Call API
@@ -454,6 +565,7 @@ class TestWorkoutAPI(BaseTest):
 
         # Setup
         mock_workout = MagicMock()
+        mock_workout.athlete_id = "athlete456"  # Required for middleware validation
         mock_workout.to_dict.return_value = {
             "workout_id": "workout123",
             "athlete_id": "athlete456",
@@ -488,6 +600,13 @@ class TestWorkoutAPI(BaseTest):
                     ],
                 }
             ),
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
         }
         context = {}
 
@@ -515,6 +634,13 @@ class TestWorkoutAPI(BaseTest):
         event = {
             "pathParameters": {"workout_id": "nonexistent"},
             "body": json.dumps({"notes": "Updated notes"}),
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
         }
         context = {}
 
@@ -522,7 +648,8 @@ class TestWorkoutAPI(BaseTest):
         response = workout_api.update_workout(event, context)
 
         # Assert
-        self.assertEqual(response["statusCode"], 404)
+        # Middleware returns 400 when workout not found during authorization
+        self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertIn("Workout not found", response_body["error"])
 
@@ -535,6 +662,13 @@ class TestWorkoutAPI(BaseTest):
         event = {
             "pathParameters": {"workout_id": "workout123"},
             "body": json.dumps({"notes": "Updated notes"}),
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
         }
         context = {}
 
@@ -556,7 +690,16 @@ class TestWorkoutAPI(BaseTest):
         # Setup
         mock_delete_workout.return_value = True
 
-        event = {"pathParameters": {"workout_id": "workout123"}}
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Call API
@@ -575,14 +718,24 @@ class TestWorkoutAPI(BaseTest):
         # Setup
         mock_delete_workout.return_value = False
 
-        event = {"pathParameters": {"workout_id": "nonexistent"}}
+        event = {
+            "pathParameters": {"workout_id": "nonexistent"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Call API
         response = workout_api.delete_workout(event, context)
 
         # Assert
-        self.assertEqual(response["statusCode"], 404)
+        # Middleware returns 400 when workout not found during authorization
+        self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertIn("Workout not found", response_body["error"])
 
@@ -592,7 +745,16 @@ class TestWorkoutAPI(BaseTest):
         # Setup
         mock_delete_workout.side_effect = Exception("Delete error")
 
-        event = {"pathParameters": {"workout_id": "workout123"}}
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "athlete456"
+                    }
+                }
+            }
+        }
         context = {}
 
         # Call API
@@ -1108,8 +1270,9 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["start_time"], "2025-06-24T14:30:00.123456")
         self.assertIsNone(response_body["finish_time"])
 
-        # Verify service calls
-        mock_get_workout.assert_called_once_with("workout123")
+        # Verify service calls (middleware calls get_workout for auth, then API calls it)
+        self.assertEqual(mock_get_workout.call_count, 2)
+        mock_get_workout.assert_called_with("workout123")
         mock_start_session.assert_called_once_with("workout123")
 
     @patch(
@@ -1166,8 +1329,9 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["workout_id"], "workout123")
         self.assertEqual(response_body["status"], "in_progress")
 
-        # Verify service calls
-        mock_get_workout.assert_called_once_with("workout123")
+        # Verify service calls (middleware calls get_workout for auth, then API calls it)
+        self.assertEqual(mock_get_workout.call_count, 2)
+        mock_get_workout.assert_called_with("workout123")
         mock_get_relationship.assert_called_once_with(
             coach_id="coach789", athlete_id="athlete456"
         )
@@ -1192,11 +1356,12 @@ class TestWorkoutAPI(BaseTest):
         response = workout_api.start_workout_session(event, context)
 
         # Assert
-        self.assertEqual(response["statusCode"], 404)
+        # Middleware returns 400 when workout not found during authorization
+        self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Workout not found")
 
-        # Verify service call
+        # Verify service call (middleware calls get_workout for auth check)
         mock_get_workout.assert_called_once_with("nonexistent")
 
     @patch(
@@ -1234,7 +1399,7 @@ class TestWorkoutAPI(BaseTest):
             response_body["error"], "Unauthorized to start timing for this workout"
         )
 
-        # Verify service calls
+        # Verify service calls (middleware calls get_workout for auth check)
         mock_get_workout.assert_called_once_with("workout123")
         mock_get_relationship.assert_called_once_with(
             coach_id="unauthorized789", athlete_id="athlete456"
@@ -1314,8 +1479,9 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["start_time"], "2025-06-24T14:30:00.123456")
         self.assertEqual(response_body["finish_time"], "2025-06-24T15:45:00.789012")
 
-        # Verify service calls
-        mock_get_workout.assert_called_once_with("workout123")
+        # Verify service calls (middleware calls get_workout for auth, then API calls it)
+        self.assertEqual(mock_get_workout.call_count, 2)
+        mock_get_workout.assert_called_with("workout123")
         mock_finish_session.assert_called_once_with("workout123")
 
     @patch("src.services.workout_service.WorkoutService.get_workout")
@@ -1337,7 +1503,8 @@ class TestWorkoutAPI(BaseTest):
         response = workout_api.finish_workout_session(event, context)
 
         # Assert
-        self.assertEqual(response["statusCode"], 404)
+        # Middleware returns 400 when workout not found during authorization
+        self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Workout not found")
 

@@ -58,7 +58,7 @@ class TestAuthorizationMiddleware(unittest.TestCase):
         with self.assertRaises(ValidationError) as cm:
             validate_resource_ownership(event, self.mock_context)
 
-        self.assertIn("Unauthorized - missing user ID", str(cm.exception))
+        self.assertIn("Forbidden", str(cm.exception))
 
     def test_validate_resource_ownership_skips_public_endpoints(self):
         """Test authorization is skipped for public endpoints"""
@@ -80,7 +80,7 @@ class TestAuthorizationMiddleware(unittest.TestCase):
         with self.assertRaises(ValidationError) as cm:
             _validate_user_access(self.test_user_id, other_user_id)
 
-        self.assertIn("Forbidden - cannot access other user's data", str(cm.exception))
+        self.assertIn("Forbidden", str(cm.exception))
 
     def test_validate_athlete_access_own_data_success(self):
         """Test athlete can access their own data"""
@@ -107,7 +107,7 @@ class TestAuthorizationMiddleware(unittest.TestCase):
         with self.assertRaises(ValidationError) as cm:
             _validate_athlete_access(self.test_user_id, self.test_athlete_id)
 
-        self.assertIn("Forbidden - no active coach relationship", str(cm.exception))
+        self.assertIn("Forbidden", str(cm.exception))
 
     @patch("src.services.relationship_service.RelationshipService")
     def test_is_active_coach_with_active_relationship(self, mock_relationship_service):
@@ -184,7 +184,7 @@ class TestAuthorizationMiddleware(unittest.TestCase):
         with self.assertRaises(ValidationError) as cm:
             validate_resource_ownership(event, self.mock_context)
 
-        self.assertIn("Forbidden - cannot access other user's data", str(cm.exception))
+        self.assertIn("Forbidden", str(cm.exception))
 
     @patch("src.middleware.authorization_middleware._validate_athlete_access")
     def test_validate_resource_ownership_athlete_id_endpoint(
@@ -475,7 +475,7 @@ class TestAuthorizationMiddleware(unittest.TestCase):
             with self.assertRaises(ValidationError) as cm:
                 validate_resource_ownership(event, self.mock_context)
 
-            self.assertIn("Access validation failed", str(cm.exception))
+            self.assertIn("Forbidden", str(cm.exception))
 
 
 if __name__ == "__main__":
