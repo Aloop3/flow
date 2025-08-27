@@ -29,7 +29,7 @@ def validate_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 def log_request(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Middleware to log request details.
+    Enhanced middleware to log request details with security context.
 
     :param event: The Lambda event
     :param context: The Lambda context
@@ -40,26 +40,57 @@ def log_request(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if hasattr(context, "aws_request_id"):
         request_id = context.aws_request_id
 
+    # Extract user info
+    user_id = (
+        event.get("requestContext", {})
+        .get("authorizer", {})
+        .get("claims", {})
+        .get("sub", "unknown")
+    )
+
+    # Extract security context for enhanced logging
+    source_ip = (
+        event.get("requestContext", {}).get("identity", {}).get("sourceIp", "unknown")
+    )
+
+    user_agent = event.get("headers", {}).get("User-Agent", "unknown")
+
+    # Check if this is a security-relevant endpoint
+    resource = event.get("resource", "")
+    method = event.get("httpMethod", "")
+    security_relevant = _is_security_relevant_endpoint(method, resource)
+
     log_data = {
         "request_id": request_id,
         "path": event.get("path", "unknown"),
-        "method": event.get("httpMethod", "unknown"),
-        "user": event.get("requestContext", {})
-        .get("authorizer", {})
-        .get("claims", {})
-        .get("sub", "unknown"),
+        "method": method if method else "unknown",  # Handle empty method
+        "user": user_id,
+        "source_ip": source_ip,
+        "user_agent": user_agent[:100],  # Truncate long user agents
+        "security_relevant": security_relevant,
     }
 
-    # Use string formatting instead of json.dumps to avoid serialization issues with mock objects
-    logger.info(
-        f"Request: path={log_data['path']}, method={log_data['method']}, request_id={log_data['request_id']}, user={log_data['user']}"
-    )
+    # Enhanced logging for security-relevant endpoints
+    if security_relevant:
+        logger.info(
+            f"SECURITY_REQUEST: path={log_data['path']}, method={log_data['method']}, "
+            f"request_id={log_data['request_id']}, user={log_data['user']}, "
+            f"ip={log_data['source_ip']}, user_agent={log_data['user_agent']}"
+        )
+    else:
+        # Standard logging for regular endpoints (maintains backward compatibility)
+        logger.info(
+            f"Request: path={log_data['path']}, method={log_data['method']}, "
+            f"request_id={log_data['request_id']}, user={log_data['user']}"
+        )
 
     return event
 
 
 def handle_errors(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
+    Enhanced error handling middleware - MAINTAINS BACKWARD COMPATIBILITY.
+
     Checks for:
     - Missing path parameters
     - Invalid JSON in request body
@@ -86,7 +117,7 @@ def handle_errors(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get("httpMethod", "").upper()
     path = event.get("path", "")
 
-    # Map of endpoints that require specific path parameters
+    # Map of endpoints that require specific path parameters (EXPANDED)
     path_param_requirements = {
         "GET /users/{user_id}": ["user_id"],
         "GET /blocks/{block_id}": ["block_id"],
@@ -101,6 +132,14 @@ def handle_errors(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "DELETE /weeks/{week_id}": ["week_id"],
         "DELETE /days/{day_id}": ["day_id"],
         "DELETE /workouts/{workout_id}": ["workout_id"],
+        # Additional endpoints from security audit
+        "GET /athletes/{athlete_id}/workouts": ["athlete_id"],
+        "GET /athletes/{athlete_id}/days/{day_id}/workout": ["athlete_id", "day_id"],
+        "POST /workouts/{workout_id}/start": ["workout_id"],
+        "POST /workouts/{workout_id}/finish": ["workout_id"],
+        "GET /analytics/max-weight/{athlete_id}": ["athlete_id"],
+        "GET /analytics/block-analysis/{athlete_id}": ["athlete_id"],
+        "GET /analytics/block-comparison/{athlete_id}": ["athlete_id"],
     }
 
     # Check if the current endpoint has path parameter requirements
@@ -193,3 +232,41 @@ def handle_errors(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             raise ValidationError("Request body is required")
 
     return event
+
+
+def _is_security_relevant_endpoint(method: str, resource: str) -> bool:
+    """
+    Determine if endpoint is security-relevant for enhanced logging.
+
+    :param method: HTTP method
+    :param resource: API Gateway resource path
+    :return: True if security-relevant
+    """
+    # Auth and user management endpoints
+    auth_patterns = ["/auth/", "/users", "/relationships"]
+
+    # Resource creation endpoints (potential for abuse)
+    creation_patterns = ["/blocks", "/workouts", "/exercises"]
+
+    # Admin or sensitive operations
+    sensitive_patterns = ["/analytics/"]
+
+    # Mark as security-relevant if:
+    # 1. Auth-related endpoints
+    # 2. POST requests to creation endpoints
+    # 3. DELETE requests (destructive)
+    # 4. Analytics/sensitive data access
+
+    if any(pattern in resource for pattern in auth_patterns):
+        return True
+
+    if method == "POST" and any(pattern in resource for pattern in creation_patterns):
+        return True
+
+    if method == "DELETE":
+        return True
+
+    if any(pattern in resource for pattern in sensitive_patterns):
+        return True
+
+    return False

@@ -3,7 +3,8 @@ import logging
 from src.services.user_service import UserService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
-from src.middleware.common_middleware import log_request, handle_errors
+from src.middleware.common_middleware import log_request, handle_errors, validate_auth
+from src.middleware.authorization_middleware import validate_resource_ownership
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -11,10 +12,17 @@ logger.setLevel(logging.INFO)
 user_service = UserService()
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [
+        log_request,  # 1. Log request with security context
+        validate_auth,  # 2. Validate JWT token
+        handle_errors,  # 3. Error handling
+    ]
+)
 def create_user(event, context):
     """
     Handle POST /users request to create a new user
+    SECURITY: Now requires authentication (was open endpoint!)
     """
     try:
         body = json.loads(event["body"])
@@ -45,10 +53,18 @@ def create_user(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [
+        log_request,  # 1. Log request with security context
+        validate_auth,  # 2. Validate JWT token
+        validate_resource_ownership,  # 3. Validate user can access {user_id}
+        handle_errors,  # 4. Error handling
+    ]
+)
 def get_user(event, context):
     """
     Handle GET /users/{user_id} request to get a user by ID
+    SECURITY: Now validates user can only access their own profile
     """
     try:
         user_id = event["pathParameters"]["user_id"]
@@ -65,10 +81,18 @@ def get_user(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [
+        log_request,  # 1. Log request with security context
+        validate_auth,  # 2. Validate JWT token
+        validate_resource_ownership,  # 3. Validate user can modify {user_id}
+        handle_errors,  # 4. Error handling
+    ]
+)
 def update_user(event, context):
     """
     Handle PUT /users/{user_id} request to update a user by ID
+    SECURITY: Now validates user can only update their own profile
     """
     try:
         user_id = event["pathParameters"]["user_id"]
@@ -90,17 +114,25 @@ def update_user(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [
+        log_request,  # 1. Log request with security context
+        validate_auth,  # 2. Validate JWT token
+        validate_resource_ownership,  # 3. Validate user can access {user_id}
+        handle_errors,  # 4. Error handling
+    ]
+)
 def create_custom_exercise(event, context):
     """
     Handle POST /users/{user_id}/custom-exercises request to create a custom exercise
+    SECURITY: Enhanced with middleware validation (replaces manual check)
     """
     try:
-        # Extract user_id from path and get authenticated user
+        # Extract user_id from path (authorization middleware validates access)
         user_id = event["pathParameters"]["user_id"]
-        authenticated_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
 
-        # Verify user can only create custom exercises for themselves
+        # Authorization middleware already confirmed access, but keep manual check for extra security
+        authenticated_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
         if user_id != authenticated_user_id:
             return create_response(
                 403, {"error": "Cannot create custom exercises for other users"}

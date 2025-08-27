@@ -8,7 +8,8 @@ from src.services.block_service import BlockService
 from src.services.relationship_service import RelationshipService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
-from src.middleware.common_middleware import log_request, handle_errors
+from src.middleware.common_middleware import log_request, handle_errors, validate_auth
+from src.middleware.authorization_middleware import validate_resource_ownership
 from .exercise_api import (
     convert_exercise_weights_for_display,
     get_user_weight_preference,
@@ -24,10 +25,13 @@ block_service = BlockService()
 relationship_service = RelationshipService()
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def create_workout(event, context):
     """
     Handle POST /workouts request to create a new workout
+    Security: Requires auth
     """
     try:
         body = json.loads(event["body"])
@@ -63,18 +67,18 @@ def create_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def create_day_workout(event, context):
     """
     Handle POST /days/{day_id}/workout request to create a workout for a specific day
+    Security: Requires auth
     """
     try:
         # Extract day_id from path parameters
         day_id = event["pathParameters"]["day_id"]
         body = json.loads(event["body"])
-
-        # Extract user info from cognito claims
-        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
 
         # Get the day to determine the actual athlete
         day = day_service.get_day(day_id)
@@ -93,17 +97,6 @@ def create_day_workout(event, context):
 
         # Use the block's athlete_id, not the current user's ID
         athlete_id = block.athlete_id
-
-        # Verify the current user has permission (either is the athlete or their coach)
-        if current_user_id != athlete_id:
-            # Check if current user is the coach
-            relationship = relationship_service.get_active_relationship(
-                coach_id=current_user_id, athlete_id=athlete_id
-            )
-            if not relationship:
-                return create_response(
-                    403, {"error": "Unauthorized to create workout for this athlete"}
-                )
 
         # Use the day's date from the database to ensure consistency
         date = day.date
@@ -146,7 +139,9 @@ def create_day_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def get_workout(event, context):
     """
     Handle GET /workouts/{workout_id} request to get a workout by ID
@@ -168,7 +163,9 @@ def get_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def get_workouts_by_athlete(event, context):
     """
     Handle GET /athletes/{athlete_id}/workouts request to get workouts by athlete ID
@@ -189,7 +186,9 @@ def get_workouts_by_athlete(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def get_workout_by_day(event, context):
     """
     Handle GET /athletes/{athlete_id}/days/{day_id}/workout request to get a workout for a specific day
@@ -231,7 +230,9 @@ def get_workout_by_day(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def update_workout(event, context):
     """
     Handle PUT /workouts/{workout_id} request to update a workout
@@ -254,7 +255,9 @@ def update_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def delete_workout(event, context):
     """
     Handle DELETE /workouts/{workout_id} request to delete a workout by ID
@@ -276,7 +279,7 @@ def delete_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware([log_request, validate_auth, handle_errors])
 def copy_workout(event, context):
     """
     Handle POST /workouts/copy request to copy a workout from one day to another
@@ -349,7 +352,9 @@ def copy_workout(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def start_workout_session(event, context):
     """
     Handle POST /workouts/{workout_id}/start request to start workout timing
@@ -357,25 +362,6 @@ def start_workout_session(event, context):
     try:
         # Extract workout_id from path parameters
         workout_id = event["pathParameters"]["workout_id"]
-
-        # Extract user info from cognito claims
-        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
-
-        # Get the workout to validate it exists and check permissions
-        workout = workout_service.get_workout(workout_id)
-        if not workout:
-            return create_response(404, {"error": "Workout not found"})
-
-        # Verify the current user has permission (either is the athlete or their coach)
-        if current_user_id != workout.athlete_id:
-            # Check if current user is the coach
-            relationship = relationship_service.get_active_relationship(
-                coach_id=current_user_id, athlete_id=workout.athlete_id
-            )
-            if not relationship:
-                return create_response(
-                    403, {"error": "Unauthorized to start timing for this workout"}
-                )
 
         # Start the workout session
         updated_workout = workout_service.start_workout_session(workout_id)
@@ -391,7 +377,9 @@ def start_workout_session(event, context):
         return create_response(500, {"error": str(e)})
 
 
-@with_middleware([log_request, handle_errors])
+@with_middleware(
+    [log_request, validate_auth, validate_resource_ownership, handle_errors]
+)
 def finish_workout_session(event, context):
     """
     Handle POST /workouts/{workout_id}/finish request to finish workout timing
@@ -400,26 +388,7 @@ def finish_workout_session(event, context):
         # Extract workout_id from path parameters
         workout_id = event["pathParameters"]["workout_id"]
 
-        # Extract user info from cognito claims
-        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
-
-        # Get the workout to validate it exists and check permissions
-        workout = workout_service.get_workout(workout_id)
-        if not workout:
-            return create_response(404, {"error": "Workout not found"})
-
-        # Verify the current user has permission (either is the athlete or their coach)
-        if current_user_id != workout.athlete_id:
-            # Check if current user is the coach
-            relationship = relationship_service.get_active_relationship(
-                coach_id=current_user_id, athlete_id=workout.athlete_id
-            )
-            if not relationship:
-                return create_response(
-                    403, {"error": "Unauthorized to finish timing for this workout"}
-                )
-
-        # Finish the workout session
+        # Finish the workout session (middleware handles authorization)
         updated_workout = workout_service.finish_workout_session(workout_id)
 
         if not updated_workout:
