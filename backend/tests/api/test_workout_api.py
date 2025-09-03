@@ -788,16 +788,56 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 400)
         self.assertIn("No exercises provided", response["body"])
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
     @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
     @patch("src.services.day_service.DayService.get_day")
     @patch("src.services.workout_service.WorkoutService.create_workout")
     def test_copy_workout_success(
-        self, mock_create_workout, mock_get_day, mock_get_workout
+        self,
+        mock_create_workout,
+        mock_get_day,
+        mock_get_workout,
+        mock_get_week,
+        mock_get_block,
+        mock_get_relationship,
     ):
         """
         Test successful workout copying from one day to another
         """
-        # Setup mocks
+        # Setup mocks - source day, week, block structure
+        mock_source_day = Day(
+            day_id="source-day-123",
+            week_id="week123",
+            day_number=1,
+            date="2025-03-15",
+            focus="squat",
+            notes="",
+        )
+
+        mock_week = Week(
+            week_id="week123", block_id="block456", week_number=1, notes=""
+        )
+        mock_get_week.return_value = mock_week
+
+        mock_block = Block(
+            block_id="block456",
+            athlete_id="athlete456",
+            coach_id=None,
+            title="Test Block",
+            description="Test",
+            start_date="2025-03-01",
+            end_date="2025-03-31",
+            status="active",
+        )
+        mock_get_block.return_value = mock_block
+
+        # No relationship needed since user is the athlete
+        mock_get_relationship.return_value = None
+
         # Source workout with exercises
         mock_source_workout = MagicMock()
         mock_source_workout.exercises = [
@@ -823,10 +863,10 @@ class TestWorkoutAPI(BaseTest):
             None,
         ]  # First return source workout, then None for target
 
-        # Mock day
-        mock_day = MagicMock()
-        mock_day.date = "2025-03-20"
-        mock_get_day.return_value = mock_day
+        # Mock target day
+        mock_target_day = MagicMock()
+        mock_target_day.date = "2025-03-20"
+        mock_get_day.side_effect = [mock_source_day, mock_target_day]
 
         # Mock new workout
         mock_new_workout = MagicMock()
@@ -860,7 +900,10 @@ class TestWorkoutAPI(BaseTest):
         # Verify service calls
         mock_get_workout.assert_any_call("athlete456", "source-day-123")
         mock_get_workout.assert_any_call("athlete456", "target-day-789")
-        mock_get_day.assert_called_once_with("target-day-789")
+        # get_day called twice - first for source day, then for target day
+        self.assertEqual(mock_get_day.call_count, 2)
+        mock_get_day.assert_any_call("source-day-123")
+        mock_get_day.assert_any_call("target-day-789")
 
         # Verify that create_workout was called with transformed exercises
         mock_create_workout.assert_called_once()
@@ -878,12 +921,56 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(exercises[1]["exercise_id"], "ex2")
         self.assertEqual(exercises[1]["sets"], 4)
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
     @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
-    def test_copy_workout_source_not_found(self, mock_get_workout):
+    @patch("src.services.day_service.DayService.get_day")
+    def test_copy_workout_source_not_found(
+        self,
+        mock_get_day,
+        mock_get_workout,
+        mock_get_week,
+        mock_get_block,
+        mock_get_relationship,
+    ):
         """
         Test copying when source workout doesn't exist
         """
-        # Setup - source workout not found
+        # Setup - source day, week, block structure but workout not found
+        mock_source_day = Day(
+            day_id="source-day-123",
+            week_id="week123",
+            day_number=1,
+            date="2025-03-15",
+            focus="squat",
+            notes="",
+        )
+        mock_get_day.return_value = mock_source_day
+
+        mock_week = Week(
+            week_id="week123", block_id="block456", week_number=1, notes=""
+        )
+        mock_get_week.return_value = mock_week
+
+        mock_block = Block(
+            block_id="block456",
+            athlete_id="athlete456",
+            coach_id=None,
+            title="Test Block",
+            description="Test",
+            start_date="2025-03-01",
+            end_date="2025-03-31",
+            status="active",
+        )
+        mock_get_block.return_value = mock_block
+
+        # No relationship needed since user is the athlete
+        mock_get_relationship.return_value = None
+
+        # Source workout not found
         mock_get_workout.return_value = None
 
         event = {
@@ -903,16 +990,60 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["error"], "Source workout not found")
         mock_get_workout.assert_called_once_with("athlete456", "source-day-123")
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
     @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
     @patch("src.services.day_service.DayService.get_day")
-    def test_copy_workout_target_not_found(self, mock_get_day, mock_get_workout):
+    def test_copy_workout_target_not_found(
+        self,
+        mock_get_day,
+        mock_get_workout,
+        mock_get_week,
+        mock_get_block,
+        mock_get_relationship,
+    ):
         """
         Test copying when target day doesn't exist
         """
-        # Setup - source workout exists but target day doesn't
+        # Setup - source day, week, block exist, source workout exists, but target day doesn't
+        mock_source_day = Day(
+            day_id="source-day-123",
+            week_id="week123",
+            day_number=1,
+            date="2025-03-15",
+            focus="squat",
+            notes="",
+        )
+
+        mock_week = Week(
+            week_id="week123", block_id="block456", week_number=1, notes=""
+        )
+        mock_get_week.return_value = mock_week
+
+        mock_block = Block(
+            block_id="block456",
+            athlete_id="athlete456",
+            coach_id=None,
+            title="Test Block",
+            description="Test",
+            start_date="2025-03-01",
+            end_date="2025-03-31",
+            status="active",
+        )
+        mock_get_block.return_value = mock_block
+
+        # No relationship needed since user is the athlete
+        mock_get_relationship.return_value = None
+
+        # Source workout exists
         mock_source_workout = MagicMock()
         mock_get_workout.return_value = mock_source_workout
-        mock_get_day.return_value = None
+
+        # Source day exists, target day doesn't exist
+        mock_get_day.side_effect = [mock_source_day, None]
 
         event = {
             "body": json.dumps(
@@ -929,20 +1060,67 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Target day not found")
+        # Verify calls - get_day called twice (source + target), get_workout called once
+        self.assertEqual(mock_get_day.call_count, 2)
         mock_get_workout.assert_called_once_with("athlete456", "source-day-123")
-        mock_get_day.assert_called_once_with("target-day-789")
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
     @patch("src.services.workout_service.WorkoutService.get_workout_by_day")
     @patch("src.services.day_service.DayService.get_day")
-    def test_copy_workout_target_has_workout(self, mock_get_day, mock_get_workout):
+    def test_copy_workout_target_has_workout(
+        self,
+        mock_get_day,
+        mock_get_workout,
+        mock_get_week,
+        mock_get_block,
+        mock_get_relationship,
+    ):
         """
         Test copying when target day already has a workout
         """
-        # Setup - both source and target workouts exist
+        # Setup - source day, week, block structure
+        mock_source_day = Day(
+            day_id="source-day-123",
+            week_id="week123",
+            day_number=1,
+            date="2025-03-15",
+            focus="squat",
+            notes="",
+        )
+
+        mock_week = Week(
+            week_id="week123", block_id="block456", week_number=1, notes=""
+        )
+        mock_get_week.return_value = mock_week
+
+        mock_block = Block(
+            block_id="block456",
+            athlete_id="athlete456",
+            coach_id=None,
+            title="Test Block",
+            description="Test",
+            start_date="2025-03-01",
+            end_date="2025-03-31",
+            status="active",
+        )
+        mock_get_block.return_value = mock_block
+
+        # No relationship needed since user is the athlete
+        mock_get_relationship.return_value = None
+
+        # Both source and target workouts exist
         mock_source_workout = MagicMock()
         mock_target_workout = MagicMock()
         mock_get_workout.side_effect = [mock_source_workout, mock_target_workout]
-        mock_get_day.return_value = MagicMock()
+
+        # Both days exist
+        mock_target_day = MagicMock()
+        mock_target_day.date = "2025-03-20"
+        mock_get_day.side_effect = [mock_source_day, mock_target_day]
 
         event = {
             "body": json.dumps(
@@ -1440,6 +1618,114 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Database connection error")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
+    @patch("src.services.day_service.DayService.get_day")
+    def test_copy_workout_source_day_not_found(
+        self, mock_get_day, mock_get_week, mock_get_block, mock_get_relationship
+    ):
+        """Test copying when source day doesn't exist"""
+        mock_get_day.return_value = None
+
+        event = {
+            "body": json.dumps(
+                {"source_day_id": "nonexistent", "target_day_id": "target-day"}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        response = workout_api.copy_workout(event, {})
+
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Source day not found")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
+    @patch("src.services.day_service.DayService.get_day")
+    def test_copy_workout_week_not_found(
+        self, mock_get_day, mock_get_week, mock_get_block, mock_get_relationship
+    ):
+        """Test copying when week doesn't exist"""
+        mock_get_day.return_value = MagicMock(day_id="source-day", week_id="week123")
+        mock_get_week.return_value = None
+
+        event = {
+            "body": json.dumps(
+                {"source_day_id": "source-day", "target_day_id": "target-day"}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        response = workout_api.copy_workout(event, {})
+
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Week not found")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
+    @patch("src.services.day_service.DayService.get_day")
+    def test_copy_workout_block_not_found(
+        self, mock_get_day, mock_get_week, mock_get_block, mock_get_relationship
+    ):
+        """Test copying when block doesn't exist"""
+        mock_get_day.return_value = MagicMock(day_id="source-day", week_id="week123")
+        mock_get_week.return_value = MagicMock(week_id="week123", block_id="block456")
+        mock_get_block.return_value = None
+
+        event = {
+            "body": json.dumps(
+                {"source_day_id": "source-day", "target_day_id": "target-day"}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
+        response = workout_api.copy_workout(event, {})
+
+        self.assertEqual(response["statusCode"], 404)
+        response_body = json.loads(response["body"])
+        self.assertEqual(response_body["error"], "Block not found")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.week_service.WeekService.get_week")
+    @patch("src.services.day_service.DayService.get_day")
+    def test_copy_workout_unauthorized_coach(
+        self, mock_get_day, mock_get_week, mock_get_block, mock_get_relationship
+    ):
+        """Test copying when coach doesn't have relationship with athlete"""
+        mock_get_day.return_value = MagicMock(day_id="source-day", week_id="week123")
+        mock_get_week.return_value = MagicMock(week_id="week123", block_id="block456")
+        mock_get_block.return_value = MagicMock(
+            block_id="block456", athlete_id="different-athlete"
+        )
+        mock_get_relationship.return_value = None  # No relationship found
+
+        event = {
+            "body": json.dumps(
+                {"source_day_id": "source-day", "target_day_id": "target-day"}
+            ),
+            "requestContext": {
+                "authorizer": {"claims": {"sub": "coach123"}}
+            },  # Coach trying to access
+        }
+        response = workout_api.copy_workout(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        response_body = json.loads(response["body"])
+        self.assertEqual(
+            response_body["error"], "Unauthorized to copy workout for this athlete"
+        )
 
 
 if __name__ == "__main__":

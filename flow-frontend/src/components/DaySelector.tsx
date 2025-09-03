@@ -42,12 +42,22 @@ const DaySelector = ({
         if (sortedWeeks.length > 0) {
           setActiveWeek(sortedWeeks[0].week_id);
           
-          // Fetch days for all weeks
+          // Fetch days for all weeks in parallel (mobile-friendly)
+          const daysPromises = sortedWeeks.map(async (week) => {
+            try {
+              const daysData = await getDays(week.week_id);
+              return { week_id: week.week_id, data: daysData };
+            } catch (error) {
+              console.error(`Error fetching days for week ${week.week_id}:`, error);
+              return { week_id: week.week_id, data: [] };
+            }
+          });
+          
+          const daysResults = await Promise.all(daysPromises);
           const daysObj: Record<string, Day[]> = {};
-          for (const week of sortedWeeks) {
-            const daysData = await getDays(week.week_id);
-            daysObj[week.week_id] = daysData;
-          }
+          daysResults.forEach(result => {
+            daysObj[result.week_id] = result.data;
+          });
           setDays(daysObj);
         }
       } catch (error) {
