@@ -295,8 +295,38 @@ def copy_workout(event, context):
                 {"error": "Missing required fields: source_day_id and target_day_id"},
             )
 
-        # Extract user info from cognito claims
-        athlete_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        # Extract current user info from cognito claims
+        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+
+        # Get the source day to determine the actual athlete
+        day_service = DayService()
+        source_day = day_service.get_day(source_day_id)
+        if not source_day:
+            return create_response(404, {"error": "Source day not found"})
+
+        # Get the week to find the block
+        week = week_service.get_week(source_day.week_id)
+        if not week:
+            return create_response(404, {"error": "Week not found"})
+
+        # Get the block to find the actual athlete
+        block = block_service.get_block(week.block_id)
+        if not block:
+            return create_response(404, {"error": "Block not found"})
+
+        # Use the block's athlete_id, not the current user's ID
+        athlete_id = block.athlete_id
+
+        # Verify the current user has permission (either is the athlete or their coach)
+        if current_user_id != athlete_id:
+            # Check if current user is the coach
+            relationship = relationship_service.get_active_relationship(
+                coach_id=current_user_id, athlete_id=athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized to copy workout for this athlete"}
+                )
 
         # Get source workout
         source_workout = workout_service.get_workout_by_day(athlete_id, source_day_id)
