@@ -10,9 +10,9 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
 
-    // Capture stack trace for better debugging
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ApiError);
+    // Capture stack trace for better debugging 
+    if ((Error as any).captureStackTrace) {
+      (Error as any).captureStackTrace(this, ApiError);
     }
   }
 
@@ -852,12 +852,16 @@ export const copyWorkout = async (sourceDayId: string, targetDayId: string): Pro
 
     // Return true if successful but no detailed response
     return true;
-  } catch (error) {
-    // Check for specific status codes
-    if (error instanceof ApiError && error.statusCode === 409) {
-      throw new ApiError('Target day already has a workout. Please delete it first.', 409, error);
-    }
+  } catch (error: any) {
     console.error('Error copying workout:', error);
+    
+    // Check for 409 conflict in Amplify error response
+    const status = error?.response?.status || error?.status || error?.$metadata?.httpStatusCode;
+    
+    if (status === 409) {
+      throw new ApiError('Target day already has a workout. Please select an empty day.', 409, error);
+    }
+    
     throw error;
   }
 };

@@ -41,6 +41,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const [notesContent, setNotesContent] = useState('');
   const [isEditingFocus, setIsEditingFocus] = useState(false);
   const [isSavingFocus, setIsSavingFocus] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const handleWorkoutTimerUpdated = (updatedWorkout: Workout) => {
     setWorkout(updatedWorkout);
   };
@@ -202,6 +203,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     if (!dayId) return;
 
     setCopyError(null);
+    setIsCopying(true);
 
     try {
       console.log('Starting workout copy from day', dayId, 'to day', targetDayId);
@@ -214,12 +216,13 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
       console.error('Error copying workout:', error);
 
       // Display specific error message if available from API
-      if (ApiError.isConflict(error)) {
-        setCopyError('Target day already has a workout. Please delete it first.');
+      if (error instanceof ApiError) {
+        setCopyError(error.message);
       } else {
         setCopyError('Failed to copy workout. Please try again.');
       }
     } finally {
+      setIsCopying(false);
     }
   };
 
@@ -477,19 +480,13 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                     <span className="ml-2 text-sm text-gray-500">{/* ({workout.status}) */}</span>
                   </h2>
                   <div className="flex space-x-2">
-                    {/* <button
+                    <button
                       onClick={() => setShowCopyModal(true)}
                       disabled={isCopying}
                       className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
                     >
                       {isCopying ? 'Copying...' : 'Copy to Another Day'}
                     </button>
-                    <button
-                      onClick={() => setShowWorkoutForm(true)}
-                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                    >
-                      Edit Workout
-                    </button> */}
                   </div>
                 </div>
 
