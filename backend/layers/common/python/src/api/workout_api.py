@@ -352,16 +352,30 @@ def copy_workout(event, context):
         # Extract exercises from source workout to copy (without completion data)
         exercises_to_copy = []
         for exercise in source_workout.exercises:
-            exercises_to_copy.append(
-                {
-                    "exercise_id": exercise.exercise_id,
-                    "exercise_type": exercise.exercise_type,
-                    "sets": exercise.sets,
-                    "reps": exercise.reps,
-                    "weight": exercise.weight,
-                    "notes": exercise.notes,
-                }
-            )
+            exercise_data = {
+                "exercise_id": exercise.exercise_id,
+                "exercise_type": exercise.exercise_type,
+                "sets": exercise.sets,
+                "reps": exercise.reps,
+                "weight": exercise.weight,
+                "notes": exercise.notes,
+            }
+
+            # Include sets_data if it exists to preserve individual set details (without completion data)
+            if hasattr(exercise, "sets_data") and exercise.sets_data:
+                cleaned_sets_data = []
+                for set_data in exercise.sets_data:
+                    cleaned_set = {
+                        "set_number": set_data.get("set_number"),
+                        "weight": set_data.get("weight"),
+                        "reps": set_data.get("reps"),
+                        "rpe": set_data.get("rpe"),
+                        "completed": False,  # Reset completion status
+                    }
+                    cleaned_sets_data.append(cleaned_set)
+                exercise_data["sets_data"] = cleaned_sets_data
+
+            exercises_to_copy.append(exercise_data)
 
         # Create new workout for target day
         new_workout = workout_service.create_workout(
