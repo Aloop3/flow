@@ -360,9 +360,9 @@ def copy_workout(event, context):
                 "weight": exercise.weight,
                 "notes": exercise.notes,
             }
-            
+
             # Include sets_data if it exists to preserve individual set details (without completion data)
-            if hasattr(exercise, 'sets_data') and exercise.sets_data:
+            if hasattr(exercise, "sets_data") and exercise.sets_data:
                 cleaned_sets_data = []
                 for set_data in exercise.sets_data:
                     cleaned_set = {
@@ -374,7 +374,7 @@ def copy_workout(event, context):
                     }
                     cleaned_sets_data.append(cleaned_set)
                 exercise_data["sets_data"] = cleaned_sets_data
-                
+
             exercises_to_copy.append(exercise_data)
 
         # Create new workout for target day
