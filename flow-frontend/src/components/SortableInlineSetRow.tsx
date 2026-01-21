@@ -1,7 +1,11 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { setSchema, type SetFormData } from '@/schemas/setSchema';
 import type { ExerciseSetData } from '../services/api';
+import { Input } from '@/components/ui/input';
 
 interface SortableInlineSetRowProps {
   exerciseId: string;
@@ -58,13 +62,12 @@ const SortableInlineSetRow: React.FC<SortableInlineSetRowProps> = (props) => {
         </div>
       </td>
 
-      {/* Always-Visible Input Content */}
+      {/* Form Content */}
       <InlineSetRowContent {...props} />
     </tr>
   );
 };
 
-// Enhanced content component with optimistic updates
 const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   exerciseId,
   setNumber,
@@ -80,177 +83,96 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   const [error, setError] = React.useState<string | null>(null);
   const [notesExpanded, setNotesExpanded] = React.useState(false);
 
-  // Single state for display values including completion status
-  const [displayData, setDisplayData] = React.useState<{
-    reps: number;
-    weight: number;
-    rpe: number | undefined;
-    notes: string;
-    completed: boolean;
-  }>({
-    reps: existingData?.reps ?? previousSetData?.reps ?? plannedReps,
+  // Compute default values once - no useEffect syncing needed
+  const defaultValues: SetFormData = {
     weight: existingData?.weight ?? previousSetData?.weight ?? plannedWeight,
+    reps: existingData?.reps ?? previousSetData?.reps ?? plannedReps,
     rpe: existingData?.rpe ?? previousSetData?.rpe ?? undefined,
     notes: existingData?.notes ?? '',
     completed: existingData?.completed ?? false,
+  };
+
+  const form = useForm<SetFormData>({
+    resolver: zodResolver(setSchema),
+    defaultValues,
   });
 
-  const notesRef = React.useRef<HTMLTextAreaElement>(null);
-  const isCompleted = displayData.completed;
+  const { watch, setValue, getValues } = form;
+  const isCompleted = watch('completed');
+  const notes = watch('notes');
 
-  // Auto-populate from previous set when creating new set
-  React.useEffect(() => {
-    if (!existingData && previousSetData) {
-      setDisplayData({
-        reps: previousSetData.reps,
-        weight: previousSetData.weight,
-        rpe: previousSetData.rpe,
-        notes: '', // Don't copy notes from previous set
-        completed: false,
-      });
-    }
-  }, [existingData, previousSetData]);
+  // Save to API
+  const saveToApi = async (data: Partial<SetFormData>, skipParentRefresh = false) => {
+    const currentValues = getValues();
+    const saveData = { ...currentValues, ...data };
 
-  // Update component state when existingData changes from parent
-  React.useEffect(() => {
-    if (existingData) {
-      setDisplayData(prev => {
-        // Only update non-completion fields to preserve optimistic updates
-        return {
-          reps: existingData.reps,
-          weight: existingData.weight,
-          rpe: existingData.rpe,
-          notes: existingData.notes || '',
-          completed: prev.completed, // Keep local completion state
-        };
-      });
-    }
-  }, [existingData]);
-
-  const parseNumber = (value: string, fallback: number, min?: number, max?: number): number => {
-    if (!value || value.trim() === '') return fallback;
-    const num = parseFloat(value);
-    if (isNaN(num)) return fallback;
-    if (min !== undefined && num < min) return min;
-    if (max !== undefined && num > max) return max;
-    return num;
-  };
-
-  const commitSetData = async (updatedData: Partial<typeof displayData>) => {
-    const newData = { ...displayData, ...updatedData };
     setError(null);
+    setIsSaving(true);
 
-    // Only save if this set has been interacted with
-    if (existingData || Object.keys(updatedData).length > 0) {
-      try {
-        setIsSaving(true);
-        
-        await import('../services/api').then(({ trackExerciseSet }) =>
-          trackExerciseSet(exerciseId, setNumber, {
-            reps: newData.reps,
-            weight: newData.weight,
-            rpe: newData.rpe || undefined,
-            completed: newData.completed || false,
-            notes: newData.notes || undefined,
-          })
-        );
-        
-        // Only refresh parent occasionally, not on every completion toggle
-        if (updatedData.completed === undefined) {
-          onSetUpdated();
-        }
-        
-      } catch (err) {
-        console.error('Error persisting set changes:', err);
-        setError('Failed to save changes');
-        
-        // Retry after brief delay
-        setTimeout(() => {
-          commitSetData(updatedData);
-        }, 1000);
-        
-      } finally {
-        setIsSaving(false);
+    try {
+      await import('../services/api').then(({ trackExerciseSet }) =>
+        trackExerciseSet(exerciseId, setNumber, {
+          reps: saveData.reps,
+          weight: saveData.weight,
+          rpe: saveData.rpe || undefined,
+          completed: saveData.completed || false,
+          notes: saveData.notes || undefined,
+        })
+      );
+
+      if (!skipParentRefresh) {
+        onSetUpdated();
       }
+    } catch (err: any) {
+      console.error('Error saving set:', err);
+      setError(err.message || 'Failed to save changes');
+      throw err;
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Intent-based saving function
-  const handleInputBlur = (field: string, value: any) => {
-    commitSetData({ [field]: value });
-  };
-
-  // Change handlers - update local state immediately, no auto-save
-  const handleWeightChange = (value: string) => {
-    const weight = parseNumber(value, displayData.weight, 0);
-    setDisplayData(prev => ({ ...prev, weight }));
-  };
-
-  const handleRepsChange = (value: string) => {
-    const reps = parseNumber(value, displayData.reps, 1);
-    setDisplayData(prev => ({ ...prev, reps }));
-  };
-
-  const handleRpeChange = (value: string) => {
-    const rpe = value.trim() ? 
-      parseNumber(value, displayData.rpe || 0, 0, 10) : undefined;
-    setDisplayData(prev => ({ ...prev, rpe }));
-  };
-
-  const validateData = () => {
-    if (displayData.reps <= 0) {
-      throw new Error('Reps must be greater than zero');
-    }
-    if (displayData.weight < 0) {
-      throw new Error('Weight cannot be negative');
-    }
-    if (displayData.rpe !== undefined && (displayData.rpe < 0 || displayData.rpe > 10)) {
-      throw new Error('RPE must be between 0 and 10');
+  // Handle blur - save individual field
+  const handleFieldBlur = async (field: keyof SetFormData) => {
+    const value = getValues(field);
+    try {
+      await saveToApi({ [field]: value });
+    } catch {
+      // Error already set in saveToApi
     }
   };
 
-  // Truly instant completion toggle - no API dependency
-  const handleToggleCompletion = () => {
+  // Handle completion toggle - instant UI, background save
+  const handleToggleCompletion = async () => {
     if (readOnly) return;
 
-    const newCompletedState = !displayData.completed;
-    
-    // Instant visual updates (no async, no await)
-    setDisplayData(prev => ({ ...prev, completed: newCompletedState }));
+    const newCompletedState = !isCompleted;
+
+    // Instant UI update
+    setValue('completed', newCompletedState);
     onSetCompletion?.(setNumber, newCompletedState);
-    
-    // Background save - completely detached from UI
-    const saveInBackground = async () => {
-      try {
-        validateData();
-        await import('../services/api').then(({ trackExerciseSet }) =>
-          trackExerciseSet(exerciseId, setNumber, {
-            reps: displayData.reps,
-            weight: displayData.weight,
-            rpe: displayData.rpe || undefined,
-            completed: newCompletedState,
-            notes: displayData.notes || undefined,
-          })
-        );
-        
-        // SUCCESS: No UI updates, just silent save
-        console.log('✅ Set completion saved silently');
-        
-      } catch (err: any) {
-        console.error('❌ Background save failed:', err);
-        // FAILURE: Only revert if save fails
-        setDisplayData(prev => ({ ...prev, completed: !newCompletedState }));
-        onSetCompletion?.(setNumber, !newCompletedState);
-        setError(err.message || 'Failed to save set completion');
-      }
-    };
-    
-    // Fire and forget - no UI blocking
-    saveInBackground();
+
+    // Background save
+    try {
+      await saveToApi({ completed: newCompletedState }, true);
+    } catch {
+      // Revert on failure
+      setValue('completed', !newCompletedState);
+      onSetCompletion?.(setNumber, !newCompletedState);
+    }
   };
 
   const toggleNotes = () => {
     setNotesExpanded(!notesExpanded);
+  };
+
+  const handleSaveNotes = async () => {
+    try {
+      await saveToApi({ notes: getValues('notes') });
+      setNotesExpanded(false);
+    } catch {
+      // Error displayed via state
+    }
   };
 
   return (
@@ -259,8 +181,8 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       <td className="px-0.5 md:px-2 py-2 text-center font-medium w-10 md:w-16">
         <div className="flex items-center justify-center">
           <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-            isCompleted 
-              ? 'bg-green-100 text-green-800' 
+            isCompleted
+              ? 'bg-green-100 text-green-800'
               : 'bg-gray-100 text-gray-600'
           }`}>
             {setNumber}
@@ -268,52 +190,47 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         </div>
       </td>
 
-      {/* Weight - Wider for values like 110.23 */}
+      {/* Weight */}
       <td className="px-0.5 md:px-2 py-2 w-20 md:w-32">
-        <input
+        <Input
           type="number"
           inputMode="decimal"
-          step="0.5"
-          value={displayData.weight}
-          onChange={(e) => handleWeightChange(e.target.value)}
-          onBlur={() => handleInputBlur('weight', displayData.weight)}
+          step={0.5}
+          {...form.register('weight', { valueAsNumber: true })}
+          onBlur={() => handleFieldBlur('weight')}
           onFocus={(e) => e.target.select()}
-          className="w-16 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
+          className="w-16 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block h-auto"
           disabled={readOnly}
           placeholder={`${plannedWeight}`}
         />
       </td>
 
-      {/* Reps - With onBlur save */}
+      {/* Reps */}
       <td className="px-0.5 md:px-2 py-2 w-13 md:w-24">
-
-        <input
+        <Input
           type="number"
           inputMode="numeric"
-          pattern="[0-9]*"
-          value={displayData.reps}
-          onChange={(e) => handleRepsChange(e.target.value)}
-          onBlur={() => handleInputBlur('reps', displayData.reps)}
+          {...form.register('reps', { valueAsNumber: true })}
+          onBlur={() => handleFieldBlur('reps')}
           onFocus={(e) => e.target.select()}
-          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
+          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block h-auto"
           disabled={readOnly}
           placeholder={`${plannedReps}`}
         />
       </td>
 
-      {/* RPE - With onBlur save */}
+      {/* RPE */}
       <td className="px-0.5 md:px-2 py-2 w-13 md:w-24">
-        <input
+        <Input
           type="number"
           inputMode="decimal"
-          step="0.5"
-          min="1"
-          max="10"
-          value={displayData.rpe || ''}
-          onChange={(e) => handleRpeChange(e.target.value)}
-          onBlur={() => handleInputBlur('rpe', displayData.rpe)}
+          step={0.5}
+          min={1}
+          max={10}
+          {...form.register('rpe', { valueAsNumber: true })}
+          onBlur={() => handleFieldBlur('rpe')}
           onFocus={(e) => e.target.select()}
-          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block"
+          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block h-auto"
           placeholder="RPE"
           disabled={readOnly}
         />
@@ -323,13 +240,14 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
       <td className="px-0.5 md:px-2 py-2 w-11 md:w-28">
         <div className="flex justify-center items-center">
           <button
+            type="button"
             onClick={toggleNotes}
             className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
-              displayData.notes 
-                ? 'bg-blue-100 text-blue-600' 
+              notes
+                ? 'bg-blue-100 text-blue-600'
                 : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
             }`}
-            title={displayData.notes ? 'View notes' : 'Add notes'}
+            title={notes ? 'View notes' : 'Add notes'}
             disabled={readOnly}
           >
             <span className="text-xs">📝</span>
@@ -338,9 +256,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         {notesExpanded && (
           <div className="absolute z-10 mt-1 p-2 bg-white border border-gray-300 rounded-lg shadow-lg min-w-48">
             <textarea
-              ref={notesRef}
-              value={displayData.notes}
-              onChange={(e) => setDisplayData(prev => ({ ...prev, notes: e.target.value }))}
+              {...form.register('notes')}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') setNotesExpanded(false);
               }}
@@ -351,15 +267,15 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
             />
             <div className="flex justify-end mt-2 space-x-2">
               <button
-                onClick={() => {
-                  commitSetData({ notes: displayData.notes });
-                  setNotesExpanded(false);
-                }}
+                type="button"
+                onClick={handleSaveNotes}
                 className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
+                disabled={isSaving}
               >
-                Save
+                {isSaving ? 'Saving...' : 'Save'}
               </button>
               <button
+                type="button"
                 onClick={() => setNotesExpanded(false)}
                 className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800"
               >
@@ -370,14 +286,15 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
         )}
       </td>
 
-      {/* Completion Status - Instant Visual Feedback */}
+      {/* Completion Status */}
       <td className="px-0.5 md:px-2 py-2 text-center w-11 md:w-16">
         <button
+          type="button"
           onClick={handleToggleCompletion}
           disabled={readOnly}
           className={`w-5 h-5 rounded-full flex items-center justify-center mx-auto transition-all duration-200 ${
-            readOnly 
-              ? 'cursor-not-allowed opacity-50' 
+            readOnly
+              ? 'cursor-not-allowed opacity-50'
               : 'cursor-pointer hover:scale-110 transform'
           } ${
             isCompleted
