@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
-import Modal from './Modal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { getWeeks, getDays } from '../services/api';
 import type { Week, Day } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
@@ -76,64 +83,69 @@ const DaySelector = ({
   };
   
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      {isLoading ? (
-        <div className="space-y-4">
-          <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-          <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Week tabs */}
-          {weeks.length > 0 && (
-            <>
-              <div className="flex overflow-x-auto pb-2 border-b">
-                {weeks.map(week => (
-                  <button
-                    key={week.week_id}
-                    onClick={() => setActiveWeek(week.week_id)}
-                    className={`px-4 py-2 text-sm whitespace-nowrap ${
-                      activeWeek === week.week_id
-                        ? 'border-b-2 border-blue-500 text-blue-600 font-medium'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Week {week.week_number}
-                  </button>
-                ))}
-              </div>
-              
-              {/* Days grid */}
-              {activeWeek && days[activeWeek] && (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {days[activeWeek]
-                    .filter(day => day.day_id !== excludeDayId)
-                    .sort((a, b) => a.day_number - b.day_number)
-                    .map(day => (
-                      <button
-                        key={day.day_id}
-                        onClick={() => handleDayClick(day.day_id)}
-                        className="border rounded-md p-3 text-left hover:bg-gray-50"
-                      >
-                        <p className="font-medium">Day {day.day_number}</p>
-                        <p className="text-sm text-gray-500">
-                          {formatDate(day.date, { weekday: 'short', month: 'short', day: 'numeric' })}
-                        </p>
-                        {day.focus && (
-                          <span className="mt-1 inline-block px-2 py-0.5 text-xs bg-gray-100 rounded-full">
-                            {day.focus}
-                          </span>
-                        )}
-                      </button>
-                    ))
-                  }
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Week tabs */}
+            {weeks.length > 0 && (
+              <>
+                <div className="flex overflow-x-auto pb-2 border-b">
+                  {weeks.map(week => (
+                    <button
+                      key={week.week_id}
+                      onClick={() => setActiveWeek(week.week_id)}
+                      className={`px-4 py-2 text-sm whitespace-nowrap ${
+                        activeWeek === week.week_id
+                          ? 'border-b-2 border-blue-500 text-blue-600 font-medium'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Week {week.week_number}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </Modal>
+
+                {/* Days grid */}
+                {activeWeek && days[activeWeek] && (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {days[activeWeek]
+                      .filter(day => day.day_id !== excludeDayId)
+                      .sort((a, b) => a.day_number - b.day_number)
+                      .map(day => (
+                        <button
+                          key={day.day_id}
+                          onClick={() => handleDayClick(day.day_id)}
+                          className="border rounded-md p-3 text-left hover:bg-gray-50"
+                        >
+                          <p className="font-medium">Day {day.day_number}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDate(day.date, { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </p>
+                          {day.focus && (
+                            <Badge variant="secondary" className="mt-1">
+                              {day.focus}
+                            </Badge>
+                          )}
+                        </button>
+                      ))
+                    }
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 };
 
