@@ -1,3 +1,5 @@
+// Replaced with Dialog (delete in the future)
+
 import { ReactNode } from 'react';
 
 interface ModalProps {
