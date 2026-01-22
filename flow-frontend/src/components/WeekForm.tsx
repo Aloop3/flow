@@ -1,5 +1,19 @@
-import { useState, FormEvent, useEffect } from 'react';
-import FormButton from './FormButton';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 
 interface WeekFormProps {
   blockId: string;
@@ -13,141 +27,101 @@ interface WeekFormProps {
   existingWeekNumbers?: number[];
 }
 
-const WeekForm = ({ 
-  blockId, 
-  onSubmit, 
-  isLoading, 
+const WeekForm = ({
+  blockId,
+  onSubmit,
+  isLoading,
   onCancel,
   initialData = {},
-  existingWeekNumbers = [] 
-  }: WeekFormProps) => {
-  const [formData, setFormData] = useState({
-    block_id: blockId,
-    week_number: initialData.week_number || 1,
-    notes: initialData.notes || '',
+  existingWeekNumbers = []
+}: WeekFormProps) => {
+  // Create schema with custom validation for unique week numbers
+  const weekFormSchema = z.object({
+    block_id: z.string(),
+    week_number: z.coerce.number().min(1, 'Week number must be positive').refine(
+      (val) => !existingWeekNumbers.includes(val) || val === initialData.week_number,
+      'Week number already exists in this program'
+    ),
+    notes: z.string().optional(),
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [suggestedWeekNumber, setSuggestedWeekNumber] = useState(1);
 
-  // Find the next available week number on component mount
+  type WeekFormValues = z.infer<typeof weekFormSchema>;
+
+  // Calculate suggested week number
+  const suggestedWeekNumber = existingWeekNumbers.length > 0
+    ? Math.max(...existingWeekNumbers) + 1
+    : 1;
+
+  const form = useForm<WeekFormValues>({
+    resolver: zodResolver(weekFormSchema),
+    defaultValues: {
+      block_id: blockId,
+      week_number: initialData.week_number || suggestedWeekNumber,
+      notes: initialData.notes || '',
+    },
+  });
+
+  // Update week number when suggested changes (only for new weeks)
   useEffect(() => {
-    if (existingWeekNumbers.length > 0) {
-      const maxWeekNumber = Math.max(...existingWeekNumbers);
-      setSuggestedWeekNumber(maxWeekNumber + 1);
-      
-      // Only set if we're not editing an existing week
-      if (!initialData.week_number) {
-        setFormData(prev => ({
-          ...prev,
-          week_number: maxWeekNumber + 1
-        }));
-      }
+    if (!initialData.week_number && suggestedWeekNumber > 1) {
+      form.setValue('week_number', suggestedWeekNumber);
     }
-  }, [existingWeekNumbers, initialData.week_number]);
+  }, [suggestedWeekNumber, initialData.week_number, form]);
 
-  // Form handlers and validation
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'week_number' ? parseInt(value) || 0 : value 
-    }));
-    
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    
-    if (formData.week_number <= 0) {
-      newErrors.week_number = 'Week number must be positive';
-    } else if (
-      existingWeekNumbers.includes(formData.week_number) && 
-      formData.week_number !== initialData.week_number
-    ) {
-      newErrors.week_number = 'Week number already exists in this program';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
+  const handleFormSubmit = async (data: WeekFormValues) => {
     try {
-      await onSubmit(formData);
+      await onSubmit(data);
     } catch (error) {
       console.error('Error submitting form:', error);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Form fields */}
-      <div>
-        <label htmlFor="week_number" className="block text-sm font-medium text-gray-700">
-          Week Number
-        </label>
-        <input
-          type="number"
-          id="week_number"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
           name="week_number"
-          min="1"
-          value={formData.week_number}
-          onChange={handleChange}
-          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-            errors.week_number ? 'border-red-300' : ''
-          }`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Week Number</FormLabel>
+              <FormControl>
+                <Input type="number" min={1} {...field} />
+              </FormControl>
+              <FormDescription>
+                Suggested: {suggestedWeekNumber} (next available number)
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-        {errors.week_number ? (
-          <p className="mt-1 text-sm text-red-600">{errors.week_number}</p>
-        ) : (
-          <p className="mt-1 text-xs text-gray-500">
-            Suggested: {suggestedWeekNumber} (next available number)
-          </p>
-        )}
-      </div>
-      
-      <div>
-        <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-          Notes <span className="text-xs text-gray-500">(optional)</span>
-        </label>
-        <textarea
-          id="notes"
+
+        <FormField
+          control={form.control}
           name="notes"
-          rows={3}
-          value={formData.notes}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Notes <span className="text-xs text-muted-foreground">(optional)</span>
+              </FormLabel>
+              <FormControl>
+                <Textarea rows={3} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
-      
-      <div className="flex justify-end space-x-3 pt-2">
-        <FormButton
-          type="button"
-          onClick={onCancel}
-          className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-        >
-          Cancel
-        </FormButton>
-        <FormButton
-          type="submit"
-          variant="primary"
-          isLoading={isLoading}
-          disabled={isLoading}
-          className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400"
-        >
-          {initialData.week_number ? 'Update Week' : 'Add Week'}
-        </FormButton>
-      </div>
-    </form>
+
+        <div className="flex justify-end space-x-3 pt-2">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Saving...' : initialData.week_number ? 'Update Week' : 'Add Week'}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 };
 
