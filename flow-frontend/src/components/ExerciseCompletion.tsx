@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import FormButton from './FormButton';
+import { Button } from '@/components/ui/button';
 import { completeExercise } from '../services/api';
 import type { Exercise } from '../services/api';
 import SetTracker from './SetTracker';
@@ -98,23 +98,21 @@ const ExerciseCompletion = ({ exercise, onComplete, onCancel }: ExerciseCompleti
       {/* Show mark exercise complete button if sets are logged */}
       {localExercise.sets_data && localExercise.sets_data.length > 0 && (
         <div className="flex justify-end mt-4 pt-3 border-t">
-          <FormButton 
-            type="button" 
-            variant="primary"
+          <Button
+            type="button"
             disabled={isLoading}
-            isLoading={isLoading}
             onClick={handleQuickComplete}
           >
-            {allSetsCompleted ? "Update Exercise" : "Mark Exercise Complete"}
-          </FormButton>
+            {isLoading ? 'Saving...' : (allSetsCompleted ? "Update Exercise" : "Mark Exercise Complete")}
+          </Button>
         </div>
       )}
 
       {/* Cancel button */}
       <div className="flex justify-end mt-4">
-        <FormButton type="button" variant="secondary" onClick={onCancel}>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           Close
-        </FormButton>
+        </Button>
       </div>
     </div>
   );

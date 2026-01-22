@@ -3,7 +3,7 @@ import type { Exercise } from '../services/api';
 import { createExercise, deleteExercise } from '../services/api';
 import ExerciseTracker from './ExerciseTracker';
 import ExerciseSelector from './ExerciseSelector';
-import FormButton from './FormButton';
+import { Button } from '@/components/ui/button';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
 interface ExerciseListProps {
@@ -292,7 +292,7 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                 userId={userIdForExercises}
               />
               <div className="flex justify-end space-x-2 mt-4">
-                <FormButton
+                <Button
                   type="button"
                   variant="secondary"
                   onClick={() => {
@@ -301,26 +301,25 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                   }}
                 >
                   Cancel
-                </FormButton>
-                <FormButton
+                </Button>
+                <Button
                   type="button"
-                  variant="primary"
                   disabled={!selectedExerciseType}
                   onClick={handleAddExercise}
                 >
                   Add Exercise
-                </FormButton>
+                </Button>
               </div>
             </div>
           ) : (
-            <FormButton
+            <Button
               type="button"
               variant="secondary"
               onClick={() => setIsAddingExercise(true)}
               className="w-full"
             >
               Add Exercise
-            </FormButton>
+            </Button>
           )}
         </div>
       )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCoachRelationships, getAthleteRelationships, endRelationship, getUser } from '../services/api';
-import FormButton from './FormButton';
+import { Button } from '@/components/ui/button';
 
 interface RelationshipsListProps {
   user: any;
@@ -115,15 +115,15 @@ const RelationshipsList = ({ user, onRelationshipChange }: RelationshipsListProp
                   {new Date(rel.created_at).toLocaleDateString()}
                 </p>
               </div>
-              <FormButton
+              <Button
                 type="button"
-                variant="danger"
+                variant="destructive"
                 size="sm"
                 onClick={() => handleEndRelationship(rel.relationship_id)}
-                isLoading={isEnding === rel.relationship_id}
+                disabled={isEnding === rel.relationship_id}
               >
-                End Relationship
-              </FormButton>
+                {isEnding === rel.relationship_id ? 'Ending...' : 'End Relationship'}
+              </Button>
             </li>
           ))}
         </ul>

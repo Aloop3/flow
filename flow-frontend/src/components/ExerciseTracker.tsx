@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { trackExerciseSet, deleteSet, completeExercise, reorderExerciseSets } from '../services/api';
 import type { Exercise, ExerciseSetData } from '../services/api';
-import FormButton from './FormButton';
+import { Button } from '@/components/ui/button';
 import SortableInlineSetRow from './SortableInlineSetRow';
 
 interface ExerciseTrackerProps {
@@ -349,21 +349,20 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
           <div className="flex justify-between items-center">
             <div className="flex space-x-2">
               {!readOnly && (
-                <FormButton
+                <Button
                   type="button"
                   variant="secondary"
                   onClick={addSet}
                   disabled={isSubmitting}
-                  isLoading={isSubmitting}
                 >
-                  Add Set
-                </FormButton>
+                  {isSubmitting ? 'Adding...' : 'Add Set'}
+                </Button>
               )}
 
-              {!readOnly && 
-                exerciseState.sets > 1 && 
+              {!readOnly &&
+                exerciseState.sets > 1 &&
                 !(allSetsCompleted && exerciseState.status !== 'completed') && (
-                <FormButton
+                <Button
                   type="button"
                   variant="secondary"
                   onClick={() => removeSet(exerciseState.sets)}
@@ -371,23 +370,21 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
                   Remove Last Set
-                </FormButton>
+                </Button>
               )}
             </div>
 
             <div className="flex space-x-2">
-              {!readOnly && 
-                exerciseState.status !== 'completed' && 
+              {!readOnly &&
+                exerciseState.status !== 'completed' &&
                 allSetsCompleted && (
-                <FormButton
+                <Button
                   type="button"
-                  variant="primary"
                   onClick={handleCompleteExercise}
                   disabled={isSubmitting}
-                  isLoading={isSubmitting}
                 >
-                  Complete Exercise
-                </FormButton>
+                  {isSubmitting ? 'Completing...' : 'Complete Exercise'}
+                </Button>
               )}
             </div>
           </div>

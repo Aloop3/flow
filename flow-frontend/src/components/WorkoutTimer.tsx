@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import FormButton from './FormButton';
+import { Button } from '@/components/ui/button';
 import { startWorkoutSession, finishWorkoutSession, ApiError } from '../services/api';
 import type { Workout } from '../services/api';
 
@@ -175,28 +175,25 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
       {!readOnly && (
         <div className="mt-3 flex items-center space-x-2">
           {timerStatus === 'not_started' && (
-            <FormButton
+            <Button
               type="button"
-              variant="primary"
               onClick={handleStartSession}
               disabled={isStarting}
-              isLoading={isStarting}
             >
-              Start Workout
-            </FormButton>
+              {isStarting ? 'Starting...' : 'Start Workout'}
+            </Button>
           )}
           
           {timerStatus === 'in_progress' && (
             <div className="flex items-center space-x-2">
-              <FormButton
+              <Button
                 type="button"
                 variant="secondary"
                 onClick={handleFinishSession}
                 disabled={isFinishing || !allExercisesCompleted()}
-                isLoading={isFinishing}
               >
-                Finish Workout
-              </FormButton>
+                {isFinishing ? 'Finishing...' : 'Finish Workout'}
+              </Button>
               {!allExercisesCompleted() && (
                 <span className="text-xs text-orange-600">
                   Complete all exercises first

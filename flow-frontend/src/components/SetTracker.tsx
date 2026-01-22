@@ -342,10 +342,9 @@ const SetTracker = ({
             </FormButton>
             <FormButton
               type="submit"
-              variant="primary"
-              isLoading={isSubmitting}
+              disabled={isSubmitting}
             >
-              {setsDataMap[activeSetNumber]?.completed ? 'Update Set' : 'Complete Set'}
+              {isSubmitting ? 'Saving...' : (setsDataMap[activeSetNumber]?.completed ? 'Update Set' : 'Complete Set')}
             </FormButton>
           </div>
         </form>
