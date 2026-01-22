@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { getNotifications, markNotificationAsRead } from '../services/api';
 import type { Notification } from '../services/api';
 import WorkoutCompletion from './WorkoutCompletion';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -118,15 +126,13 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, onClose }
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <DialogHeader className="p-6 border-b border-gray-200">
           <div className="flex items-center space-x-4">
-            <h2 className="text-xl font-semibold text-gray-900">Athlete Notifications</h2>
+            <DialogTitle>Athlete Notifications</DialogTitle>
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setGroupBy('date')}
@@ -150,19 +156,11 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, onClose }
               </button>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
           {/* Notification List */}
-          <div className="w-1/2 border-r border-gray-200 overflow-y-auto">
+          <ScrollArea className="w-1/2 border-r border-gray-200">
             {isLoading ? (
               <div className="flex items-center justify-center p-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -221,10 +219,10 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, onClose }
                 ))}
               </div>
             )}
-          </div>
+          </ScrollArea>
 
           {/* Workout Detail Panel */}
-          <div className="w-1/2 overflow-y-auto">
+          <ScrollArea className="w-1/2">
             {selectedNotification ? (
               <div className="p-6">
                 <div className="mb-6">
@@ -241,7 +239,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, onClose }
                 </div>
 
                 {/* Use WorkoutCompletion component to display workout details */}
-                <WorkoutCompletion 
+                <WorkoutCompletion
                   workout={selectedNotification.workout_data}
                   onClose={undefined} // Don't show close button in modal context
                 />
@@ -256,7 +254,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, onClose }
                 </div>
               </div>
             )}
-          </div>
+          </ScrollArea>
         </div>
 
         {/* Footer */}
@@ -269,16 +267,13 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, onClose }
                 </>
               )}
             </div>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-            >
+            <Button variant="secondary" onClick={onClose}>
               Close
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
