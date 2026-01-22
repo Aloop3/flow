@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { post } from 'aws-amplify/api';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { toast } from 'react-toastify';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 interface FeedbackData {
   category: 'bug' | 'suggestion' | 'question' | 'feature-request';
@@ -99,16 +101,16 @@ const BetaFeedback: React.FC = () => {
     <div className="fixed bottom-4 right-4 z-50">
       {/* Collapsed State - Feedback Button */}
       {!isOpen && (
-        <button
+        <Button
           onClick={() => setIsOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transform transition-all duration-200 hover:scale-105 flex items-center gap-2"
+          className="rounded-full p-3 shadow-lg transform transition-all duration-200 hover:scale-105"
           title="Send Beta Feedback"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10m0 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0v8a2 2 0 002 2h6a2 2 0 002-2V8M9 12h6" />
           </svg>
-          <span className="hidden sm:inline text-sm font-medium">Beta Feedback</span>
-        </button>
+          <span className="hidden sm:inline text-sm font-medium ml-2">Beta Feedback</span>
+        </Button>
       )}
 
       {/* Expanded State - Feedback Form */}
@@ -169,13 +171,13 @@ const BetaFeedback: React.FC = () => {
               <label htmlFor="feedback-message" className="block text-sm font-medium text-gray-700 mb-1">
                 Message
               </label>
-              <textarea
+              <Textarea
                 id="feedback-message"
                 rows={4}
                 value={formData.message}
                 onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
                 placeholder="Describe your feedback in detail..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                className="resize-none"
                 disabled={isSubmitting}
               />
             </div>
@@ -187,33 +189,33 @@ const BetaFeedback: React.FC = () => {
 
             {/* Actions */}
             <div className="flex gap-2 pt-2">
-              <button
+              <Button
                 type="submit"
                 disabled={isSubmitting || !formData.message.trim()}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                className="flex-1"
               >
                 {isSubmitting ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                     Sending...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
                     Send Feedback
                   </>
                 )}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={handleClose}
                 disabled={isSubmitting}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
 
