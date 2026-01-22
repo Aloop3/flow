@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import ExerciseSelector from './ExerciseSelector';
-import FormButton from './FormButton';
+import { Button } from '@/components/ui/button';
 import { createWorkout } from '../services/api';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { useWeightUnit } from '../contexts/UserContext';
@@ -482,29 +482,27 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
           
           {/* Exercise management section */}
           <div className="flex justify-start">
-            <FormButton
+            <Button
               onClick={handleAddExercise}
               disabled={!selectedExercise}
               type="button"
               variant="secondary"
             >
               Add Exercise
-            </FormButton>
+            </Button>
           </div>
           
           {/* Workout save section - separated with visual gap */}
           {exercises.length > 0 && (
             <div className="mt-6 pt-4 border-t border-gray-200">
               <div className="flex justify-center">
-                <FormButton
+                <Button
                   onClick={handleSaveWorkout}
                   disabled={exercises.length === 0 || isSaving}
                   type="button"
-                  variant="primary"
-                  isLoading={isSaving}
                 >
-                  Save Workout
-                </FormButton>
+                  {isSaving ? 'Saving...' : 'Save Workout'}
+                </Button>
               </div>
             </div>
           )}
