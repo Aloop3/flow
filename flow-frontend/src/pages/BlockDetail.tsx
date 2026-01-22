@@ -5,9 +5,32 @@ import Layout from '../components/Layout';
 import FocusTag from '../components/FocusTag';
 import { getBlock, getWeeks, getDays, updateDay, updateBlock } from '../services/api';
 import type { Block, Week, Day } from '../services/api';
-import Modal from '../components/Modal';
 import DayForm from '../components/DayForm';
-import FormButton from '../components/FormButton';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { formatDate } from '../utils/dateUtils';
 import { toast } from 'react-toastify';
 
@@ -301,43 +324,43 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <div className="h-6 bg-gray-200 rounded w-20 mb-2 animate-pulse"></div>
-          <div className="h-3 bg-gray-200 rounded w-40 animate-pulse"></div>
+          <Skeleton className="h-6 w-20 mb-2" />
+          <Skeleton className="h-3 w-40" />
         </div>
-        <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
+        <Skeleton className="h-9 w-32" />
       </div>
 
-      <div className="overflow-visible border border-gray-200 rounded-lg">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Focus</th>
-              <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead>Day</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Focus</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <tr key={i} className="animate-pulse">
-                <td className="px-3 py-2">
-                  <div className="h-4 bg-gray-200 rounded w-12"></div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="h-4 bg-gray-200 rounded w-20"></div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="h-5 bg-gray-200 rounded w-16"></div>
-                </td>
-                <td className="px-3 py-2">
+              <TableRow key={i}>
+                <TableCell>
+                  <Skeleton className="h-4 w-12" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-16" />
+                </TableCell>
+                <TableCell>
                   <div className="flex justify-center">
-                    <div className="h-6 bg-gray-200 rounded w-16"></div>
+                    <Skeleton className="h-6 w-16" />
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -348,13 +371,9 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       <div className="text-center py-8">
         <div className="text-red-500 mb-2">⚠️</div>
         <p className="text-gray-600 mb-4">{error}</p>
-        <FormButton
-          onClick={() => loadWeekData(weekId)}
-          variant="primary"
-          size="md"
-        >
+        <Button onClick={() => loadWeekData(weekId)}>
           Retry Loading Week
-        </FormButton>
+        </Button>
       </div>
     </div>
   );
@@ -602,35 +621,37 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
           <div className="space-y-6">
             {/* Block Header Skeleton */}
             <div className="flex justify-between items-center">
-              <div className="h-8 bg-gray-200 rounded w-64 animate-pulse"></div>
-              <div className="h-9 bg-gray-200 rounded w-24 animate-pulse"></div>
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-9 w-24" />
             </div>
 
             {/* Horizontal Block Info Card Skeleton */}
-            <div className="bg-white shadow rounded-lg p-4">
-              {/* Description skeleton */}
-              <div className="mb-3">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-1 animate-pulse"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
-              </div>
-
-              {/* Horizontal layout skeleton */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-6">
-                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+            <Card>
+              <CardContent className="pt-4">
+                {/* Description skeleton */}
+                <div className="mb-3">
+                  <Skeleton className="h-4 w-3/4 mb-1" />
+                  <Skeleton className="h-4 w-1/2" />
                 </div>
-                <div className="h-5 bg-gray-200 rounded w-12 animate-pulse"></div>
-              </div>
-            </div>
+
+                {/* Horizontal layout skeleton */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-6">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <Skeleton className="h-5 w-12" />
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Week Tabs Skeleton */}
-            <div className="bg-white shadow rounded-lg overflow-visible">
+            <Card className="overflow-visible">
               <div className="border-b border-gray-200">
                 <nav className="flex">
                   {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="py-4 px-6">
-                      <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                      <Skeleton className="h-4 w-16" />
                     </div>
                   ))}
                 </nav>
@@ -640,46 +661,46 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <div className="h-6 bg-gray-200 rounded w-20 mb-2 animate-pulse"></div>
-                    <div className="h-3 bg-gray-200 rounded w-40 animate-pulse"></div>
+                    <Skeleton className="h-6 w-20 mb-2" />
+                    <Skeleton className="h-3 w-40" />
                   </div>
-                  <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
+                  <Skeleton className="h-9 w-32" />
                 </div>
 
-                <div className="overflow-visible border border-gray-200 rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Focus</th>
-                        <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead>Day</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Focus</TableHead>
+                        <TableHead className="text-center">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                        <tr key={i} className="animate-pulse">
-                          <td className="px-3 py-2">
-                            <div className="h-4 bg-gray-200 rounded w-12"></div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="h-4 bg-gray-200 rounded w-20"></div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="h-5 bg-gray-200 rounded w-16"></div>
-                          </td>
-                          <td className="px-3 py-2">
+                        <TableRow key={i}>
+                          <TableCell>
+                            <Skeleton className="h-4 w-12" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-20" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-5 w-16" />
+                          </TableCell>
+                          <TableCell>
                             <div className="flex justify-center">
-                              <div className="h-6 bg-gray-200 rounded w-16"></div>
+                              <Skeleton className="h-6 w-16" />
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         ) : block ? (
           <>
@@ -693,9 +714,10 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
               </Link>
             </div>
 
-            <div className="bg-white shadow rounded-lg p-4">
-              {/* DESCRIPTION SECTION - EDITABLE */}
-              <div className="mb-3">
+            <Card>
+              <CardContent className="pt-4">
+                {/* DESCRIPTION SECTION - EDITABLE */}
+                <div className="mb-3">
                 {descriptionContent || isEditingDescription ? (
                   <div className="relative">
                     <div
@@ -762,20 +784,21 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                     <span className="ml-1 text-sm text-gray-900">{formatDate(block.end_date)}</span>
                   </div>
                 </div>
-                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                  block.status === 'active' 
-                    ? 'bg-green-100 text-green-800' 
+                <Badge className={
+                  block.status === 'active'
+                    ? 'bg-green-100 text-green-800 hover:bg-green-100'
                     : block.status === 'completed'
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
+                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-100'
+                }>
                   {block.status.charAt(0).toUpperCase() + block.status.slice(1)}
-                </span>
+                </Badge>
               </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {weeks.length > 0 ? (
-              <div className="bg-white shadow rounded-lg overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="border-b border-gray-200">
                   <nav className="flex overflow-x-auto">
                     {weeks.map((week) => (
@@ -831,13 +854,9 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                           </div>
 
                           {!isBulkEditing ? (
-                            <FormButton
-                              onClick={() => setIsBulkEditing(true)}
-                              variant="primary"
-                              size="md"
-                            >
+                            <Button onClick={() => setIsBulkEditing(true)}>
                               Bulk Edit Focus
-                            </FormButton>
+                            </Button>
                           ) : (
                             <div className="space-y-3 sm:space-y-0">
                               {/* Mobile: Stacked layout, Desktop: Grid layout */}
@@ -847,18 +866,18 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                   <label className="text-xs font-medium text-gray-600 mb-1 sm:hidden">
                                     Focus Type
                                   </label>
-                                  <select
-                                    value={bulkFocus}
-                                    onChange={(e) => setBulkFocus(e.target.value)}
-                                    className="text-sm border-gray-300 rounded-md w-full"
-                                  >
-                                    <option value="">Select Focus</option>
-                                    <option value="squat">Squat</option>
-                                    <option value="bench">Bench</option>
-                                    <option value="deadlift">Deadlift</option>
-                                    <option value="cardio">Cardio</option>
-                                    <option value="rest">Rest</option>
-                                  </select>
+                                  <Select value={bulkFocus} onValueChange={setBulkFocus}>
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Select Focus" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="squat">Squat</SelectItem>
+                                      <SelectItem value="bench">Bench</SelectItem>
+                                      <SelectItem value="deadlift">Deadlift</SelectItem>
+                                      <SelectItem value="cardio">Cardio</SelectItem>
+                                      <SelectItem value="rest">Rest</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
 
                                 {/* Apply to All Weeks Checkbox */}
@@ -880,54 +899,50 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
                                 {/* Action Buttons - Mobile: Full width row, Desktop: Inline */}
                                 <div className="col-span-1 sm:col-span-2 lg:col-span-2 flex flex-col sm:flex-row gap-2">
-                                  <FormButton
+                                  <Button
                                     onClick={handleBulkUpdate}
                                     disabled={!bulkFocus || Object.values(selectedDays).filter(Boolean).length === 0}
-                                    variant="primary"
-                                    size="md"
                                     className="flex-1"
                                   >
                                     Apply Focus
-                                  </FormButton>
+                                  </Button>
 
-                                  <FormButton
+                                  <Button
                                     onClick={handleClearFocus}
                                     disabled={Object.values(selectedDays).filter(Boolean).length === 0}
-                                    variant="secondary"
-                                    size="md"
+                                    variant="outline"
                                     className="flex-1"
                                   >
                                     Clear Focus
-                                  </FormButton>
+                                  </Button>
 
-                                  <FormButton
+                                  <Button
                                     onClick={() => {
                                       setIsBulkEditing(false);
                                       setSelectedDays({});
                                       setBulkFocus('');
                                     }}
-                                    variant="secondary"
-                                    size="md"
+                                    variant="outline"
                                     className="flex-1"
                                   >
                                     Cancel
-                                  </FormButton>
+                                  </Button>
                                 </div>
                               </div>
                             </div>
                           )}
                         </div>
 
-                        <div className="overflow-visible border border-gray-200 rounded-lg">
-                          <table className="w-full text-sm">
-                            <thead className="bg-gray-50">
-                              <tr>
+                        <div className="border rounded-lg">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
                                 {isBulkEditing && (
-                                  <th className="px-3 py-2 text-left">
+                                  <TableHead className="w-10">
                                     <input
                                       type="checkbox"
                                       onChange={(e) => {
-                                        e.stopPropagation(); // Prevent any parent handlers
+                                        e.stopPropagation();
                                         if (e.target.checked && activeWeek) {
                                           const allDayIds = daysMap[activeWeek].reduce((acc: { [key: string]: boolean }, day: any) => {
                                             acc[day.day_id] = true;
@@ -939,34 +954,31 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                         }
                                       }}
                                       onClick={(e) => {
-                                        e.stopPropagation(); // Additional click protection
+                                        e.stopPropagation();
                                       }}
                                       checked={
                                         !!(activeWeek &&
-                                        daysMap[activeWeek]?.length > 0 && 
+                                        daysMap[activeWeek]?.length > 0 &&
                                         daysMap[activeWeek].every((day: any) => selectedDays[day.day_id]))
                                       }
                                       className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 touch-manipulation cursor-pointer"
                                     />
-                                  </th>
+                                  </TableHead>
                                 )}
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Focus</th>
-                                <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 bg-white">
+                                <TableHead>Day</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Focus</TableHead>
+                                <TableHead className="text-center">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
                               {activeWeek && daysMap[activeWeek] ? [...daysMap[activeWeek]]
                                 .sort((a, b) => a.day_number - b.day_number)
                                 .map((day) => (
-                                  <tr
+                                  <TableRow
                                     key={day.day_id}
-                                    className={`hover:bg-gray-50 ${
-                                      isBulkEditing && selectedDays[day.day_id] ? 'bg-blue-50' : ''
-                                    }`}
+                                    className={isBulkEditing && selectedDays[day.day_id] ? 'bg-blue-50' : ''}
                                     onClick={isBulkEditing ? (e) => {
-                                      // Prevent row click if clicking on checkbox directly
                                       const target = e.target as HTMLInputElement;
                                       if (target.tagName === 'INPUT' && target.type === 'checkbox') {
                                         return;
@@ -979,12 +991,11 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                     style={isBulkEditing ? { cursor: 'pointer' } : undefined}
                                   >
                                     {isBulkEditing && (
-                                      <td className="px-3 py-2">
+                                      <TableCell>
                                         <input
                                           type="checkbox"
                                           checked={selectedDays[day.day_id] || false}
                                           onChange={(e) => {
-                                            // CRITICAL: Stop event bubbling to prevent row click
                                             e.stopPropagation();
                                             setSelectedDays(prev => ({
                                               ...prev,
@@ -992,24 +1003,23 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                             }));
                                           }}
                                           onClick={(e) => {
-                                            // Additional protection: Stop click propagation
                                             e.stopPropagation();
                                           }}
                                           className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 touch-manipulation cursor-pointer"
                                         />
-                                      </td>
+                                      </TableCell>
                                     )}
-                                    <td className="px-3 py-2 font-medium text-gray-900">
+                                    <TableCell className="font-medium">
                                       Day {day.day_number}
-                                    </td>
-                                    <td className="px-3 py-2 text-gray-600">
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">
                                       {formatDate(day.date, {
                                         weekday: 'short',
                                         month: 'short',
                                         day: 'numeric',
                                       })}
-                                    </td>
-                                    <td className="px-3 py-2">
+                                    </TableCell>
+                                    <TableCell>
                                       <div className="relative inline-block">
                                         <div
                                           ref={editingFocusDayId === day.day_id ? focusTagRef : null}
@@ -1025,7 +1035,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                             <span className="inline-block ml-1 animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
                                           )}
                                         </div>
-                                        
+
                                         <FocusDropdownPortal
                                           isOpen={editingFocusDayId === day.day_id}
                                           onClose={() => setEditingFocusDayId(null)}
@@ -1035,105 +1045,104 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                           isSaving={isSavingFocus}
                                         />
                                       </div>
-                                    </td>
-                                    <td className="px-3 py-2 text-center">
+                                    </TableCell>
+                                    <TableCell className="text-center">
                                       {!isBulkEditing && (
-                                        <div className="flex justify-center space-x-1">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              window.location.href = `/days/${day.day_id}?blockId=${blockId}`;
-                                            }}
-                                            className="bg-blue-600 text-white text-xs px-2 py-1 rounded hover:bg-blue-700"
-                                          >
-                                            Workout
-                                          </button>
-                                        </div>
+                                        <Button
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.location.href = `/days/${day.day_id}?blockId=${blockId}`;
+                                          }}
+                                        >
+                                          Workout
+                                        </Button>
                                       )}
-                                    </td>
-                                  </tr>
+                                    </TableCell>
+                                  </TableRow>
                                 )) : []}
-                            </tbody>
-                          </table>
+                            </TableBody>
+                          </Table>
                         </div>
                       </div>
                     ) : null}
                   </>
                 )}
-              </div>
+              </Card>
             ) : (
-              <div className="bg-white shadow rounded-lg p-6 text-center">
-                <p className="text-gray-500">If you don't see any weeks, please refresh the page</p>
-              </div>
+              <Card className="p-6 text-center">
+                <p className="text-muted-foreground">If you don't see any weeks, please refresh the page</p>
+              </Card>
             )}
           </>
         ) : (
-          <div className="bg-white shadow rounded-lg p-6 text-center">
-            <p className="text-gray-500">Block not found or failed to load.</p>
-            <p className="text-sm text-gray-400 mt-2">Block ID: {blockId}</p>
-            <button
+          <Card className="p-6 text-center">
+            <p className="text-muted-foreground">Block not found or failed to load.</p>
+            <p className="text-sm text-muted-foreground/70 mt-2">Block ID: {blockId}</p>
+            <Button
               onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="mt-4"
             >
               Retry
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
       </div>
       
-      {/* Day Edit Modal */}
-      <Modal
-        isOpen={!!editingDay}
-        onClose={() => setEditingDay(null)}
-        title={editingDay ? `Edit Day ${editingDay.day_number}` : ''}
-      >
-        {editingDay && (
-          <DayForm
-            day={editingDay}
-            onSubmit={async (dayData) => {
-              try {
-                // Optimistic update for individual day
-                if (activeWeek) {
-                  setDaysMap(prev => ({
-                    ...prev,
-                    [activeWeek]: prev[activeWeek].map(day =>
-                      day.day_id === dayData.day_id
-                        ? { ...day, focus: dayData.focus, notes: dayData.notes }
-                        : day
-                    )
-                  }));
+      {/* Day Edit Dialog */}
+      <Dialog open={!!editingDay} onOpenChange={(open) => !open && setEditingDay(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingDay ? `Edit Day ${editingDay.day_number}` : ''}</DialogTitle>
+          </DialogHeader>
+          {editingDay && (
+            <DayForm
+              day={editingDay}
+              onSubmit={async (dayData) => {
+                try {
+                  // Optimistic update for individual day
+                  if (activeWeek) {
+                    setDaysMap(prev => ({
+                      ...prev,
+                      [activeWeek]: prev[activeWeek].map(day =>
+                        day.day_id === dayData.day_id
+                          ? { ...day, focus: dayData.focus, notes: dayData.notes }
+                          : day
+                      )
+                    }));
+                  }
+
+                  // Close dialog immediately for better UX
+                  setEditingDay(null);
+
+                  // Background API update
+                  await updateDay(dayData.day_id, {
+                    focus: dayData.focus,
+                    notes: dayData.notes,
+                  });
+
+                } catch (error) {
+                  console.error('Error updating day:', error);
+
+                  // Revert optimistic update on failure
+                  if (activeWeek) {
+                    const originalDays = await getDays(activeWeek);
+                    setDaysMap(prev => ({
+                      ...prev,
+                      [activeWeek]: originalDays,
+                    }));
+                  }
+
+                  // Show error - could use toast instead of alert
+                  alert('Update failed - please try again');
                 }
-
-                // Close modal immediately for better UX
-                setEditingDay(null);
-
-                // Background API update
-                await updateDay(dayData.day_id, {
-                  focus: dayData.focus,
-                  notes: dayData.notes,
-                });
-
-              } catch (error) {
-                console.error('Error updating day:', error);
-                
-                // Revert optimistic update on failure
-                if (activeWeek) {
-                  const originalDays = await getDays(activeWeek);
-                  setDaysMap(prev => ({
-                    ...prev,
-                    [activeWeek]: originalDays,
-                  }));
-                }
-                
-                // Show error - could use toast instead of alert
-                alert('Update failed - please try again');
-              }
-            }}
-            isLoading={false}
-            onCancel={() => setEditingDay(null)}
-          />
-        )}
-      </Modal>
+              }}
+              isLoading={false}
+              onCancel={() => setEditingDay(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
