@@ -1,5 +1,16 @@
 import { useState } from 'react';
 import { post } from 'aws-amplify/api';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface Set {
   set_number: number;
@@ -28,14 +39,14 @@ export default function ExerciseForm({ exerciseType, exerciseId, workoutId, onSe
 
   const updateSet = (index: number, field: keyof Set, value: number | string) => {
     const updatedSets = [...sets];
-    
+
     // Handle empty string case specially
-    const finalValue = typeof value === 'string' && value === '' 
+    const finalValue = typeof value === 'string' && value === ''
       ? null  // Store null when input is empty
-      : typeof value === 'string' 
-        ? Number(value) 
+      : typeof value === 'string'
+        ? Number(value)
         : value;
-        
+
     updatedSets[index] = { ...updatedSets[index], [field]: finalValue };
     setSets(updatedSets);
   };
@@ -50,7 +61,7 @@ export default function ExerciseForm({ exerciseType, exerciseId, workoutId, onSe
         weight: set.weight ?? 0,
         rpe: set.rpe === undefined ? null : set.rpe
       }));
-  
+
       // Submit exercise with sets to API
       await post({
         apiName: 'flow-api',
@@ -71,72 +82,68 @@ export default function ExerciseForm({ exerciseType, exerciseId, workoutId, onSe
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow mb-4">
-      <h3 className="font-bold text-lg mb-4">{exerciseType}</h3>
-      
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-full">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left py-2">Set</th>
-              <th className="text-left py-2">Weight</th>
-              <th className="text-left py-2">Reps</th>
-              <th className="text-left py-2">RPE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sets.map((set, index) => (
-              <tr key={index} className="border-b">
-                <td className="py-2">{set.set_number}</td>
-                <td className="py-2">
-                  <input
-                    type="number"
-                    value={set.weight === null ? '' : set.weight}
-                    onChange={(e) => updateSet(index, 'weight', e.target.value)}
-                    className="w-20 p-1 border rounded"
-                  />
-                </td>
-                <td className="py-2">
-                  <input
-                    type="number"
-                    value={set.reps === null ? '' : set.reps}
-                    onChange={(e) => updateSet(index, 'reps', e.target.value)}
-                    className="w-16 p-1 border rounded"
-                  />
-                </td>
-                <td className="py-2">
-                  <input
-                    type="number"
-                    value={set.rpe === null ? '' : (set.rpe || '')}
-                    onChange={(e) => updateSet(index, 'rpe', e.target.value)}
-                    className="w-16 p-1 border rounded"
-                    placeholder="1-10"
-                    min="0"
-                    max="10"
-                    step="0.5"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      
-      <div className="mt-4 flex justify-between">
-        <button
-          onClick={addSet}
-          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-        >
-          Add Set
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
-        >
-          {isSubmitting ? 'Saving...' : 'Save Exercise'}
-        </button>
-      </div>
-    </div>
+    <Card className="mb-4">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">{exerciseType}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Set</TableHead>
+                <TableHead>Weight</TableHead>
+                <TableHead>Reps</TableHead>
+                <TableHead>RPE</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sets.map((set, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium">{set.set_number}</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={set.weight === null ? '' : set.weight}
+                      onChange={(e) => updateSet(index, 'weight', e.target.value)}
+                      className="w-20"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={set.reps === null ? '' : set.reps}
+                      onChange={(e) => updateSet(index, 'reps', e.target.value)}
+                      className="w-16"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={set.rpe === null ? '' : (set.rpe || '')}
+                      onChange={(e) => updateSet(index, 'rpe', e.target.value)}
+                      className="w-16"
+                      placeholder="1-10"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="mt-4 flex justify-between">
+          <Button variant="secondary" onClick={addSet}>
+            Add Set
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : 'Save Exercise'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

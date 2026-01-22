@@ -1,6 +1,26 @@
-import { useState, FormEvent } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import FocusTag from './FocusTag';
 import { formatDate } from '../utils/dateUtils';
+
+const dayFormSchema = z.object({
+  day_id: z.string(),
+  focus: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type DayFormValues = z.infer<typeof dayFormSchema>;
 
 interface DayFormProps {
   day: {
@@ -16,12 +36,15 @@ interface DayFormProps {
 }
 
 const DayForm = ({ day, onSubmit, isLoading, onCancel }: DayFormProps) => {
-  const [formData, setFormData] = useState({
-    day_id: day.day_id,
-    focus: day.focus || '',
-    notes: day.notes || '',
+  const form = useForm<DayFormValues>({
+    resolver: zodResolver(dayFormSchema),
+    defaultValues: {
+      day_id: day.day_id,
+      focus: day.focus || '',
+      notes: day.notes || '',
+    },
   });
-  
+
   const focusOptions = [
     { value: 'squat', label: 'Squat' },
     { value: 'bench', label: 'Bench' },
@@ -30,87 +53,88 @@ const DayForm = ({ day, onSubmit, isLoading, onCancel }: DayFormProps) => {
     { value: 'rest', label: 'Rest' }
   ];
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    
+  const handleFormSubmit = async (data: DayFormValues) => {
     try {
-      await onSubmit(formData);
+      await onSubmit(data);
     } catch (error) {
       console.error('Error updating day:', error);
     }
   };
 
+  const selectedFocus = form.watch('focus');
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="mb-4">
-        <h3 className="text-md font-medium text-gray-700">Day {day.day_number} - {formatDate(day.date)}</h3>
-      </div>
-      
-      <div>
-        <label htmlFor="focus" className="block text-sm font-medium text-gray-700 mb-2">
-          Training Focus
-        </label>
-        <div className="grid grid-cols-5 gap-2 mb-3">
-          {focusOptions.map(option => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, focus: option.value }))}
-              className={`p-2 rounded border ${
-                formData.focus === option.value 
-                  ? 'ring-2 ring-blue-500 ring-offset-1' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <FocusTag focus={option.value} />
-            </button>
-          ))}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+        <div className="mb-4">
+          <h3 className="text-md font-medium text-gray-700">
+            Day {day.day_number} - {formatDate(day.date)}
+          </h3>
         </div>
-        {formData.focus && (
-          <div className="mt-2">
-            <span className="text-sm text-gray-500">Selected: </span>
-            <FocusTag focus={formData.focus} />
-          </div>
-        )}
-      </div>
-      
-      <div>
-        <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-          Notes
-        </label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows={3}
-          value={formData.notes}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="Optional training notes for this day"
+
+        <FormField
+          control={form.control}
+          name="focus"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Training Focus</FormLabel>
+              <FormControl>
+                <div className="grid grid-cols-5 gap-2">
+                  {focusOptions.map(option => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => field.onChange(option.value)}
+                      className={`p-2 rounded border ${
+                        field.value === option.value
+                          ? 'ring-2 ring-blue-500 ring-offset-1'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <FocusTag focus={option.value} />
+                    </button>
+                  ))}
+                </div>
+              </FormControl>
+              {selectedFocus && (
+                <div className="mt-2">
+                  <span className="text-sm text-muted-foreground">Selected: </span>
+                  <FocusTag focus={selectedFocus} />
+                </div>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
-      
-      <div className="flex justify-end space-x-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400"
-        >
-          {isLoading ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
-    </form>
+
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea
+                  rows={3}
+                  placeholder="Optional training notes for this day"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end space-x-3">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 };
 
