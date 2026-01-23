@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
-import { 
-  getMaxWeightProgression, 
-  getVolumeData, 
+import {
+  getMaxWeightProgression,
+  getVolumeData,
   getFrequencyAnalysis,
   getBlocks,
   getCoachRelationships,
@@ -14,19 +14,29 @@ import {
   type FrequencyData,
   type Block
 } from '../../services/api';
-import { 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer 
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
 } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface AnalyticsProps {
   user: any;
@@ -212,8 +222,10 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
 }, [currentAthleteId]);
   // Handle athlete selection changes
   const handleAthleteChange = (athleteId: string) => {
-    console.log('Athlete selection changed to:', athleteId);
-    setSelectedAthleteId(athleteId);
+    // Handle special value for "View My Analytics"
+    const actualId = athleteId === '__my_analytics__' ? '' : athleteId;
+    console.log('Athlete selection changed to:', actualId);
+    setSelectedAthleteId(actualId);
     // Analytics will reload automatically via useEffect dependency
   };
 
@@ -349,13 +361,13 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
 
     // Loading skeleton component
   const LoadingSkeleton = () => (
-    <div className="animate-pulse space-y-6">
-      <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+    <div className="space-y-6">
+      <Skeleton className="h-8 w-1/3" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="h-64 bg-gray-200 rounded-lg"></div>
-        <div className="h-64 bg-gray-200 rounded-lg"></div>
-        <div className="h-64 bg-gray-200 rounded-lg"></div>
-        <div className="h-64 bg-gray-200 rounded-lg"></div>
+        <Skeleton className="h-64" />
+        <Skeleton className="h-64" />
+        <Skeleton className="h-64" />
+        <Skeleton className="h-64" />
       </div>
     </div>
   );
@@ -378,21 +390,18 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
         </div>
       )}
       <div className="space-x-2">
-        <button
+        <Button
+          variant="secondary"
           onClick={() => {
             setSelectedAthleteId('');
             setError(null);
           }}
-          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
         >
           View My Analytics
-        </button>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
+        </Button>
+        <Button onClick={() => window.location.reload()}>
           Try Again
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -448,35 +457,40 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
 
         {/* Coach athlete selector */}
         {user.role === 'coach' && (
-          <div className="bg-white shadow rounded-lg p-4">
-            <label htmlFor="athlete-select" className="block text-sm font-medium text-gray-700 mb-2">
-              Select Athlete
-            </label>
-            <div className="flex items-center space-x-2">
-              <select
-                id="athlete-select"
-                value={selectedAthleteId}
-                onChange={(e) => handleAthleteChange(e.target.value)}
-                disabled={isLoadingAthletes}
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md disabled:bg-gray-100"
-              >
-                <option value="">View My Analytics</option>
-                {athletes.map((athlete) => (
-                  <option key={athlete.athlete_id} value={athlete.athlete_id}>
-                    {athlete.name}
-                  </option>
-                ))}
-              </select>
-              {isLoadingAthletes && (
-                <div className="text-sm text-gray-500">Loading athletes...</div>
+          <Card>
+            <CardContent className="pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Athlete
+              </label>
+              <div className="flex items-center space-x-2">
+                <Select
+                  value={selectedAthleteId}
+                  onValueChange={handleAthleteChange}
+                  disabled={isLoadingAthletes}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="View My Analytics" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__my_analytics__">View My Analytics</SelectItem>
+                    {athletes.map((athlete) => (
+                      <SelectItem key={athlete.athlete_id} value={athlete.athlete_id}>
+                        {athlete.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isLoadingAthletes && (
+                  <div className="text-sm text-gray-500">Loading athletes...</div>
+                )}
+              </div>
+              {athletes.length === 0 && !isLoadingAthletes && (
+                <p className="mt-2 text-sm text-gray-500">
+                  No active athletes found. Athletes will appear here once they accept your invitation.
+                </p>
               )}
-            </div>
-            {athletes.length === 0 && !isLoadingAthletes && (
-              <p className="mt-2 text-sm text-gray-500">
-                No active athletes found. Athletes will appear here once they accept your invitation.
-              </p>
-            )}
-          </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Content */}
@@ -508,27 +522,32 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
             {/* Quick Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Total Programs */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-500">Total Programs</h3>
-                <p className="text-2xl font-semibold text-gray-900">{blocks.length}</p>
-              </div>
+              <Card>
+                <CardContent className="pt-6">
+                  <h3 className="text-sm font-medium text-gray-500">Total Programs</h3>
+                  <p className="text-2xl font-semibold text-gray-900">{blocks.length}</p>
+                </CardContent>
+              </Card>
 
               {/* Active Program */}
               {blocks.find(b => b.status === 'active') && (
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h3 className="text-sm font-medium text-gray-500">Active Program</h3>
-                  <p className="text-2xl font-semibold text-gray-900 truncate">
-                    {blocks.find(b => b.status === 'active')?.title}
-                  </p>
-                </div>
+                <Card>
+                  <CardContent className="pt-6">
+                    <h3 className="text-sm font-medium text-gray-500">Active Program</h3>
+                    <p className="text-2xl font-semibold text-gray-900 truncate">
+                      {blocks.find(b => b.status === 'active')?.title}
+                    </p>
+                  </CardContent>
+                </Card>
               )}
             </div>
 
             {/* 1RM with Total */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                1RM
-              </h3>
+            <Card>
+              <CardHeader>
+                <CardTitle>1RM</CardTitle>
+              </CardHeader>
+              <CardContent>
               <div className="space-y-2">
                 {(() => {
                   
@@ -572,7 +591,8 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                   );
                 })()}
               </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Charts Grid - SBD Exercise Analytics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -590,10 +610,11 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                 }));
                 
                 return exerciseData.length > 0 ? (
-                  <div key={`max-weight-${exerciseType}`} className="bg-white shadow rounded-lg p-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                      {exerciseName} Max Weight Progression
-                    </h3>
+                  <Card key={`max-weight-${exerciseType}`}>
+                    <CardHeader>
+                      <CardTitle>{exerciseName} Max Weight Progression</CardTitle>
+                    </CardHeader>
+                    <CardContent>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -634,38 +655,37 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ) : null;
               })}
 
               {/* Volume Chart with Toggle */}
               {volumeData.length > 0 && (
-                <div className="bg-white shadow rounded-lg p-6">
-                  {/* Toggle Header */}
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      Training Volume
-                    </h3>
-                    
-                    {/* Time Range Toggle Buttons */}
-                    <div className="flex bg-gray-100 rounded-lg p-1">
-                      {(['daily', 'weekly', 'monthly'] as const).map((range) => (
-                        <button
-                          key={range}
-                          onClick={() => setVolumeTimeRange(range)}
-                          className={`px-3 py-1 text-sm font-medium rounded-md transition-colors duration-200 ${
-                            volumeTimeRange === range
-                              ? 'bg-white text-blue-600 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          {range.charAt(0).toUpperCase() + range.slice(1)}
-                        </button>
-                      ))}
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>Training Volume</CardTitle>
+                      {/* Time Range Toggle Buttons */}
+                      <div className="flex bg-gray-100 rounded-lg p-1">
+                        {(['daily', 'weekly', 'monthly'] as const).map((range) => (
+                          <button
+                            key={range}
+                            onClick={() => setVolumeTimeRange(range)}
+                            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors duration-200 ${
+                              volumeTimeRange === range
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            {range.charAt(0).toUpperCase() + range.slice(1)}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Volume Chart with Dynamic Processing */}
+                  </CardHeader>
+                  <CardContent>
+                    {/* Volume Chart with Dynamic Processing */}
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart 
@@ -774,7 +794,8 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Frequency Analysis - One for each SBD exercise */}
@@ -797,10 +818,11 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                 });
                 
                 return exerciseData.length > 0 ? (
-                  <div key={`frequency-${exerciseType}`} className="bg-white shadow rounded-lg p-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                      {exerciseName} Training Frequency
-                    </h3>
+                  <Card key={`frequency-${exerciseType}`}>
+                    <CardHeader>
+                      <CardTitle>{exerciseName} Training Frequency</CardTitle>
+                    </CardHeader>
+                    <CardContent>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -848,7 +870,8 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ) : null;
               })}
             </div>

@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import BlockForm from '../../components/BlockForm';
 import { createBlock } from '../../services/api';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface CoachBlockCreateProps {
   user: any;
@@ -72,9 +73,11 @@ const CoachBlockCreate = ({ user, signOut }: CoachBlockCreateProps) => {
           </div>
         )}
         
-        <div className="bg-white shadow rounded-lg p-6">
-          <BlockForm onSubmit={handleCreateBlock} isLoading={isLoading} />
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <BlockForm onSubmit={handleCreateBlock} isLoading={isLoading} />
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );
