@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { trackExerciseSet, deleteSet } from '../services/api';
-import FormButton from './FormButton';
+import { Button } from '@/components/ui/button';
 import type { ExerciseSetData } from '../services/api';
 
 interface SetTrackerProps {
@@ -333,19 +333,19 @@ const SetTracker = ({
           </div>
           
           <div className="flex justify-between">
-            <FormButton
+            <Button
               type="button"
               variant="secondary"
               onClick={() => setActiveSetNumber(null)}
             >
               Cancel
-            </FormButton>
-            <FormButton
+            </Button>
+            <Button
               type="submit"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Saving...' : (setsDataMap[activeSetNumber]?.completed ? 'Update Set' : 'Complete Set')}
-            </FormButton>
+            </Button>
           </div>
         </form>
       )}
