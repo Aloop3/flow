@@ -1,29 +1,41 @@
 import { useState, useEffect } from 'react';
 import type { Exercise } from '../services/api';
-import { createExercise, deleteExercise } from '../services/api';
+import { createExercise, deleteExercise, trackExerciseSet, deleteSet, updateExercise } from '../services/api';
 import ExerciseTracker from './ExerciseTracker';
+import ExerciseCard from './ExerciseCard';
 import ExerciseSelector from './ExerciseSelector';
 import { Button } from '@/components/ui/button';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { useWorkoutDraft } from '../hooks/useWorkoutDraft';
+
+// Feature flag - flip to false to rollback to old implementation
+const USE_LOCAL_FIRST_WORKOUT = true;
 
 interface ExerciseListProps {
   exercises: Exercise[];
   workoutId?: string;
+  dayId?: string; // Required for local-first mode
   onExerciseComplete: () => void;
   readOnly?: boolean;
   athleteId?: string;
 }
 
-const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, readOnly = false }: ExerciseListProps) => {
+const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComplete, readOnly = false }: ExerciseListProps) => {
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [selectedExerciseType, setSelectedExerciseType] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>();
-  
-  // Local progress tracking for instant updates
+
+  // Local progress tracking for instant updates (used in legacy mode)
   const [localProgressMap, setLocalProgressMap] = useState<Record<string, { completed: number; total: number }>>({});
+
+  // Local-first workout draft hook (only active when flag is enabled and dayId is provided)
+  const workoutDraft = useWorkoutDraft(
+    USE_LOCAL_FIRST_WORKOUT && dayId ? dayId : '',
+    USE_LOCAL_FIRST_WORKOUT && dayId ? exercises : []
+  );
 
   useEffect(() => {
     const getUserId = async () => {
@@ -67,11 +79,76 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
   const handleComplete = () => {
     // Preserve scroll position during workout refresh
     const scrollY = window.scrollY;
-    
+
     // Call the parent refresh function
     onExerciseComplete();
-    
+
     // Restore scroll position after React re-render completes
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollY);
+    });
+  };
+
+  // Handler for adding a set to an exercise
+  const handleAddSet = async (exercise: Exercise) => {
+    const scrollY = window.scrollY;
+    const newSetCount = exercise.sets + 1;
+
+    // Get previous set data for default values, with fallbacks to exercise defaults
+    const setsData = workoutDraft.getExerciseSets(exercise.exercise_id);
+    const previousSet = setsData[exercise.sets];
+
+    // Use previous set values if valid, otherwise fall back to exercise defaults
+    const setValues = {
+      reps: previousSet?.reps || exercise.reps || 1,
+      weight: previousSet?.weight ?? exercise.weight ?? 0,
+      rpe: previousSet?.rpe || exercise.rpe,
+    };
+
+    // Initialize the new set in localStorage immediately (so values persist)
+    workoutDraft.updateSet(exercise.exercise_id, newSetCount, {
+      ...setValues,
+      completed: false,
+    });
+
+    // Then save to backend
+    await trackExerciseSet(exercise.exercise_id, newSetCount, {
+      ...setValues,
+      completed: false,
+    });
+
+    onExerciseComplete();
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollY);
+    });
+  };
+
+  // Handler for deleting a specific set (click-to-delete)
+  const handleDeleteSet = async (exercise: Exercise, setNumber: number) => {
+    if (exercise.sets <= 1) return; // Can't delete if only 1 set
+
+    const scrollY = window.scrollY;
+
+    // Remove from localStorage first for instant UI update
+    workoutDraft.removeSet(exercise.exercise_id, setNumber);
+
+    // Delete from backend
+    await deleteSet(exercise.exercise_id, setNumber);
+
+    onExerciseComplete();
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollY);
+    });
+  };
+
+  // Handler for marking a completed exercise as incomplete (when user untoggles a set)
+  const handleUncompleteExercise = async (exercise: Exercise) => {
+    if (exercise.status !== 'completed') return;
+
+    const scrollY = window.scrollY;
+    await updateExercise(exercise.exercise_id, { status: 'planned' });
+
+    onExerciseComplete();
     requestAnimationFrame(() => {
       window.scrollTo(0, scrollY);
     });
@@ -145,20 +222,25 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
 
   // Get set progress with local progress fallback for instant updates
   const getSetProgress = (exercise: Exercise) => {
-    // Use local progress if available, otherwise calculate from exercise data
+    // Use local-first data when enabled
+    if (USE_LOCAL_FIRST_WORKOUT && dayId) {
+      return workoutDraft.getExerciseCompletion(exercise.exercise_id, exercise.sets);
+    }
+
+    // Legacy: Use local progress if available, otherwise calculate from exercise data
     const localProgress = localProgressMap[exercise.exercise_id];
     if (localProgress) {
       return localProgress;
     }
-    
+
     // Fallback to exercise data calculation
     if (!exercise.sets_data || exercise.sets_data.length === 0) {
       return { completed: 0, total: exercise.sets };
     }
-    
+
     const completedSets = exercise.sets_data.filter(set => set.completed).length;
-    return { 
-      completed: completedSets, 
+    return {
+      completed: completedSets,
       total: exercise.sets
     };
   };
@@ -261,18 +343,33 @@ const ExerciseList = ({ athleteId, exercises, workoutId, onExerciseComplete, rea
                 )}
               </div>
 
-              {/* Inline ExerciseTracker */}
+              {/* Inline Exercise Editor */}
               {isExpanded && (
                 <div className="mt-4 ml-2">
-                  <ExerciseTracker
-                    exercise={exercise}
-                    onComplete={handleComplete}
-                    readOnly={readOnly}
-                    forceExpanded={true}
-                    onProgressUpdate={(completed, total) => 
-                      handleExerciseProgressUpdate(exercise.exercise_id, completed, total)
-                    }
-                  />
+                  {USE_LOCAL_FIRST_WORKOUT && dayId ? (
+                    <ExerciseCard
+                      exercise={exercise}
+                      setsData={workoutDraft.getExerciseSets(exercise.exercise_id)}
+                      onUpdateSet={(setNum, data) => workoutDraft.updateSet(exercise.exercise_id, setNum, data)}
+                      onToggleCompletion={(setNum) => workoutDraft.toggleCompletion(exercise.exercise_id, setNum)}
+                      onExerciseComplete={handleComplete}
+                      onUncompleteExercise={() => handleUncompleteExercise(exercise)}
+                      onAddSet={() => handleAddSet(exercise)}
+                      onDeleteSet={(setNum) => handleDeleteSet(exercise, setNum)}
+                      readOnly={readOnly}
+                      forceExpanded={true}
+                    />
+                  ) : (
+                    <ExerciseTracker
+                      exercise={exercise}
+                      onComplete={handleComplete}
+                      readOnly={readOnly}
+                      forceExpanded={true}
+                      onProgressUpdate={(completed, total) =>
+                        handleExerciseProgressUpdate(exercise.exercise_id, completed, total)
+                      }
+                    />
+                  )}
                 </div>
               )}
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   DndContext, 
   closestCenter, 
@@ -43,7 +43,18 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   const [error, setError] = useState<string | null>(null);
   
   // Local sets completion tracking for instant progress updates
-  const [localSetsCompletion, setLocalSetsCompletion] = useState<Record<number, boolean>>({});
+  // Initialize from exercise.sets_data to avoid overwriting optimistic updates
+  const [localSetsCompletion, setLocalSetsCompletion] = useState<Record<number, boolean>>(() => {
+    return (exercise.sets_data || []).reduce((map, setData) => {
+      if (setData && typeof setData.set_number === 'number') {
+        map[setData.set_number] = setData.completed || false;
+      }
+      return map;
+    }, {} as Record<number, boolean>);
+  });
+
+  // Track exercise identity to re-initialize when viewing a different exercise
+  const prevExerciseIdRef = useRef(exercise.exercise_id);
   
   const [isExpanded, setIsExpanded] = useState(() => {
     if (forceExpanded) return true;
@@ -63,20 +74,28 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   };
 
 
+  // Only sync exerciseState when viewing a DIFFERENT exercise
+  // This preserves local optimistic updates when parent re-renders
   useEffect(() => {
-    setExerciseState(exercise);
-  }, [exercise]);
+    if (exercise.exercise_id !== exerciseState.exercise_id) {
+      setExerciseState(exercise);
+    }
+  }, [exercise, exerciseState.exercise_id]);
 
-  // Initialize local completion state from exercise data
+  // Re-initialize local completion state only when viewing a DIFFERENT exercise
+  // This prevents overwriting optimistic updates during data refreshes
   useEffect(() => {
-    const completionMap = (exerciseState.sets_data || []).reduce((map, setData) => {
-      if (setData && typeof setData.set_number === 'number') {
-        map[setData.set_number] = setData.completed || false;
-      }
-      return map;
-    }, {} as Record<number, boolean>);
-    setLocalSetsCompletion(completionMap);
-  }, [exerciseState.sets_data]);
+    if (prevExerciseIdRef.current !== exerciseState.exercise_id) {
+      const completionMap = (exerciseState.sets_data || []).reduce((map, setData) => {
+        if (setData && typeof setData.set_number === 'number') {
+          map[setData.set_number] = setData.completed || false;
+        }
+        return map;
+      }, {} as Record<number, boolean>);
+      setLocalSetsCompletion(completionMap);
+      prevExerciseIdRef.current = exerciseState.exercise_id;
+    }
+  }, [exerciseState.exercise_id, exerciseState.sets_data]);
 
   useEffect(() => {
     if (!forceExpanded) {
@@ -106,12 +125,45 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
   const progressPercentage = exerciseState.sets > 0 ? (completedSets / exerciseState.sets) * 100 : 0;
 
   // Optimistic set completion handler for instant progress updates
+  // Updates both localSetsCompletion (progress bar) and exerciseState.sets_data (for remount)
   const handleSetCompletion = (setNumber: number, completed: boolean) => {
+    // Update progress bar state
     setLocalSetsCompletion(prev => {
       const updated = { ...prev, [setNumber]: completed };
       const newCompleted = Object.values(updated).filter(Boolean).length;
       onProgressUpdate?.(newCompleted, exerciseState.sets);
       return updated;
+    });
+
+    // Also update exerciseState.sets_data so accordion close/open has correct data
+    setExerciseState(prev => {
+      const setsData = prev.sets_data || [];
+      const existingIndex = setsData.findIndex(s => s.set_number === setNumber);
+
+      if (existingIndex >= 0) {
+        // Update existing entry
+        return {
+          ...prev,
+          sets_data: setsData.map(s =>
+            s.set_number === setNumber ? { ...s, completed } : s
+          )
+        };
+      } else {
+        // Add new entry with exercise's planned values
+        return {
+          ...prev,
+          sets_data: [
+            ...setsData,
+            {
+              set_number: setNumber,
+              completed,
+              reps: prev.reps,
+              weight: prev.weight,
+              rpe: prev.rpe,
+            }
+          ]
+        };
+      }
     });
   };
 
