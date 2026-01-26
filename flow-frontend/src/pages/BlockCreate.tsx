@@ -28,7 +28,7 @@ const BlockCreate = ({ user, signOut }: BlockCreateProps) => {
       };
       
       await createBlock(fullBlockData);
-      navigate('/blocks');
+      navigate('/blocks', { state: { refresh: Date.now() } });
     } catch (error) {
       console.error('Error creating block:', error);
       setError('Failed to create training program. Please try again.');
