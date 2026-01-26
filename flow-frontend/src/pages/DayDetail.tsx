@@ -503,6 +503,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                 <ExerciseList
                   exercises={workout.exercises}
                   workoutId={workout.workout_id}
+                  dayId={dayId}
                   athleteId={athleteId}
                   onExerciseComplete={refreshWorkoutData}
                   readOnly={false}

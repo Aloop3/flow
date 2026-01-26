@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { setSchema, type SetFormData } from '@/schemas/setSchema';
+import { trackExerciseSet } from '../services/api';
 import type { ExerciseSetData } from '../services/api';
 import { Input } from '@/components/ui/input';
 
@@ -83,7 +84,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
   const [error, setError] = React.useState<string | null>(null);
   const [notesExpanded, setNotesExpanded] = React.useState(false);
 
-  // Compute default values once - no useEffect syncing needed
+  // Initial default values - useEffect syncs when existingData changes
   const defaultValues: SetFormData = {
     weight: existingData?.weight ?? previousSetData?.weight ?? plannedWeight,
     reps: existingData?.reps ?? previousSetData?.reps ?? plannedReps,
@@ -97,9 +98,30 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     defaultValues,
   });
 
-  const { watch, setValue, getValues } = form;
+  const { watch, setValue, getValues, reset } = form;
   const isCompleted = watch('completed');
   const notes = watch('notes');
+
+  // Track previous existingData to detect first-time data arrival
+  const prevExistingDataRef = React.useRef<ExerciseSetData | undefined>(existingData);
+
+  // Only sync form when existingData first becomes available (undefined → defined)
+  // This handles async data loading without resetting on every parent re-render
+  React.useEffect(() => {
+    const prevData = prevExistingDataRef.current;
+
+    if (!prevData && existingData) {
+      reset({
+        weight: existingData.weight ?? previousSetData?.weight ?? plannedWeight,
+        reps: existingData.reps ?? previousSetData?.reps ?? plannedReps,
+        rpe: existingData.rpe ?? previousSetData?.rpe ?? undefined,
+        notes: existingData.notes ?? '',
+        completed: existingData.completed ?? false,
+      });
+    }
+
+    prevExistingDataRef.current = existingData;
+  }, [existingData, previousSetData, plannedWeight, plannedReps, reset]);
 
   // Save to API
   const saveToApi = async (data: Partial<SetFormData>, skipParentRefresh = false) => {
@@ -110,15 +132,13 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     setIsSaving(true);
 
     try {
-      await import('../services/api').then(({ trackExerciseSet }) =>
-        trackExerciseSet(exerciseId, setNumber, {
-          reps: saveData.reps,
-          weight: saveData.weight,
-          rpe: saveData.rpe || undefined,
-          completed: saveData.completed || false,
-          notes: saveData.notes || undefined,
-        })
-      );
+      await trackExerciseSet(exerciseId, setNumber, {
+        reps: saveData.reps,
+        weight: saveData.weight,
+        rpe: saveData.rpe || undefined,
+        completed: saveData.completed || false,
+        notes: saveData.notes || undefined,
+      });
 
       if (!skipParentRefresh) {
         onSetUpdated();
@@ -152,7 +172,7 @@ const InlineSetRowContent: React.FC<SortableInlineSetRowProps> = ({
     setValue('completed', newCompletedState);
     onSetCompletion?.(setNumber, newCompletedState);
 
-    // Background save
+    // Background save - skip refetch since ExerciseTracker updates state locally
     try {
       await saveToApi({ completed: newCompletedState }, true);
     } catch {
