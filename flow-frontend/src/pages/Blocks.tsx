@@ -1,13 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { getBlocks, deleteBlock } from '../services/api';
 import type { Block } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
+
+type SortOption = 'name-asc' | 'name-desc' | 'date-newest' | 'date-oldest';
 
 interface BlocksProps {
   user: any;
@@ -19,7 +28,28 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingBlockId, setDeletingBlockId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('date-newest');
   const location = useLocation();
+
+  // Sort blocks based on selected option
+  const sortedBlocks = useMemo(() => {
+    if (!blocks || blocks.length === 0) return [];
+
+    return [...blocks].sort((a, b) => {
+      switch (sortBy) {
+        case 'name-asc':
+          return a.title.localeCompare(b.title);
+        case 'name-desc':
+          return b.title.localeCompare(a.title);
+        case 'date-newest':
+          return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+        case 'date-oldest':
+          return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+        default:
+          return 0;
+      }
+    });
+  }, [blocks, sortBy]);
 
   const fetchBlocks = async () => {
     setIsLoading(true);
@@ -49,13 +79,16 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
   }, [user]);
 
   // Refetch on navigation back to /blocks (handles create -> list navigation)
+  // Extract refresh timestamp to use as primitive dependency
+  const refreshTrigger = (location.state as { refresh?: number } | null)?.refresh;
+
   useEffect(() => {
-    // Only refetch if we're on the exact /blocks route
-    if (location.pathname === '/blocks') {
-      console.log('🔄 Navigation detected - refreshing blocks list');
-      fetchBlocks();
-    }
-  }, [location.pathname, location.key]);
+    // Skip on initial mount (handled by user useEffect above)
+    if (!refreshTrigger) return;
+
+    console.log('🔄 Refresh triggered from navigation state');
+    fetchBlocks();
+  }, [refreshTrigger]);
 
   const handleDeleteClick = (e: React.MouseEvent, block: Block) => {
     e.preventDefault(); // Prevent navigation to block detail
@@ -87,11 +120,24 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
   return (
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold text-gray-900">Training Programs</h1>
-          <Button asChild>
-            <Link to="/blocks/new">Create New</Link>
-          </Button>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date-newest">Newest First</SelectItem>
+                <SelectItem value="date-oldest">Oldest First</SelectItem>
+                <SelectItem value="name-asc">Name A-Z</SelectItem>
+                <SelectItem value="name-desc">Name Z-A</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button asChild>
+              <Link to="/blocks/new">Create New</Link>
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -102,8 +148,8 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {blocks && blocks.length > 0 ? (
-              blocks.map((block) => (
+            {sortedBlocks.length > 0 ? (
+              sortedBlocks.map((block) => (
                 <div key={block.block_id} className="relative group">
                   <Link to={`/blocks/${block.block_id}`}>
                     <Card className="hover:shadow-md transition-shadow">

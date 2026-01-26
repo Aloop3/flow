@@ -60,7 +60,7 @@ const BlockEdit = ({ user, signOut }: BlockEditProps) => {
     setIsDeleting(true);
     try {
       await deleteBlock(blockId);
-      navigate('/blocks');
+      navigate('/blocks', { state: { refresh: Date.now() } });
     } catch (error) {
       console.error('Error deleting block:', error);
       alert('Failed to delete training program. Please try again.');
