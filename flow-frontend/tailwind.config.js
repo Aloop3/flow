@@ -7,12 +7,35 @@ export default {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			sans: ['Inter', 'system-ui', 'sans-serif'],
+  			display: ['DM Sans', 'system-ui', 'sans-serif'],
+  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
+  			/* Ocean palette - direct access */
+  			ocean: {
+  				'navy-dark': 'hsl(var(--ocean-navy-dark))',
+  				'navy': 'hsl(var(--ocean-navy))',
+  				'blue': 'hsl(var(--ocean-blue))',
+  				'teal': 'hsl(var(--ocean-teal))',
+  				'teal-light': 'hsl(var(--ocean-teal-light))',
+  				'seafoam': 'hsl(var(--ocean-seafoam))',
+  				'seafoam-light': 'hsl(var(--ocean-seafoam-light))',
+  				'slate': 'hsl(var(--ocean-slate))',
+  				'slate-light': 'hsl(var(--ocean-slate-light))',
+  				'mist': 'hsl(var(--ocean-mist))',
+  			},
+  			/* State colors */
+  			state: {
+  				'planning': 'hsl(var(--state-planning))',
+  				'active': 'hsl(var(--state-active))',
+  				'completed': 'hsl(var(--state-completed))',
+  			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
