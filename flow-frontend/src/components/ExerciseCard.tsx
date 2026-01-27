@@ -321,6 +321,8 @@ const SetRow: React.FC<SetRowProps> = ({
   // Delete mode state - toggled by clicking set number
   const [deleteMode, setDeleteMode] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const [weightError, setWeightError] = useState(false);
+  const [repsError, setRepsError] = useState(false);
 
   // Auto-cancel delete mode after 5 seconds
   useEffect(() => {
@@ -340,6 +342,13 @@ const SetRow: React.FC<SetRowProps> = ({
 
   const handleBlur = (field: 'weight' | 'reps' | 'rpe', value: string) => {
     const numValue = parseFloat(value) || 0;
+    // Clear errors when user enters a value (0 is valid)
+    if (field === 'weight' && value.trim() !== '') {
+      setWeightError(false);
+    }
+    if (field === 'reps' && value.trim() !== '') {
+      setRepsError(false);
+    }
     // Only update if value actually changed
     if (field === 'weight' && numValue !== setData.weight) {
       onUpdate({ weight: numValue });
@@ -348,6 +357,23 @@ const SetRow: React.FC<SetRowProps> = ({
     } else if (field === 'rpe' && numValue !== (setData.rpe || 0)) {
       onUpdate({ rpe: numValue || undefined });
     }
+  };
+
+  const handleToggleWithValidation = () => {
+    // Only validate when trying to mark as complete (not when un-marking)
+    if (!setData.completed) {
+      const weightEmpty = weight.trim() === '';
+      const repsEmpty = reps.trim() === '';
+
+      if (weightEmpty || repsEmpty) {
+        if (weightEmpty) setWeightError(true);
+        if (repsEmpty) setRepsError(true);
+        return; // Block completion
+      }
+    }
+    setWeightError(false);
+    setRepsError(false);
+    onToggleCompletion();
   };
 
   const handleSaveNotes = () => {
@@ -405,10 +431,15 @@ const SetRow: React.FC<SetRowProps> = ({
           inputMode="decimal"
           step={0.5}
           value={weight}
-          onChange={(e) => setWeight(e.target.value)}
+          onChange={(e) => {
+            setWeight(e.target.value);
+            if (e.target.value.trim() !== '') setWeightError(false);
+          }}
           onBlur={(e) => handleBlur('weight', e.target.value)}
           onFocus={(e) => e.target.select()}
-          className="w-16 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto"
+          className={`w-16 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto ${
+            weightError ? 'border-2 border-red-500 bg-red-50' : ''
+          }`}
           disabled={readOnly}
         />
       </td>
@@ -419,10 +450,15 @@ const SetRow: React.FC<SetRowProps> = ({
           type="number"
           inputMode="numeric"
           value={reps}
-          onChange={(e) => setReps(e.target.value)}
+          onChange={(e) => {
+            setReps(e.target.value);
+            if (e.target.value.trim() !== '') setRepsError(false);
+          }}
           onBlur={(e) => handleBlur('reps', e.target.value)}
           onFocus={(e) => e.target.select()}
-          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto"
+          className={`w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto ${
+            repsError ? 'border-2 border-red-500 bg-red-50' : ''
+          }`}
           disabled={readOnly}
         />
       </td>
@@ -515,7 +551,7 @@ const SetRow: React.FC<SetRowProps> = ({
       <td className="px-0.5 md:px-2 py-2 text-center w-11 md:w-16">
         <button
           type="button"
-          onClick={onToggleCompletion}
+          onClick={handleToggleWithValidation}
           disabled={readOnly}
           className={`w-5 h-5 rounded-full flex items-center justify-center mx-auto transition-all duration-200 ${
             readOnly
