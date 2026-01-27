@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
 import type { Exercise } from '../services/api';
-import { createExercise, deleteExercise, trackExerciseSet, deleteSet, updateExercise } from '../services/api';
+import { createExercise, deleteExercise, trackExerciseSet, deleteSet, updateExercise, reorderExercises } from '../services/api';
 import ExerciseTracker from './ExerciseTracker';
 import ExerciseCard from './ExerciseCard';
 import ExerciseSelector from './ExerciseSelector';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { useWorkoutDraft } from '../hooks/useWorkoutDraft';
 
@@ -30,6 +36,9 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
 
   // Local progress tracking for instant updates (used in legacy mode)
   const [localProgressMap, setLocalProgressMap] = useState<Record<string, { completed: number; total: number }>>({});
+
+  // Optimistic exercise order for instant reorder UI
+  const [optimisticExercises, setOptimisticExercises] = useState<Exercise[]>(exercises);
 
   // Local-first workout draft hook (only active when flag is enabled and dayId is provided)
   const workoutDraft = useWorkoutDraft(
@@ -62,6 +71,11 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
       return map;
     }, {} as Record<string, { completed: number; total: number }>);
     setLocalProgressMap(progressMap);
+  }, [exercises]);
+
+  // Sync optimistic exercises when prop changes (after backend refresh)
+  useEffect(() => {
+    setOptimisticExercises(exercises);
   }, [exercises]);
 
   // Use athleteId when provided (coach context), otherwise current user
@@ -184,7 +198,7 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
       requestAnimationFrame(() => {
         window.scrollTo(0, scrollY);
       });
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to add exercise. Please try again.');
       console.error('Error adding exercise:', err);
     }
@@ -194,30 +208,55 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
     try {
       setIsDeleting(exerciseId);
       setError(null);
-      
+
       // MOBILE SCROLL FIX: Preserve scroll position
       const scrollY = window.scrollY;
-      
+
       await deleteExercise(exerciseId);
-      
+
       // Collapse if this exercise was expanded
       if (expandedExerciseId === exerciseId) {
         setExpandedExerciseId(null);
       }
-      
+
       // Refresh the workout data
       onExerciseComplete();
-      
+
       // Restore scroll position
       requestAnimationFrame(() => {
         window.scrollTo(0, scrollY);
       });
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to remove exercise. Please try again.');
       console.error('Error removing exercise:', err);
     } finally {
       setIsDeleting(null);
     }
+  };
+
+  // Handler for moving exercises up/down (optimistic UI)
+  const handleMoveExercise = (exerciseId: string, direction: 'up' | 'down') => {
+    if (!workoutId) return;
+
+    const currentIndex = optimisticExercises.findIndex(e => e.exercise_id === exerciseId);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= optimisticExercises.length) return;
+
+    // Optimistic update - instant UI feedback
+    const reordered = [...optimisticExercises];
+    [reordered[currentIndex], reordered[newIndex]] = [reordered[newIndex], reordered[currentIndex]];
+    setOptimisticExercises(reordered);
+
+    // Build order array and fire API silently
+    const newOrder = reordered.map(e => e.exercise_id);
+    reorderExercises(workoutId, newOrder).catch(err => {
+      // Revert on failure
+      setOptimisticExercises(exercises);
+      setError('Failed to reorder exercises. Please try again.');
+      console.error('Error reordering exercises:', err);
+    });
   };
 
   // Get set progress with local progress fallback for instant updates
@@ -262,7 +301,7 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
       )}
       
       <div className="divide-y">
-        {exercises.map((exercise) => {
+        {optimisticExercises.map((exercise) => {
           const setProgress = getSetProgress(exercise);
           const hasSetData = exercise.sets_data && exercise.sets_data.length > 0;
           const isExpanded = expandedExerciseId === exercise.exercise_id;
@@ -318,28 +357,75 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
                   )}
                 </div>
                 
-                {/* Remove button - only show if not readOnly and workoutId exists */}
+                {/* Action buttons - only show if not readOnly and workoutId exists */}
                 {!readOnly && workoutId && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveExercise(exercise.exercise_id);
-                    }}
-                    disabled={isDeleting === exercise.exercise_id}
-                    className="ml-4 text-red-500 hover:text-red-700 disabled:text-gray-400"
-                    title="Remove exercise"
-                  >
-                    {isDeleting === exercise.exercise_id ? (
-                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    )}
-                  </button>
+                  <div className="flex items-center ml-2 space-x-1">
+                    {/* Reorder buttons */}
+                    <div className="flex flex-col">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveExercise(exercise.exercise_id, 'up');
+                        }}
+                        disabled={optimisticExercises.findIndex(e => e.exercise_id === exercise.exercise_id) === 0}
+                        className="text-gray-400 hover:text-ocean-teal disabled:text-gray-200 disabled:cursor-not-allowed p-0.5"
+                        title="Move up"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveExercise(exercise.exercise_id, 'down');
+                        }}
+                        disabled={optimisticExercises.findIndex(e => e.exercise_id === exercise.exercise_id) === optimisticExercises.length - 1}
+                        className="text-gray-400 hover:text-ocean-teal disabled:text-gray-200 disabled:cursor-not-allowed p-0.5"
+                        title="Move down"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                    {/* Overflow menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={isDeleting === exercise.exercise_id}
+                          className="text-gray-400 hover:text-gray-600 disabled:text-gray-300 p-1 rounded hover:bg-gray-100"
+                          title="More options"
+                        >
+                          {isDeleting === exercise.exercise_id ? (
+                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                          ) : (
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                            </svg>
+                          )}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveExercise(exercise.exercise_id);
+                          }}
+                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                        >
+                          <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Remove Exercise
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 )}
               </div>
 
