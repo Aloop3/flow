@@ -90,7 +90,7 @@ class Exercise:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Exercise":
         exercise_category = None
-        if "exercise_category" in data:
+        if data.get("exercise_category"):
             try:
                 exercise_category = ExerciseCategory(data["exercise_category"].lower())
             except ValueError:
