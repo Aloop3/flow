@@ -241,7 +241,6 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, onClose }
                 {/* Use WorkoutCompletion component to display workout details */}
                 <WorkoutCompletion
                   workout={selectedNotification.workout_data}
-                  onClose={undefined} // Don't show close button in modal context
                 />
               </div>
             ) : (
