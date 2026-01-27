@@ -409,21 +409,18 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
   // Empty state component
   const EmptyState = () => (
     <div className="text-center py-12">
-      <div className="text-gray-400 mb-4">
-        <svg className="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+      <div className="text-ocean-slate-light mb-4">
+        <svg className="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
         </svg>
       </div>
-      <h3 className="text-lg font-medium text-gray-900 mb-2">No Analytics Data Available</h3>
-      <p className="text-gray-500 mb-4">
-        {selectedAthleteId ? 'This athlete hasn\'t logged any workouts yet.' : 'Start logging workouts to see your progress analytics.'}
+      <h3 className="text-lg font-medium text-ocean-navy-dark mb-2">No Analytics Data Yet</h3>
+      <p className="text-ocean-slate mb-4">
+        {selectedAthleteId ? 'This athlete hasn\'t logged any workouts yet.' : 'Start logging workouts to see your progress.'}
       </p>
-      <Link
-        to="/blocks"
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        View Programs
-      </Link>
+      <Button asChild>
+        <Link to="/blocks">View Programs</Link>
+      </Button>
     </div>
   );
 
@@ -438,17 +435,17 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-ocean-navy-dark">
               Analytics {currentAthleteName && `- ${currentAthleteName}`}
             </h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-ocean-slate">
               {selectedAthleteId ? 'Track athlete progress and training insights' : 'Track your progress and training insights'}
             </p>
           </div>
           <div className="mt-4 sm:mt-0">
             <Link
               to="/"
-              className="text-sm text-gray-600 hover:text-gray-800"
+              className="text-sm text-ocean-teal hover:text-ocean-navy"
             >
               ← Back to Dashboard
             </Link>
@@ -499,24 +496,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
         ) : error ? (
           <ErrorState />
         ) : !hasData ? (
-          <div>
-            {/* Debug info */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <h4 className="text-sm font-medium text-yellow-800 mb-2">Debug Information</h4>
-              <div className="text-xs text-yellow-700 space-y-1">
-                <p>User ID: {user.user_id}</p>
-                <p>Current Athlete ID: {currentAthleteId}</p>
-                <p>Selected Athlete: {selectedAthleteId || 'None (viewing own)'}</p>
-                <p>Max Weight Data: {Object.values(maxWeightData).flat().length} total entries</p>
-                <p>Volume Data: {volumeData.length} entries</p>
-                <p>Frequency Data: {Object.values(frequencyData).flat().length} total entries</p>
-                <p>Blocks: {blocks.length} total</p>
-                <p>Athletes Available: {athletes.length}</p>
-                <p>Check browser console for API responses</p>
-              </div>
-            </div>
-            <EmptyState />
-          </div>
+          <EmptyState />
         ) : (
           <div className="space-y-8">
             {/* Quick Stats Cards */}

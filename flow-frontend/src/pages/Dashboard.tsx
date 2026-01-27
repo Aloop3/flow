@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getBlocks, getCoachRelationships, getUser } from '../services/api';
@@ -109,58 +108,48 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
   return (
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-ocean-navy-dark">Dashboard</h1>
         
         {isLoading ? (
           <div className="space-y-4">
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
           </div>
         ) : (
           <>
-            {activeBlock ? (
-              <Card>
-                <CardContent className="pt-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">Current Program</h2>
-                  <p className="text-lg font-medium text-gray-900">{activeBlock.title}</p>
-                  <p className="text-muted-foreground mb-4">{activeBlock.description}</p>
+            {/* Today's Workout - PRIMARY FOCUS */}
+            <TodaysWorkoutCard activeBlock={activeBlock} userId={user.user_id} />
 
-                  <div className="sm:flex sm:items-center sm:justify-between">
-                    <div className="mb-4 sm:mb-0">
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(activeBlock.start_date)} - {formatDate(activeBlock.end_date)}
-                      </p>
-                    </div>
-                    <Button asChild className="w-full sm:w-auto">
-                      <Link to={`/blocks/${activeBlock.block_id}`}>View Program</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="pt-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">No Active Program</h2>
-                  <p className="text-muted-foreground mb-4">You don't have an active training program.</p>
-                  <Button asChild>
-                    <Link to="/blocks/new">Create New Program</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+            {/* Current Program - demoted to context line */}
+            {activeBlock && (
+              <div className="flex items-center justify-between py-3 px-4 bg-ocean-mist rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Badge className="bg-state-active/10 text-state-active">Active</Badge>
+                  <Link
+                    to={`/blocks/${activeBlock.block_id}`}
+                    className="font-medium text-ocean-navy hover:text-ocean-teal transition-colors"
+                  >
+                    {activeBlock.title}
+                  </Link>
+                  <span className="text-sm text-ocean-slate hidden sm:inline">
+                    {formatDate(activeBlock.start_date)} - {formatDate(activeBlock.end_date)}
+                  </span>
+                </div>
+                <Link
+                  to={`/blocks/${activeBlock.block_id}`}
+                  className="text-sm text-ocean-teal hover:text-ocean-navy"
+                >
+                  View →
+                </Link>
+              </div>
             )}
-            
-            {/* Today's Workout Card - Insert this new section here */}
-            <div className="mt-8">
-              <TodaysWorkoutCard activeBlock={activeBlock} userId={user.user_id} />
-            </div>
             
             <div className="mt-8">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Your Programs</h2>
+                <h2 className="text-xl font-semibold text-ocean-navy-dark">Your Programs</h2>
                 <Link
                   to="/blocks"
-                  className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                  className="text-sm font-medium text-ocean-teal hover:text-ocean-navy"
                 >
                   View all
                 </Link>
@@ -172,17 +161,17 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                     <Link key={block.block_id} to={`/blocks/${block.block_id}`}>
                       <Card className="hover:shadow-md transition-shadow">
                         <CardContent className="pt-4">
-                          <h3 className="text-lg font-medium text-gray-900">{block.title}</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">{block.description}</p>
-                          <p className="mt-2 text-xs text-muted-foreground">
+                          <h3 className="text-lg font-medium text-ocean-navy">{block.title}</h3>
+                          <p className="mt-1 text-sm text-ocean-slate">{block.description}</p>
+                          <p className="mt-2 text-xs text-ocean-slate-light">
                             {formatDate(block.start_date)} - {formatDate(block.end_date)}
                           </p>
                           <Badge className={`mt-2 ${
                             block.status === 'active'
-                              ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                              ? 'bg-state-active/10 text-state-active hover:bg-state-active/10'
                               : block.status === 'completed'
-                              ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                              : 'bg-gray-100 text-gray-800 hover:bg-gray-100'
+                              ? 'bg-state-completed/10 text-state-completed hover:bg-state-completed/10'
+                              : 'bg-ocean-mist text-ocean-slate hover:bg-ocean-mist'
                           }`}>
                             {block.status.charAt(0).toUpperCase() + block.status.slice(1)}
                           </Badge>
@@ -192,49 +181,25 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground">No programs found. Create your first program.</p>
+                <p className="text-ocean-slate py-2">Ready to start training? Create your first program.</p>
               )}
             </div>
 
-            {/* Analytics Section */}
-            <div className="mt-8">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900">Progress Analytics</h2>
-                      <p className="text-sm text-muted-foreground">Track your strength gains and training insights</p>
-                    </div>
-                    <Button asChild>
-                      <Link to="/analytics">View Analytics</Link>
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-muted rounded">
-                      <p className="text-2xl font-bold text-blue-600">{blocks.length}</p>
-                      <p className="text-sm text-muted-foreground">Total Programs</p>
-                    </div>
-                    <div className="text-center p-4 bg-muted rounded">
-                      <p className="text-2xl font-bold text-green-600">
-                        {blocks.filter(b => b.status === 'completed').length}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Completed</p>
-                    </div>
-                    <div className="text-center p-4 bg-muted rounded">
-                      <p className="text-2xl font-bold text-orange-600">
-                        {blocks.filter(b => b.status === 'active').length}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Active</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Analytics - simplified link */}
+            <div className="mt-8 flex items-center justify-between py-3 px-4 bg-ocean-mist/50 rounded-lg">
+              <span className="text-ocean-slate">Track your strength gains and training insights</span>
+              <Link
+                to="/analytics"
+                className="text-sm font-medium text-ocean-teal hover:text-ocean-navy"
+              >
+                View Analytics →
+              </Link>
             </div>
 
             {user.role === 'coach' && (
                 <div className="mt-8">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">My Athletes</h2>
+                    <h2 className="text-xl font-semibold text-ocean-navy-dark">My Athletes</h2>
                   </div>
 
                   {isLoadingAthletes ? (
@@ -248,12 +213,12 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                         <Link key={athlete.athlete_id} to={`/coach/athletes/${athlete.athlete_id}/blocks`}>
                           <Card className="hover:shadow-md transition-shadow">
                             <CardContent className="pt-4">
-                              <h3 className="text-lg font-medium text-gray-900">{athlete.name}</h3>
+                              <h3 className="text-lg font-medium text-ocean-navy">{athlete.name}</h3>
                               <p className="mt-2 text-sm">
                                 {athlete.activeProgram ? (
-                                  <span className="text-green-600">Active: {athlete.activeProgram}</span>
+                                  <span className="text-state-active">Active: {athlete.activeProgram}</span>
                                 ) : (
-                                  <span className="text-muted-foreground">No active program</span>
+                                  <span className="text-ocean-slate">No active program</span>
                                 )}
                               </p>
                             </CardContent>
@@ -262,11 +227,7 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                       ))}
                     </div>
                   ) : (
-                    <Card className="text-center">
-                      <CardContent className="pt-6">
-                        <p className="text-muted-foreground">No athletes yet. Athletes must accept your invitation first.</p>
-                      </CardContent>
-                    </Card>
+                    <p className="text-ocean-slate py-4">Your athletes will appear here once they accept your invitation.</p>
                   )}
                 </div>
               )}

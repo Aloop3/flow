@@ -334,11 +334,11 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
       ) : day ? (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-ocean-navy-dark">
               Day {day.day_number} - {formatDate(day.date)}
             </h1>
-            <button onClick={navigateBack} className="text-sm text-gray-600 hover:text-gray-800">
-              Back to Block
+            <button onClick={navigateBack} className="text-sm text-ocean-teal hover:text-ocean-navy">
+              ← Back to Block
             </button>
           </div>
 
@@ -380,7 +380,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                           <FocusTag focus={day.focus || ''} size="sm" />
                           {isSavingFocus && (
                             <div className="inline-block ml-2">
-                              <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                              <div className="animate-spin h-3 w-3 border-2 border-ocean-teal border-t-transparent rounded-full"></div>
                             </div>
                           )}
                         </div>
@@ -413,7 +413,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                         onInput={handleNotesChange}
                         className={`min-h-[2rem] p-2 text-sm rounded border-2 transition-all duration-200 outline-none ${
                           isEditingNotes 
-                            ? 'border-blue-300 bg-blue-50 shadow-sm' 
+                            ? 'border-ocean-teal/50 bg-ocean-mist shadow-sm' 
                             : 'border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text'
                         } ${isSavingNotes ? 'opacity-50' : ''}`}
                         style={{
@@ -425,7 +425,7 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                       </div>
                       {isSavingNotes && (
                         <div className="absolute right-2 top-2">
-                          <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                          <div className="animate-spin h-3 w-3 border-2 border-ocean-teal border-t-transparent rounded-full"></div>
                         </div>
                       )}
                       {!isEditingNotes && !day.notes && (
@@ -517,10 +517,11 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
               />
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No workout planned yet</p>
+                <p className="text-ocean-slate mb-2">Ready to plan this session?</p>
+                <p className="text-sm text-ocean-slate-light mb-4">Add exercises to build your workout.</p>
                 <button
                   onClick={() => setShowWorkoutForm(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="px-4 py-2 bg-ocean-teal text-white rounded hover:bg-ocean-navy transition-colors"
                 >
                   Create Workout
                 </button>
@@ -530,10 +531,10 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
         </div>
       ) : (
         <div className="text-center py-8">
-          <p className="text-gray-500">Day not found</p>
+          <p className="text-ocean-slate">Day not found</p>
           <button
             onClick={navigateBack}
-            className="mt-4 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+            className="mt-4 px-4 py-2 bg-ocean-mist text-ocean-navy rounded hover:bg-ocean-slate-light transition-colors"
           >
             Back to Block
           </button>
