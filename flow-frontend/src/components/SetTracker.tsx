@@ -225,9 +225,9 @@ const SetTracker = ({
                 onClick={() => selectSet(setNumber)}
                 className={`w-12 h-12 rounded-full flex items-center justify-center font-medium ${
                   isCompleted
-                    ? 'bg-green-100 text-green-800 border-2 border-green-300'
+                    ? 'bg-state-completed/20 text-state-completed border-2 border-state-completed/50'
                     : isActive
-                    ? 'bg-blue-100 text-blue-800 border-2 border-blue-500'
+                    ? 'bg-ocean-teal/20 text-ocean-navy border-2 border-ocean-teal'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
               >
@@ -255,7 +255,7 @@ const SetTracker = ({
         {/* Add set button */}
         <button
           onClick={addSet}
-          className="w-12 h-12 rounded-full flex items-center justify-center font-medium bg-blue-50 text-blue-600 border-2 border-dashed border-blue-300 hover:bg-blue-100"
+          className="w-12 h-12 rounded-full flex items-center justify-center font-medium bg-ocean-mist text-ocean-teal border-2 border-dashed border-ocean-teal/50 hover:bg-ocean-teal/10"
           title="Add set"
         >
           <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -288,7 +288,7 @@ const SetTracker = ({
                 name="reps"
                 value={setData.reps}
                 onChange={handleInputChange}
-                className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="w-full border-gray-300 rounded-md shadow-sm focus:border-ocean-teal focus:ring-ocean-teal"
                 min="1"
               />
             </div>
@@ -299,7 +299,7 @@ const SetTracker = ({
                 name="weight"
                 value={setData.weight}
                 onChange={handleInputChange}
-                className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="w-full border-gray-300 rounded-md shadow-sm focus:border-ocean-teal focus:ring-ocean-teal"
                 min="0"
                 step="0.5"
               />
@@ -311,7 +311,7 @@ const SetTracker = ({
                 name="rpe"
                 value={setData.rpe || ''}
                 onChange={handleInputChange}
-                className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="w-full border-gray-300 rounded-md shadow-sm focus:border-ocean-teal focus:ring-ocean-teal"
                 placeholder="0-10"
                 min="0"
                 max="10"
@@ -327,7 +327,7 @@ const SetTracker = ({
               value={setData.notes}
               onChange={handleInputChange}
               rows={2}
-              className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full border-gray-300 rounded-md shadow-sm focus:border-ocean-teal focus:ring-ocean-teal"
               placeholder="Optional notes about this set"
             />
           </div>
@@ -388,9 +388,9 @@ const SetTracker = ({
       )}
       
       {activeSetNumber === null && (!existingSetsData || existingSetsData.length === 0) && (
-        <div className="text-center py-4 text-gray-500">
-          <p className="mb-2">No sets tracked yet</p>
-          <p className="text-sm">Click on a set number above to log your set data</p>
+        <div className="text-center py-4 text-ocean-slate">
+          <p className="mb-1">Tap a set to start logging</p>
+          <p className="text-sm text-ocean-slate-light">Track your weight, reps, and RPE</p>
         </div>
       )}
       
@@ -399,7 +399,7 @@ const SetTracker = ({
         <div className="mt-4 flex justify-center">
           <button
             onClick={addSet}
-            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200"
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-ocean-teal bg-ocean-mist hover:bg-ocean-teal/20"
           >
             <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

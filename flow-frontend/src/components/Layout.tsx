@@ -42,7 +42,7 @@ const Layout = ({ user, signOut, children }: LayoutProps) => {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link to="/" className="text-xl font-bold text-blue-600">Flow</Link>
+                <Link to="/" className="text-2xl font-bold font-display text-ocean-navy tracking-tight">Flow</Link>
               </div>
 
               {/* Desktop Navigation */}
@@ -51,7 +51,7 @@ const Layout = ({ user, signOut, children }: LayoutProps) => {
                   <Link
                     key={link.path}
                     to={link.path}
-                    className={`${isActive(link.path) ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                    className={`${isActive(link.path) ? 'border-ocean-teal text-ocean-navy-dark' : 'border-transparent text-ocean-slate hover:border-ocean-slate-light hover:text-ocean-navy'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
                   >
                     {link.label}
                   </Link>
@@ -103,7 +103,7 @@ const Layout = ({ user, signOut, children }: LayoutProps) => {
                         key={link.path}
                         to={link.path}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`${isActive(link.path) ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'} block px-3 py-2 rounded-md text-base font-medium`}
+                        className={`${isActive(link.path) ? 'bg-ocean-mist text-ocean-navy' : 'text-ocean-slate hover:bg-ocean-mist hover:text-ocean-navy'} block px-3 py-2 rounded-md text-base font-medium`}
                       >
                         {link.label}
                       </Link>
@@ -111,7 +111,7 @@ const Layout = ({ user, signOut, children }: LayoutProps) => {
                     <Link
                       to="/profile"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className={`${isActive('/profile') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'} block px-3 py-2 rounded-md text-base font-medium`}
+                      className={`${isActive('/profile') ? 'bg-ocean-mist text-ocean-navy' : 'text-ocean-slate hover:bg-ocean-mist hover:text-ocean-navy'} block px-3 py-2 rounded-md text-base font-medium`}
                     >
                       Profile
                     </Link>
@@ -120,7 +120,7 @@ const Layout = ({ user, signOut, children }: LayoutProps) => {
                         setIsMobileMenuOpen(false);
                         signOut();
                       }}
-                      className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-ocean-slate hover:bg-ocean-mist hover:text-ocean-navy"
                     >
                       Sign out
                     </button>

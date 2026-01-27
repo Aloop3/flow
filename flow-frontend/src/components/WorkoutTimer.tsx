@@ -139,9 +139,9 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${
-              timerStatus === 'not_started' ? 'bg-gray-400' :
-              timerStatus === 'in_progress' ? 'bg-green-400 animate-pulse' :
-              'bg-blue-400'
+              timerStatus === 'not_started' ? 'bg-ocean-slate' :
+              timerStatus === 'in_progress' ? 'bg-state-active animate-pulse' :
+              'bg-state-completed'
             }`} />
             <span className="text-sm text-gray-600 capitalize">
               {timerStatus === 'not_started' ? 'Ready to start' :
