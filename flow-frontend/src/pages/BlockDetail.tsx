@@ -731,8 +731,8 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                       className={`
                         min-h-[2rem] p-2 rounded border-2 transition-all duration-200 outline-none
                         text-gray-600 text-sm leading-relaxed
-                        ${isEditingDescription 
-                          ? 'border-blue-300 bg-blue-50 shadow-sm' 
+                        ${isEditingDescription
+                          ? 'border-ocean-teal/50 bg-ocean-mist shadow-sm'
                           : 'border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text'
                         }
                         ${isSavingDescription ? 'opacity-50' : ''}
@@ -749,14 +749,14 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
 
                     {isSavingDescription && (
                       <div className="absolute right-2 top-2">
-                        <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        <div className="animate-spin h-4 w-4 border-2 border-ocean-teal border-t-transparent rounded-full"></div>
                       </div>
                     )}
 
                     {!isEditingDescription && descriptionContent.length > 100 && (
                       <button
                         onClick={() => setShowFullDescription(!showFullDescription)}
-                        className="text-xs text-blue-600 hover:text-blue-800 mt-1 block"
+                        className="text-xs text-ocean-teal hover:text-ocean-navy mt-1 block"
                       >
                         {showFullDescription ? 'Show less' : 'Show more'}
                       </button>
@@ -786,10 +786,10 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                 </div>
                 <Badge className={
                   block.status === 'active'
-                    ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                    ? 'bg-state-active/10 text-state-active hover:bg-state-active/10'
                     : block.status === 'completed'
-                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                    : 'bg-gray-100 text-gray-800 hover:bg-gray-100'
+                    ? 'bg-state-completed/10 text-state-completed hover:bg-state-completed/10'
+                    : 'bg-ocean-mist text-ocean-slate hover:bg-ocean-mist'
                 }>
                   {block.status.charAt(0).toUpperCase() + block.status.slice(1)}
                 </Badge>
@@ -807,7 +807,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                         onClick={() => handleWeekTabClick(week.week_id)}
                         className={`py-4 px-6 text-center border-b-2 font-medium text-sm relative ${
                           activeWeek === week.week_id
-                            ? 'border-blue-500 text-blue-600'
+                            ? 'border-ocean-teal text-ocean-navy'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         }`}
                       >
@@ -815,7 +815,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                         {/* Loading indicator for week tab */}
                         {weekLoadingStates[week.week_id] && (
                           <div className="absolute top-1 right-1">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                            <div className="w-2 h-2 bg-ocean-teal rounded-full animate-pulse"></div>
                           </div>
                         )}
                         {/* Error indicator for week tab */}
@@ -887,7 +887,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                     id="applyToAllWeeks"
                                     checked={applyToAllWeeks}
                                     onChange={(e) => setApplyToAllWeeks(e.target.checked)}
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded flex-shrink-0"
+                                    className="h-4 w-4 text-ocean-teal focus:ring-ocean-teal border-gray-300 rounded flex-shrink-0"
                                   />
                                   <label
                                     htmlFor="applyToAllWeeks"
@@ -961,7 +961,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                         daysMap[activeWeek]?.length > 0 &&
                                         daysMap[activeWeek].every((day: any) => selectedDays[day.day_id]))
                                       }
-                                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 touch-manipulation cursor-pointer"
+                                      className="h-4 w-4 text-ocean-teal border-gray-300 rounded focus:ring-ocean-teal touch-manipulation cursor-pointer"
                                     />
                                   </TableHead>
                                 )}
@@ -977,7 +977,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                 .map((day) => (
                                   <TableRow
                                     key={day.day_id}
-                                    className={isBulkEditing && selectedDays[day.day_id] ? 'bg-blue-50' : ''}
+                                    className={isBulkEditing && selectedDays[day.day_id] ? 'bg-ocean-mist' : ''}
                                     onClick={isBulkEditing ? (e) => {
                                       const target = e.target as HTMLInputElement;
                                       if (target.tagName === 'INPUT' && target.type === 'checkbox') {
@@ -1005,7 +1005,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                           onClick={(e) => {
                                             e.stopPropagation();
                                           }}
-                                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 touch-manipulation cursor-pointer"
+                                          className="h-4 w-4 text-ocean-teal border-gray-300 rounded focus:ring-ocean-teal touch-manipulation cursor-pointer"
                                         />
                                       </TableCell>
                                     )}
@@ -1032,7 +1032,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                         >
                                           <FocusTag focus={day.focus || ''} size="sm" />
                                           {isSavingFocus && editingFocusDayId === day.day_id && (
-                                            <span className="inline-block ml-1 animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                                            <span className="inline-block ml-1 animate-spin h-4 w-4 border-2 border-ocean-teal border-t-transparent rounded-full" />
                                           )}
                                         </div>
 

@@ -387,7 +387,7 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
           
           <button
             onClick={handleAddSet}
-            className="flex items-center text-blue-600 hover:text-blue-800"
+            className="flex items-center text-ocean-teal hover:text-ocean-navy"
           >
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -404,7 +404,7 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
             </button>
             <button
               onClick={handleSaveExercise}
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-3 py-1 bg-ocean-teal text-white rounded hover:bg-ocean-navy transition-colors"
             >
               {editingExerciseIndex !== null ? 'Save Changes' : 'Add Exercise'}
             </button>
@@ -442,7 +442,7 @@ const WorkoutForm = ({ dayId, onSave, athleteId }: WorkoutFormProps) => {
                   <button
                     onClick={() => handleEditExercise(index)}
                     disabled={isConfiguring}
-                    className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="text-ocean-teal hover:text-ocean-navy p-1 rounded hover:bg-ocean-mist flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Edit exercise"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

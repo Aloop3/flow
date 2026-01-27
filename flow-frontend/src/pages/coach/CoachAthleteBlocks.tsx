@@ -103,11 +103,10 @@ const CoachAthleteBlocks = ({ user, signOut }: CoachAthleteBlocksProps) => {
                 </Link>
               ))
             ) : (
-              <Card className="col-span-3">
-                <CardContent className="p-6 text-center">
-                  <p className="text-gray-500">No training programs found. Create the first program for {athlete?.name}.</p>
-                </CardContent>
-              </Card>
+              <div className="col-span-3 text-center py-8">
+                <p className="text-ocean-slate">Ready to build a program for {athlete?.name}?</p>
+                <p className="text-sm text-ocean-slate-light mt-1">Create their first training block to get started.</p>
+              </div>
             )}
           </div>
         )}

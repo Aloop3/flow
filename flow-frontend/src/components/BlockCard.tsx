@@ -26,9 +26,9 @@ export default function BlockCard({ block }: BlockCardProps) {
 
   // Status badge color
   const statusColors = {
-    draft: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
-    active: 'bg-green-100 text-green-800 hover:bg-green-100',
-    completed: 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+    draft: 'bg-ocean-mist text-ocean-slate hover:bg-ocean-mist',
+    active: 'bg-state-active/10 text-state-active hover:bg-state-active/10',
+    completed: 'bg-state-completed/10 text-state-completed hover:bg-state-completed/10'
   };
 
   return (

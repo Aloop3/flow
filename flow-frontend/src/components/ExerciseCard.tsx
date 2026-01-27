@@ -182,7 +182,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               </div>
               <div className="w-20 h-2 bg-gray-200 rounded-full mt-1">
                 <div
-                  className="h-2 bg-blue-500 rounded-full transition-all"
+                  className="h-2 bg-ocean-teal rounded-full transition-all"
                   style={{ width: `${progressPercentage}%` }}
                 />
               </div>
@@ -408,7 +408,7 @@ const SetRow: React.FC<SetRowProps> = ({
           onChange={(e) => setWeight(e.target.value)}
           onBlur={(e) => handleBlur('weight', e.target.value)}
           onFocus={(e) => e.target.select()}
-          className="w-16 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block h-auto"
+          className="w-16 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto"
           disabled={readOnly}
         />
       </td>
@@ -422,7 +422,7 @@ const SetRow: React.FC<SetRowProps> = ({
           onChange={(e) => setReps(e.target.value)}
           onBlur={(e) => handleBlur('reps', e.target.value)}
           onFocus={(e) => e.target.select()}
-          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block h-auto"
+          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto"
           disabled={readOnly}
         />
       </td>
@@ -439,7 +439,7 @@ const SetRow: React.FC<SetRowProps> = ({
           onChange={(e) => setRpe(e.target.value)}
           onBlur={(e) => handleBlur('rpe', e.target.value)}
           onFocus={(e) => e.target.select()}
-          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded transition-all mx-auto block h-auto"
+          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto"
           placeholder="RPE"
           disabled={readOnly}
         />
@@ -453,7 +453,7 @@ const SetRow: React.FC<SetRowProps> = ({
             onClick={() => setNotesExpanded(!notesExpanded)}
             className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
               notes
-                ? 'bg-blue-100 text-blue-600'
+                ? 'bg-ocean-teal/20 text-ocean-teal'
                 : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
             }`}
             title={notes ? 'View notes' : 'Add notes'}
@@ -484,7 +484,7 @@ const SetRow: React.FC<SetRowProps> = ({
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') setNotesExpanded(false);
                 }}
-                className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ocean-teal"
                 rows={4}
                 placeholder="Add notes for this set..."
                 disabled={readOnly}
@@ -501,7 +501,7 @@ const SetRow: React.FC<SetRowProps> = ({
                 <button
                   type="button"
                   onClick={handleSaveNotes}
-                  className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                  className="px-4 py-2 text-sm text-white bg-ocean-teal hover:bg-ocean-navy rounded-lg transition-colors"
                 >
                   Save Notes
                 </button>

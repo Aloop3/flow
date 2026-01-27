@@ -15,3 +15,4 @@ layers/*/python/*/
 !layers/*/python/requirements.txt
 .samignore
 .vite
+tasks.md

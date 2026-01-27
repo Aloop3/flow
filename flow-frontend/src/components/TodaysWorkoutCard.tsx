@@ -104,29 +104,23 @@ const TodaysWorkoutCard: React.FC<TodaysWorkoutCardProps> = ({ activeBlock, user
 
   if (!activeBlock) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Today's Workout</h2>
-          <p className="text-muted-foreground mb-4">Create a training program to see today's workout</p>
-          <Button asChild>
-            <Link to="/blocks/new">Create Program</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="py-6">
+        <h2 className="text-2xl font-bold font-display text-ocean-navy-dark mb-2">Today's Workout</h2>
+        <p className="text-ocean-slate mb-4">Start by creating a training program.</p>
+        <Button asChild>
+          <Link to="/blocks/new">Create Program</Link>
+        </Button>
+      </div>
     );
   }
 
   if (!todaysWorkout) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Today's Workout</h2>
-          <p className="text-muted-foreground mb-4">No workout scheduled for today</p>
-          <div className="text-sm text-muted-foreground/70">
-            Rest day or outside program schedule
-          </div>
-        </CardContent>
-      </Card>
+      <div className="py-6">
+        <h2 className="text-2xl font-bold font-display text-ocean-navy-dark mb-2">Today's Workout</h2>
+        <p className="text-ocean-slate">Rest day</p>
+        <p className="text-sm text-ocean-slate-light mt-1">No workout scheduled — enjoy the recovery.</p>
+      </div>
     );
   }
 
@@ -140,13 +134,13 @@ const TodaysWorkoutCard: React.FC<TodaysWorkoutCardProps> = ({ activeBlock, user
   const getStatusColor = (status: Workout['status']) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-ocean-seafoam-light text-ocean-seafoam';
       case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-ocean-teal/10 text-ocean-teal';
       case 'skipped':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-ocean-mist text-ocean-slate';
       default:
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-ocean-mist text-ocean-navy';
     }
   };
 
@@ -180,10 +174,10 @@ const TodaysWorkoutCard: React.FC<TodaysWorkoutCardProps> = ({ activeBlock, user
   const hasExercises = workout?.exercises?.length && workout.exercises.length > 0;
 
   return (
-    <Card className="border-l-4 border-l-blue-500">
+    <Card className="border-l-4 border-l-ocean-teal shadow-md">
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Today's Workout</h2>
+          <h2 className="text-2xl font-bold font-display text-ocean-navy-dark">Today's Workout</h2>
           <Badge className={getStatusColor(workoutStatus)}>
             {getStatusText(workoutStatus)}
           </Badge>
@@ -192,8 +186,8 @@ const TodaysWorkoutCard: React.FC<TodaysWorkoutCardProps> = ({ activeBlock, user
         <div className="space-y-3">
           {day.focus && (
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-sm font-medium text-gray-700">
+              <div className="w-2 h-2 bg-ocean-teal rounded-full"></div>
+              <span className="text-sm font-medium text-ocean-navy">
                 {day.focus.charAt(0).toUpperCase() + day.focus.slice(1)} Focus
               </span>
             </div>
@@ -202,11 +196,11 @@ const TodaysWorkoutCard: React.FC<TodaysWorkoutCardProps> = ({ activeBlock, user
           <p className="text-sm text-muted-foreground">{day.notes}</p>
 
           {hasExercises && (
-            <div className="bg-muted p-3 rounded-md">
-              <p className="text-sm font-medium text-gray-700 mb-1">
+            <div className="bg-ocean-mist p-3 rounded-md">
+              <p className="text-sm font-medium text-ocean-navy mb-1">
                 {workout!.exercises.length} exercises planned
               </p>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-ocean-slate">
                 {workout!.exercises.slice(0, 3).map((exercise, index) => (
                   <span key={index}>
                     {exercise.exercise_type}

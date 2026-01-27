@@ -37,7 +37,7 @@ const Profile = ({ user, signOut }: ProfileProps) => {
   return (
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
+        <h1 className="text-2xl font-bold text-ocean-navy-dark">Profile</h1>
         
         {/* Tab Navigation */}
         <div className="border-b border-gray-200">
@@ -46,8 +46,8 @@ const Profile = ({ user, signOut }: ProfileProps) => {
               onClick={() => setActiveTab('info')}
               className={`${
                 activeTab === 'info'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-ocean-teal text-ocean-navy'
+                  : 'border-transparent text-ocean-slate hover:text-ocean-navy hover:border-ocean-slate-light'
               } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               User Information
@@ -56,8 +56,8 @@ const Profile = ({ user, signOut }: ProfileProps) => {
               onClick={() => setActiveTab('connections')}
               className={`${
                 activeTab === 'connections'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-ocean-teal text-ocean-navy'
+                  : 'border-transparent text-ocean-slate hover:text-ocean-navy hover:border-ocean-slate-light'
               } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               Connections
@@ -68,19 +68,34 @@ const Profile = ({ user, signOut }: ProfileProps) => {
         {/* Tab Content */}
         {activeTab === 'info' && (
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">User Information</h2>
+            <h2 className="text-lg font-medium text-ocean-navy mb-4">User Information</h2>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
               <div>
-                <dt className="text-sm font-medium text-gray-500">Email</dt>
-                <dd className="mt-1 text-sm text-gray-900">{user.email || 'N/A'}</dd>
+                <dt className="text-sm font-medium text-ocean-slate">Email</dt>
+                <dd className="mt-1 text-sm text-ocean-navy-dark">{user.email || 'N/A'}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Name</dt>
-                <dd className="mt-1 text-sm text-gray-900">{user.name || user.username || 'N/A'}</dd>
+                <dt className="text-sm font-medium text-ocean-slate">Name</dt>
+                <dd className="mt-1 text-sm text-ocean-navy-dark">{user.name || user.username || 'N/A'}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Role</dt>
-                <dd className="mt-1 text-sm text-gray-900 capitalize">{user.role || 'N/A'}</dd>
+                <dt className="text-sm font-medium text-ocean-slate">Role</dt>
+                <dd className="mt-1 text-sm text-ocean-navy-dark capitalize">{user.role || 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-ocean-slate">Weight Units</dt>
+                <dd className="mt-1">
+                  <select
+                    value={weightPreference}
+                    onChange={(e) => handleWeightPreferenceChange(e.target.value as 'auto' | 'kg' | 'lb')}
+                    disabled={isUpdatingPreference}
+                    className="text-sm border-gray-300 rounded-md focus:border-ocean-teal focus:ring-ocean-teal"
+                  >
+                    <option value="auto">Smart defaults (SBD→kg)</option>
+                    <option value="kg">kg</option>
+                    <option value="lb">lb</option>
+                  </select>
+                </dd>
               </div>
             </dl>
           </div>
@@ -102,21 +117,6 @@ const Profile = ({ user, signOut }: ProfileProps) => {
           </div>
         )}
 
-        <div>
-          <dt className="text-sm font-medium text-gray-500">Weight Units</dt>
-          <dd className="mt-1">
-            <select
-              value={weightPreference}
-              onChange={(e) => handleWeightPreferenceChange(e.target.value as 'auto' | 'kg' | 'lb')}
-              disabled={isUpdatingPreference}
-              className="text-sm border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-            >
-              <option value="auto">Smart defaults (SBD→kg)</option>
-              <option value="kg">kg</option>
-              <option value="lb">lb</option>
-            </select>
-          </dd>
-        </div>
       </div>
     </Layout>
   );

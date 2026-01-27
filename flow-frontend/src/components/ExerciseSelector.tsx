@@ -209,7 +209,7 @@ const ExerciseSelector = ({ onSelect, selectedExercise, userId }: ExerciseSelect
                       <button
                         onClick={() => onSelect(exercise)}
                         className={`w-full text-left px-4 py-2 hover:bg-muted ${
-                          selectedExercise === exercise ? 'bg-blue-50' : ''
+                          selectedExercise === exercise ? 'bg-ocean-mist' : ''
                         }`}
                       >
                         {exercise}

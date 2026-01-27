@@ -80,36 +80,36 @@ const WorkoutSummary: React.FC<WorkoutSummaryProps> = ({ workout }) => {
   const totalExercises = workout.exercises.length;
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-      <h3 className="text-sm font-medium text-blue-900 mb-3">Workout Overview</h3>
-      
+    <div className="bg-ocean-mist border border-ocean-teal/30 rounded-lg p-4 mb-4">
+      <h3 className="text-sm font-medium text-ocean-navy-dark mb-3">Workout Overview</h3>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Volume */}
         <div className="text-center sm:text-left">
-          <div className="text-xs text-blue-700 font-medium uppercase tracking-wide">
+          <div className="text-xs text-ocean-teal font-medium uppercase tracking-wide">
             Total Volume
           </div>
-          <div className="text-lg font-bold text-blue-900 mt-1">
+          <div className="text-lg font-bold text-ocean-navy-dark mt-1">
             {formatVolume(volume)}
           </div>
         </div>
 
         {/* Highest RPE */}
         <div className="text-center sm:text-left">
-          <div className="text-xs text-blue-700 font-medium uppercase tracking-wide">
+          <div className="text-xs text-ocean-teal font-medium uppercase tracking-wide">
             Highest RPE
           </div>
-          <div className="text-lg font-bold text-blue-900 mt-1">
+          <div className="text-lg font-bold text-ocean-navy-dark mt-1">
             {highestRPE > 0 ? highestRPE : 'N/A'}
           </div>
         </div>
 
         {/* Total Exercises */}
         <div className="text-center sm:text-left">
-          <div className="text-xs text-blue-700 font-medium uppercase tracking-wide">
+          <div className="text-xs text-ocean-teal font-medium uppercase tracking-wide">
             Total Exercises
           </div>
-          <div className="text-lg font-bold text-blue-900 mt-1">
+          <div className="text-lg font-bold text-ocean-navy-dark mt-1">
             {totalExercises}
           </div>
         </div>

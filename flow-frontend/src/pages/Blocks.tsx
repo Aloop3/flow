@@ -121,7 +121,7 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
     <Layout user={user} signOut={signOut}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-900">Training Programs</h1>
+          <h1 className="text-2xl font-bold text-ocean-navy-dark">Training Programs</h1>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
               <SelectTrigger className="w-[160px]">
@@ -154,17 +154,17 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
                   <Link to={`/blocks/${block.block_id}`}>
                     <Card className="hover:shadow-md transition-shadow">
                       <CardContent className="pt-4">
-                        <h3 className="text-lg font-medium text-gray-900 pr-8">{block.title}</h3>
+                        <h3 className="text-lg font-medium text-ocean-navy pr-8">{block.title}</h3>
                         <p className="mt-1 text-sm text-muted-foreground">{block.description}</p>
                         <p className="mt-2 text-xs text-muted-foreground">
                           {formatDate(block.start_date)} - {formatDate(block.end_date)}
                         </p>
                         <Badge className={`mt-2 ${
                           block.status === 'active'
-                            ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                            ? 'bg-state-active/10 text-state-active hover:bg-state-active/10'
                             : block.status === 'completed'
-                            ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                            : 'bg-gray-100 text-gray-800 hover:bg-gray-100'
+                            ? 'bg-state-completed/10 text-state-completed hover:bg-state-completed/10'
+                            : 'bg-ocean-mist text-ocean-slate hover:bg-ocean-mist'
                         }`}>
                           {block.status.charAt(0).toUpperCase() + block.status.slice(1)}
                         </Badge>
@@ -221,11 +221,10 @@ const Blocks = ({ user, signOut }: BlocksProps) => {
                 </div>
               ))
           ) : (
-            <Card className="col-span-3 text-center">
-              <CardContent className="pt-6">
-                <p className="text-muted-foreground">No training programs found. Create your first program to get started.</p>
-              </CardContent>
-            </Card>
+            <div className="col-span-3 text-center py-8">
+              <p className="text-ocean-slate">Ready to build your training block?</p>
+              <p className="text-sm text-ocean-slate-light mt-1">Create a program to plan your workouts.</p>
+            </div>
           )}
         </div>
       )}
