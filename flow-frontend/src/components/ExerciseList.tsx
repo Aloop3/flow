@@ -103,7 +103,7 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
     });
   };
 
-  // Handler for adding a set to an exercise
+  // Handler for adding a set to an exercise (optimistic UI)
   const handleAddSet = async (exercise: Exercise) => {
     const scrollY = window.scrollY;
     const newSetCount = exercise.sets + 1;
@@ -119,19 +119,32 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
       rpe: previousSet?.rpe || exercise.rpe,
     };
 
-    // Initialize the new set in localStorage immediately (so values persist)
+    // Initialize the new set in localStorage immediately
     workoutDraft.updateSet(exercise.exercise_id, newSetCount, {
       ...setValues,
       completed: false,
     });
 
-    // Then save to backend
-    await trackExerciseSet(exercise.exercise_id, newSetCount, {
+    // Optimistic UI: Update local exercise list with incremented set count
+    setOptimisticExercises(prev =>
+      prev.map(ex =>
+        ex.exercise_id === exercise.exercise_id
+          ? { ...ex, sets: newSetCount }
+          : ex
+      )
+    );
+
+    // Fire backend call silently
+    trackExerciseSet(exercise.exercise_id, newSetCount, {
       ...setValues,
       completed: false,
+    }).catch(err => {
+      // Revert on failure
+      setOptimisticExercises(exercises);
+      setError('Failed to add set. Please try again.');
+      console.error('Error adding set:', err);
     });
 
-    onExerciseComplete();
     requestAnimationFrame(() => {
       window.scrollTo(0, scrollY);
     });
@@ -142,14 +155,28 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
     if (exercise.sets <= 1) return; // Can't delete if only 1 set
 
     const scrollY = window.scrollY;
+    const newSetCount = exercise.sets - 1;
 
     // Remove from localStorage first for instant UI update
     workoutDraft.removeSet(exercise.exercise_id, setNumber);
 
-    // Delete from backend
-    await deleteSet(exercise.exercise_id, setNumber);
+    // Optimistic UI: Update local exercise list with decremented set count
+    setOptimisticExercises(prev =>
+      prev.map(ex =>
+        ex.exercise_id === exercise.exercise_id
+          ? { ...ex, sets: newSetCount }
+          : ex
+      )
+    );
 
-    onExerciseComplete();
+    // Fire backend call silently
+    deleteSet(exercise.exercise_id, setNumber).catch(err => {
+      // Revert on failure
+      setOptimisticExercises(exercises);
+      setError('Failed to delete set. Please try again.');
+      console.error('Error deleting set:', err);
+    });
+
     requestAnimationFrame(() => {
       window.scrollTo(0, scrollY);
     });
@@ -300,7 +327,7 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
         </div>
       )}
       
-      <div className="divide-y">
+      <div className="divide-y divide-ocean-slate/30">
         {optimisticExercises.map((exercise) => {
           const setProgress = getSetProgress(exercise);
           const hasSetData = exercise.sets_data && exercise.sets_data.length > 0;
@@ -309,87 +336,36 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
           return (
             <div key={exercise.exercise_id} className="py-3">
               {/* Exercise Summary Row */}
-              <div className={`flex justify-between items-start ${
-                !readOnly && exercise.status !== 'completed' ? 'cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors' : ''
+              <div className={`px-4 ${
+                !readOnly && exercise.status !== 'completed' ? 'cursor-pointer' : ''
               }`}>
-                <div 
-                  className="flex-grow"
-                  onClick={() => handleExerciseClick(exercise)}
-                >
-                  <div className="flex items-center space-x-2 mb-1">
-                    <h3 className="font-medium">{exercise.exercise_type}</h3>
-                    {/* Expansion indicator */}
-                    {!readOnly && (
-                      <svg 
-                        className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                {/* Top row: Exercise name + overflow menu */}
+                <div className="flex justify-between items-start">
+                  <div
+                    className="flex-grow"
+                    onClick={() => handleExerciseClick(exercise)}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-medium">{exercise.exercise_type}</h3>
+                      {!readOnly && (
+                        <svg
+                          className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {exercise.notes && (
+                      <p className="mt-1 text-xs text-gray-500">{exercise.notes}</p>
                     )}
                   </div>
-                  
-                  <p className="text-sm text-gray-600">
-                    {exercise.sets} sets × {exercise.reps} reps
-                    {exercise.rpe && ` @ RPE ${exercise.rpe}`}
-                  </p>
-                  
-                  {exercise.notes && (
-                    <p className="mt-1 text-xs text-gray-500">{exercise.notes}</p>
-                  )}
-                  
-                  {/* Set progress bar - uses local progress for instant updates */}
-                  {(hasSetData || setProgress.completed > 0) && (
-                    <div className="mt-2">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Set progress</span>
-                        <span>{setProgress.completed} / {setProgress.total} sets</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-ocean-teal h-2 rounded-full transition-all duration-300" 
-                          style={{ width: `${setProgress.total > 0 ? (setProgress.completed / setProgress.total) * 100 : 0}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Action buttons - only show if not readOnly and workoutId exists */}
-                {!readOnly && workoutId && (
-                  <div className="flex items-center ml-2 space-x-1">
-                    {/* Reorder buttons */}
-                    <div className="flex flex-col">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMoveExercise(exercise.exercise_id, 'up');
-                        }}
-                        disabled={optimisticExercises.findIndex(e => e.exercise_id === exercise.exercise_id) === 0}
-                        className="text-gray-400 hover:text-ocean-teal disabled:text-gray-200 disabled:cursor-not-allowed p-0.5"
-                        title="Move up"
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMoveExercise(exercise.exercise_id, 'down');
-                        }}
-                        disabled={optimisticExercises.findIndex(e => e.exercise_id === exercise.exercise_id) === optimisticExercises.length - 1}
-                        className="text-gray-400 hover:text-ocean-teal disabled:text-gray-200 disabled:cursor-not-allowed p-0.5"
-                        title="Move down"
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    </div>
-                    {/* Overflow menu */}
+
+                  {/* Overflow menu - top right */}
+                  {!readOnly && workoutId && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -425,13 +401,65 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                )}
+                  )}
+                </div>
+
+                {/* Progress bar and reorder buttons row */}
+                <div className="mt-2 flex items-center space-x-2" onClick={() => handleExerciseClick(exercise)}>
+                  {/* Progress bar - shows if has data */}
+                  {(hasSetData || setProgress.completed > 0) ? (
+                    <div className="flex-grow">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Set progress</span>
+                        <span>{setProgress.completed} / {setProgress.total} sets</span>
+                      </div>
+                      <div className="bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-ocean-teal h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${setProgress.total > 0 ? (setProgress.completed / setProgress.total) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-grow" />
+                  )}
+                  {/* Reorder buttons - always visible when editable */}
+                  {!readOnly && workoutId && (
+                    <div className="flex items-center space-x-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveExercise(exercise.exercise_id, 'up');
+                        }}
+                        disabled={optimisticExercises.findIndex(e => e.exercise_id === exercise.exercise_id) === 0}
+                        className="text-gray-400 hover:text-ocean-teal disabled:text-gray-200 disabled:cursor-not-allowed p-0.5"
+                        title="Move up"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveExercise(exercise.exercise_id, 'down');
+                        }}
+                        disabled={optimisticExercises.findIndex(e => e.exercise_id === exercise.exercise_id) === optimisticExercises.length - 1}
+                        className="text-gray-400 hover:text-ocean-teal disabled:text-gray-200 disabled:cursor-not-allowed p-0.5"
+                        title="Move down"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Inline Exercise Editor */}
               {isExpanded && (
-                <div className="mt-4 ml-2">
+                <div className="mt-4">
                   {USE_LOCAL_FIRST_WORKOUT && dayId ? (
                     <ExerciseCard
                       exercise={exercise}
@@ -465,7 +493,7 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
       
       {/* Add Exercise Button - only show if not readOnly and workoutId exists */}
       {!readOnly && workoutId && (
-        <div className="mt-4">
+        <div className="mt-4 px-4 pb-4">
           {isAddingExercise ? (
             <div className="border rounded-lg p-4 bg-gray-50">
               <h3 className="font-medium mb-3">Add Exercise</h3>

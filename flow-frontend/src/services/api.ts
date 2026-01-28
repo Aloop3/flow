@@ -405,6 +405,29 @@ export const getBlock = async (block_id: string): Promise<Block | null> => {
   }
 };
 
+/**
+ * Get the effective athlete ID for workout operations.
+ * For coaches viewing an athlete's block, returns the athlete's ID.
+ * Otherwise returns the provided user ID.
+ */
+export const getEffectiveAthleteId = async (
+  userId: string,
+  userRole: string,
+  blockId: string | null
+): Promise<string> => {
+  if (blockId && userRole === 'coach') {
+    try {
+      const blockData = await getBlock(blockId);
+      if (blockData?.athlete_id) {
+        return blockData.athlete_id;
+      }
+    } catch (err) {
+      console.error('Error fetching block for athlete ID:', err);
+    }
+  }
+  return userId;
+};
+
 export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<Block> => {
   try {
     console.log('Sending block data:', JSON.stringify(blockData, null, 2));
@@ -964,6 +987,38 @@ export const finishWorkoutSession = async (workoutId: string): Promise<Workout> 
       throw new ApiError('Workout not found', 404, error);
     }
     console.error('Error finishing workout session:', error);
+    throw error;
+  }
+};
+
+export const cancelWorkoutSession = async (workoutId: string): Promise<Workout> => {
+  try {
+    const headers = await getAuthHeaders();
+    const apiResponse = await put({
+      apiName: 'flow-api',
+      path: `/workouts/${workoutId}`,
+      options: {
+        headers,
+        body: { start_time: null, finish_time: null },
+      },
+    });
+
+    const actualResponse = await apiResponse.response;
+
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json();
+        console.log('Successfully cancelled workout session:', responseData);
+        return responseData as unknown as Workout;
+      } catch (e) {
+        console.error('Failed to parse cancel workout response:', e);
+        throw new Error('Invalid response format');
+      }
+    }
+
+    throw new Error('No response data');
+  } catch (error) {
+    console.error('Error cancelling workout session:', error);
     throw error;
   }
 };

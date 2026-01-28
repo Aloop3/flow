@@ -33,6 +33,7 @@ const getKey = (dayId: string) => `${STORAGE_KEY_PREFIX}${dayId}`;
 export const workoutStorage = {
   /**
    * Load draft from localStorage, or initialize from server data
+   * If draft exists and serverExercises provided, merges new exercises/sets
    */
   loadDraft(dayId: string, serverExercises?: Exercise[]): WorkoutDraft | null {
     const stored = localStorage.getItem(getKey(dayId));
@@ -40,6 +41,12 @@ export const workoutStorage = {
     if (stored) {
       try {
         const draft = JSON.parse(stored) as WorkoutDraft;
+
+        // If server exercises provided, merge any new data
+        if (serverExercises && serverExercises.length > 0) {
+          this.mergeDraftWithServer(draft, serverExercises);
+        }
+
         return draft;
       } catch {
         localStorage.removeItem(getKey(dayId));
@@ -52,6 +59,72 @@ export const workoutStorage = {
     }
 
     return null;
+  },
+
+  /**
+   * Merge server exercise data into existing draft
+   * - Adds new exercises from server
+   * - Updates set counts (adds/removes sets to match server)
+   * - Preserves user's unsaved weight/reps/rpe edits for existing sets
+   */
+  mergeDraftWithServer(draft: WorkoutDraft, serverExercises: Exercise[]): void {
+    // Update exercises list
+    draft.exercises = serverExercises;
+
+    // Track which exercises are in server data
+    const serverExerciseIds = new Set(serverExercises.map(e => e.exercise_id));
+
+    // Remove exercises that no longer exist on server
+    for (const exerciseId of Object.keys(draft.setsData)) {
+      if (!serverExerciseIds.has(exerciseId)) {
+        delete draft.setsData[exerciseId];
+      }
+    }
+
+    // Add/update exercises from server
+    for (const exercise of serverExercises) {
+      if (!draft.setsData[exercise.exercise_id]) {
+        // New exercise - initialize from server data
+        draft.setsData[exercise.exercise_id] = {};
+      }
+
+      const sets = draft.setsData[exercise.exercise_id];
+      const currentSetNumbers = Object.keys(sets).map(Number);
+      const maxCurrentSet = currentSetNumbers.length > 0 ? Math.max(...currentSetNumbers) : 0;
+
+      // Add new sets if server has more
+      for (let i = maxCurrentSet + 1; i <= exercise.sets; i++) {
+        const serverSetData = exercise.sets_data?.find(s => s.set_number === i);
+        sets[i] = {
+          weight: serverSetData?.weight ?? exercise.weight,
+          reps: serverSetData?.reps ?? exercise.reps,
+          rpe: serverSetData?.rpe ?? exercise.rpe,
+          notes: serverSetData?.notes,
+          completed: serverSetData?.completed ?? false,
+        };
+      }
+
+      // Remove extra sets if server has fewer
+      for (const setNum of currentSetNumbers) {
+        if (setNum > exercise.sets) {
+          delete sets[setNum];
+        }
+      }
+
+      // For existing sets, preserve local edits but sync completion status from server
+      for (let i = 1; i <= Math.min(maxCurrentSet, exercise.sets); i++) {
+        const serverSetData = exercise.sets_data?.find(s => s.set_number === i);
+        if (serverSetData && sets[i]) {
+          // Keep local weight/reps/rpe (user might be editing)
+          // But sync completed status from server if it changed
+          if (serverSetData.completed !== undefined) {
+            sets[i].completed = serverSetData.completed;
+          }
+        }
+      }
+    }
+
+    this.saveDraft(draft);
   },
 
   /**
@@ -177,26 +250,31 @@ export const workoutStorage = {
 
   /**
    * Remove a set from the draft (used when deleting a set)
-   * When removing the last set, simply delete it. When removing a middle set, renumber.
+   * Deletes the specified set and renumbers higher sets down by 1
    */
   removeSet(dayId: string, exerciseId: string, setNumber: number): void {
     const draft = this.loadDraft(dayId);
     if (!draft || !draft.setsData[exerciseId]) return;
 
-    // Get current sets and find the highest set number
     const sets = draft.setsData[exerciseId];
     const setNumbers = Object.keys(sets).map(Number).sort((a, b) => a - b);
 
     if (setNumbers.length === 0) return;
 
-    // Remove the specified set and any sets with higher numbers
-    // This handles the "remove last set" case cleanly
+    // Build new sets object with renumbered entries
+    const newSets: Record<number, SetData> = {};
     for (const num of setNumbers) {
-      if (num >= setNumber) {
-        delete sets[num];
+      if (num < setNumber) {
+        // Keep sets before deleted one as-is
+        newSets[num] = sets[num];
+      } else if (num > setNumber) {
+        // Renumber sets after deleted one (shift down by 1)
+        newSets[num - 1] = sets[num];
       }
+      // Skip the deleted set (num === setNumber)
     }
 
+    draft.setsData[exerciseId] = newSets;
     this.saveDraft(draft);
   },
 

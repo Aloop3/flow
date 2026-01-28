@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import WorkoutForm from '../components/WorkoutForm';
 import DaySelector from '../components/DaySelector';
-import { getDay, getWorkoutByDay, getBlock, copyWorkout, ApiError } from '../services/api';
+import { getDay, getWorkoutByDay, getEffectiveAthleteId, copyWorkout, ApiError } from '../services/api';
 import type { Day, Workout } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
 import FocusTag from '../components/FocusTag';
@@ -13,6 +13,14 @@ import { updateDay } from '../services/api';
 import WorkoutTimer from '../components/WorkoutTimer';
 import WorkoutSummary from '../components/WorkoutSummary';
 import WorkoutCompletion from '../components/WorkoutCompletion';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MoreVertical, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 
 interface DayDetailProps {
@@ -36,9 +44,10 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [athleteId, setAthleteId] = useState<string | undefined>(undefined);
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesContent, setNotesContent] = useState('');
+  const [editingNotesValue, setEditingNotesValue] = useState('');
   const [isEditingFocus, setIsEditingFocus] = useState(false);
   const [isSavingFocus, setIsSavingFocus] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -65,41 +74,18 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     const fetchDayData = async () => {
       setIsLoading(true);
       try {
-        // Log current operation
-        console.log('Fetching day data for dayId:', dayId);
         const dayData = await getDay(dayId);
         setDay(dayData);
 
-        // Determine the correct athlete ID for workout lookup
-        let athleteId = user.user_id;
-        
-        console.log('Current user ID:', user.user_id);
-        console.log('Current user role:', user.role);
-        console.log('Block ID from query params:', blockId);
-        
-        if (blockId && user.role === 'coach') {
-          try {
-            console.log('Fetching block data for ID:', blockId);
-            const blockData = await getBlock(blockId);
-            console.log('Block data received:', blockData);
-            
-            if (blockData && blockData.athlete_id) {
-              athleteId = blockData.athlete_id;
-              console.log('Using athlete ID from block:', athleteId);
-            }
-          } catch (blockErr) {
-            console.error('Error fetching block data:', blockErr);
-          }
-        }
+        // Get effective athlete ID (handles coach viewing athlete's block)
+        const effectiveAthleteId = await getEffectiveAthleteId(user.user_id, user.role, blockId);
+        setAthleteId(effectiveAthleteId);
 
-        // Try to load existing workout with the appropriate athlete ID
-        console.log('Fetching workout with athlete ID:', athleteId, 'day ID:', dayId);
+        // Load workout with the appropriate athlete ID
         try {
-          const workoutData = await getWorkoutByDay(athleteId, dayId);
-          console.log('Workout data received:', workoutData);
+          const workoutData = await getWorkoutByDay(effectiveAthleteId, dayId);
           setWorkout(workoutData);
-        } catch (err) {
-          console.log('No workout yet or error loading it:', err);
+        } catch {
           setWorkout(null);
         }
       } catch (err) {
@@ -119,38 +105,16 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     }
   }, [day]);
 
-  useEffect(() => {
-    if (contentEditableRef.current && !isEditingNotes) {
-      contentEditableRef.current.textContent = notesContent;
-    }
-  }, [notesContent, isEditingNotes]);
 
 
   const handleWorkoutSaved = async () => {
-    if (!user || !dayId) {
-      console.error('Missing user or dayId');
-      return;
-    }
+    if (!user || !dayId) return;
+
     try {
-      // Determine the correct athlete ID
-      let currentAthleteId = user.user_id;
-      
-      if (blockId && user.role === 'coach') {
-        try {
-          const blockData = await getBlock(blockId);
-          if (blockData && blockData.athlete_id) {
-            currentAthleteId = blockData.athlete_id;
-            console.log('Using athlete ID for workout refresh:', currentAthleteId);
-          }
-        } catch (blockErr) {
-          console.error('Error fetching block data:', blockErr);
-        }
-      }
-      
-      // UPDATE STATE:
-      setAthleteId(currentAthleteId);
-      
-      const workoutData = await getWorkoutByDay(currentAthleteId, dayId);
+      const effectiveAthleteId = await getEffectiveAthleteId(user.user_id, user.role, blockId);
+      setAthleteId(effectiveAthleteId);
+
+      const workoutData = await getWorkoutByDay(effectiveAthleteId, dayId);
       setWorkout(workoutData);
       setShowWorkoutForm(false);
       toast.success('Workout saved successfully!');
@@ -161,36 +125,14 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
   };
 
   const refreshWorkoutData = async () => {
-    if (!user || !dayId) {
-      console.error('Missing user or dayId for refresh');
-      return;
-    }
-    
+    if (!user || !dayId) return;
+
     try {
-      console.log('Refreshing workout data');
-      
-      // Determine the correct athlete ID
-      let currentAthleteId = user.user_id;
-      
-      if (blockId && user.role === 'coach') {
-        try {
-          const blockData = await getBlock(blockId);
-          if (blockData && blockData.athlete_id) {
-            currentAthleteId = blockData.athlete_id;
-            console.log('Refreshing with athlete ID:', currentAthleteId);
-          }
-        } catch (blockErr) {
-          console.error('Error fetching block data:', blockErr);
-        }
-      }
-      
-      // UPDATE STATE:
-      setAthleteId(currentAthleteId);
-      
-      console.log('Refreshing workout with athlete ID:', currentAthleteId, 'day ID:', dayId);
-      const workoutData = await getWorkoutByDay(currentAthleteId, dayId);  
+      const effectiveAthleteId = await getEffectiveAthleteId(user.user_id, user.role, blockId);
+      setAthleteId(effectiveAthleteId);
+
+      const workoutData = await getWorkoutByDay(effectiveAthleteId, dayId);
       if (workoutData) {
-        console.log('Updated workout data:', workoutData);
         setWorkout(workoutData);
       }
     } catch (err) {
@@ -236,23 +178,16 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     }
   };
 
-  const handleNotesClick = () => {
-    setIsEditingNotes(true);
-    requestAnimationFrame(() => {
-      if (contentEditableRef.current) {
-        contentEditableRef.current.textContent = notesContent;
-        contentEditableRef.current.focus();
-      }
-    });
-  }
+  const handleOpenNotesModal = () => {
+    setEditingNotesValue(notesContent);
+    setShowNotesModal(true);
+  };
 
-  const handleNotesBlur = async () => {
-    if (!contentEditableRef.current) return;
-    const newText = contentEditableRef.current.textContent?.trim() || '';
-    setNotesContent(newText);
+  const handleSaveNotes = async () => {
+    const newText = editingNotesValue.trim();
 
     if (!day || newText === (day.notes || '')) {
-      setIsEditingNotes(false);
+      setShowNotesModal(false);
       return;
     }
 
@@ -260,34 +195,15 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     try {
       await updateDay(day.day_id, { notes: newText });
       setDay(d => d ? { ...d, notes: newText } : null);
-      toast.success('Notes saved successfully!');
+      setNotesContent(newText);
+      toast.success('Notes saved!');
+      setShowNotesModal(false);
     } catch {
       toast.error('Failed to save notes');
-      setNotesContent(day.notes || '');
     } finally {
-      setIsEditingNotes(false);
       setIsSavingNotes(false);
     }
-  }
-
-  const handleNotesKeyDown = (e: React.KeyboardEvent) => {
-    // Save on Enter key (optional UX enhancement)
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      (e.target as HTMLElement).blur();
-    }
-    // Cancel on Escape
-    if (e.key === 'Escape') {
-      setNotesContent(day?.notes || '');
-      setIsEditingNotes(false);
-    }
   };
-
-  const handleNotesChange = (e: React.FormEvent<HTMLDivElement>) => {
-    setNotesContent(e.currentTarget.textContent || '');
-  };
-
-  const contentEditableRef = useRef<HTMLDivElement>(null);
 
   // Focus editing handlers
   const focusOptions = [
@@ -333,173 +249,123 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
         </div>
       ) : day ? (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-ocean-navy-dark">
-              Day {day.day_number} - {formatDate(day.date)}
-            </h1>
-            <button onClick={navigateBack} className="text-sm text-ocean-teal hover:text-ocean-navy">
+          <div className="flex items-center justify-between">
+            {/* Left: Back button */}
+            <button onClick={navigateBack} className="text-xs text-gray-500 hover:text-ocean-teal w-24">
               ← Back to Block
             </button>
-          </div>
 
-          <div className="bg-white shadow rounded-lg p-6">
-            {/* Side-by-Side Focus/Notes, Workout Overview Below */}
-            <div className="space-y-4 mb-6">
-              {/* Focus and Notes - Side by Side */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Focus Section */}
-                <div className="space-y-2">
-                  <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Focus</h2>
-                  {day.focus || isEditingFocus ? (
-                    <div className="relative">
-                      {isEditingFocus ? (
-                        <div className="relative">
-                          <div className="bg-white border border-gray-300 rounded-md shadow-lg py-1 z-10 absolute top-0 left-0 min-w-[120px]">
-                            {focusOptions.map(option => (
-                              <button
-                                key={option.value}
-                                onClick={() => handleFocusChange(option.value)}
-                                className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2"
-                                disabled={isSavingFocus}
-                              >
-                                {option.value ? (
-                                  <FocusTag focus={option.value} size="sm" />
-                                ) : (
-                                  <span className="text-gray-500 italic text-sm">No focus</span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="fixed inset-0 z-0" onClick={() => setIsEditingFocus(false)} />
-                        </div>
-                      ) : (
-                        <div 
-                          onClick={handleFocusClick}
-                          className={`inline-block cursor-pointer p-1 rounded transition-all duration-200 hover:bg-gray-100 ${isSavingFocus ? 'opacity-50' : ''}`}
-                        >
-                          <FocusTag focus={day.focus || ''} size="sm" />
-                          {isSavingFocus && (
-                            <div className="inline-block ml-2">
-                              <div className="animate-spin h-3 w-3 border-2 border-ocean-teal border-t-transparent rounded-full"></div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div 
-                      onClick={handleFocusClick}
-                      className="cursor-pointer p-1 rounded transition-all duration-200 hover:bg-gray-100"
+            {/* Center: Day title */}
+            <h1 className="text-xl font-semibold text-ocean-navy-dark">
+              Day {day.day_number} - {formatDate(day.date)}
+            </h1>
+
+            {/* Right: Overflow menu */}
+            <div className="w-24 flex justify-end">
+              {workout && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-1.5 rounded hover:bg-gray-100 text-gray-500">
+                      <MoreVertical className="h-5 w-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => setShowCopyModal(true)}
+                      disabled={isCopying}
                     >
-                      <span className="text-gray-400 italic text-xs px-2 py-1 border border-gray-200 rounded">
-                        Set focus...
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Notes Section */}
-                <div className="space-y-2">
-                  <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Notes</h2>
-                  {notesContent || isEditingNotes ? (
-                    <div className="relative">
-                      <div
-                        ref={contentEditableRef}
-                        contentEditable
-                        suppressContentEditableWarning={true}
-                        onFocus={handleNotesClick}
-                        onBlur={handleNotesBlur}
-                        onKeyDown={handleNotesKeyDown}
-                        onInput={handleNotesChange}
-                        className={`min-h-[2rem] p-2 text-sm rounded border-2 transition-all duration-200 outline-none ${
-                          isEditingNotes 
-                            ? 'border-ocean-teal/50 bg-ocean-mist shadow-sm' 
-                            : 'border-transparent hover:border-gray-200 hover:bg-gray-50 cursor-text'
-                        } ${isSavingNotes ? 'opacity-50' : ''}`}
-                        style={{
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word'
-                        }}
-                      >
-                        {!isEditingNotes && notesContent}
-                      </div>
-                      {isSavingNotes && (
-                        <div className="absolute right-2 top-2">
-                          <div className="animate-spin h-3 w-3 border-2 border-ocean-teal border-t-transparent rounded-full"></div>
-                        </div>
-                      )}
-                      {!isEditingNotes && !day.notes && (
-                        <div 
-                          onClick={handleNotesClick}
-                          className="absolute inset-0 flex items-center text-gray-400 italic cursor-text p-2 text-sm"
-                        >
-                          Click to add notes...
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div 
-                      onClick={handleNotesClick}
-                      className="min-h-[2rem] p-2 cursor-pointer rounded transition-all duration-200 hover:bg-gray-100 border border-gray-200"
-                    >
-                      <span className="text-gray-400 italic text-sm">Click to add notes...</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Workout Overview - Full Width Below Focus/Notes */}
-              {workout && (getWorkoutFlowStage(workout) === 'pre_workout' || getWorkoutFlowStage(workout) === 'post_workout') && (
-                <div className="w-full">
-                  {getWorkoutFlowStage(workout) === 'pre_workout' && (
-                    <WorkoutSummary workout={workout} />
-                  )}
-                  {getWorkoutFlowStage(workout) === 'post_workout' && (
-                    <WorkoutCompletion
-                      key={`${workout.workout_id}-${workout.exercises.length}-${JSON.stringify(workout.exercises.map(ex => ex.sets_data?.length || 0))}`}
-                      workout={workout}
-                    />
-                  )}
-                </div>
+                      {isCopying ? 'Copying...' : 'Copy to Another Day'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-6">
+          {/* Focus and Notes - Inline Row */}
+          <div className="flex items-center justify-between mb-4">
+            {/* Focus Dropdown */}
+            <div className="relative z-20">
+              {isEditingFocus ? (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsEditingFocus(false)} />
+                  <div className="bg-white border border-gray-300 rounded-md shadow-lg py-1 z-20 absolute top-0 left-0 min-w-[120px]">
+                    {focusOptions.map(option => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleFocusChange(option.value)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2"
+                        disabled={isSavingFocus}
+                      >
+                        {option.value ? (
+                          <FocusTag focus={option.value} size="sm" />
+                        ) : (
+                          <span className="text-gray-500 italic text-sm">No focus</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={handleFocusClick}
+                  className={`cursor-pointer rounded transition-all duration-200 hover:bg-gray-100 ${isSavingFocus ? 'opacity-50' : ''}`}
+                >
+                  {day.focus ? (
+                    <FocusTag focus={day.focus} size="sm" />
+                  ) : (
+                    <span className="text-gray-400 text-sm px-2 py-1 border border-dashed border-gray-300 rounded">
+                      + Focus
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Notes Button/Preview */}
+            <button
+              onClick={handleOpenNotesModal}
+              className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-ocean-teal transition-colors max-w-[200px]"
+            >
+              <FileText className="h-4 w-4 flex-shrink-0" />
+              {notesContent ? (
+                <span className="truncate">{notesContent}</span>
+              ) : (
+                <span className="text-gray-400">Notes</span>
+              )}
+            </button>
+          </div>
+
+          {/* Workout Overview */}
+          {workout && (getWorkoutFlowStage(workout) === 'pre_workout' || getWorkoutFlowStage(workout) === 'post_workout') && (
+            <div className="mb-4">
+              {getWorkoutFlowStage(workout) === 'pre_workout' && (
+                <WorkoutSummary workout={workout} />
+              )}
+              {getWorkoutFlowStage(workout) === 'post_workout' && (
+                <WorkoutCompletion
+                  key={`${workout.workout_id}-${workout.exercises.length}-${JSON.stringify(workout.exercises.map(ex => ex.sets_data?.length || 0))}`}
+                  workout={workout}
+                />
+              )}
+            </div>
+          )}
+
+          <div className="bg-white shadow rounded-lg overflow-hidden">
             {copyError && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded p-3">
+              <div className="mx-4 mt-4 bg-red-50 border border-red-200 text-red-700 rounded p-3">
                 {copyError}
               </div>
             )}
 
             {workout ? (
               <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-medium">
-                    Workout Plan
-                    <span className="ml-2 text-sm text-gray-500">{/* ({workout.status}) */}</span>
-                  </h2>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowCopyModal(true)}
-                      disabled={isCopying}
-                      className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
-                    >
-                      {isCopying ? 'Copying...' : 'Copy to Another Day'}
-                    </button>
-                  </div>
-                </div>
+                <WorkoutTimer
+                  workout={workout}
+                  onWorkoutUpdated={handleWorkoutTimerUpdated}
+                  readOnly={user?.role !== 'athlete' && workout.athlete_id !== user?.user_id}
+                />
 
-                {/* Enhanced Workout Flow Components - Only WorkoutTimer */}
-                <div className="space-y-4">
-                  {/* Workout Timer */}
-                  <WorkoutTimer
-                    workout={workout}
-                    onWorkoutUpdated={handleWorkoutTimerUpdated}
-                    readOnly={user?.role !== 'athlete' && workout.athlete_id !== user?.user_id}
-                  />
-                </div>
-                
                 <ExerciseList
                   exercises={workout.exercises}
                   workoutId={workout.workout_id}
@@ -510,13 +376,15 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                 />
               </div>
             ) : showWorkoutForm ? (
-              <WorkoutForm 
-                dayId={dayId || ''} 
-                onSave={handleWorkoutSaved}
-                athleteId={athleteId}
-              />
+              <div className="p-4">
+                <WorkoutForm
+                  dayId={dayId || ''}
+                  onSave={handleWorkoutSaved}
+                  athleteId={athleteId}
+                />
+              </div>
             ) : (
-              <div className="text-center py-8">
+              <div className="text-center py-8 px-4">
                 <p className="text-ocean-slate mb-2">Ready to plan this session?</p>
                 <p className="text-sm text-ocean-slate-light mb-4">Add exercises to build your workout.</p>
                 <button
@@ -550,6 +418,48 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
         title="Copy Workout to Day"
         excludeDayId={dayId}
       />
+
+      {/* Notes Modal */}
+      {showNotesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-medium text-gray-900">Day Notes</h3>
+              <button
+                onClick={() => setShowNotesModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <textarea
+              value={editingNotesValue}
+              onChange={(e) => setEditingNotesValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setShowNotesModal(false);
+              }}
+              className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ocean-teal"
+              rows={4}
+              placeholder="Add notes for this day..."
+              autoFocus
+            />
+            <div className="flex justify-end space-x-2 mt-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowNotesModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveNotes}
+                disabled={isSavingNotes}
+              >
+                {isSavingNotes ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
