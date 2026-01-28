@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
-import { startWorkoutSession, finishWorkoutSession, ApiError } from '../services/api';
+import { startWorkoutSession, finishWorkoutSession, cancelWorkoutSession, ApiError } from '../services/api';
 import type { Workout } from '../services/api';
 
 interface WorkoutTimerProps {
@@ -17,6 +17,8 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
 }) => {
   const [isStarting, setIsStarting] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update current time every second for live duration counter
@@ -63,6 +65,27 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
       }
     } finally {
       setIsStarting(false);
+    }
+  };
+
+  const handleCancelClick = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (isCancelling || readOnly) return;
+
+    setIsCancelling(true);
+    setShowCancelConfirm(false);
+    try {
+      const updatedWorkout = await cancelWorkoutSession(workout.workout_id);
+      onWorkoutUpdated(updatedWorkout);
+      toast.success('Workout cancelled');
+    } catch (error) {
+      console.error('Error cancelling workout session:', error);
+      toast.error('Failed to cancel workout');
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -132,78 +155,93 @@ const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
   const exerciseStatus = getExerciseCompletionStatus();
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-      {/* Compact timer layout */}
-      <div className="flex items-center justify-between">
-        {/* Status indicator and exercise progress */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${
-              timerStatus === 'not_started' ? 'bg-ocean-slate' :
-              timerStatus === 'in_progress' ? 'bg-state-active animate-pulse' :
-              'bg-state-completed'
-            }`} />
-            <span className="text-sm text-gray-600 capitalize">
-              {timerStatus === 'not_started' ? 'Ready to start' :
-               timerStatus === 'in_progress' ? 'In progress' :
-               'Completed'}
-            </span>
-          </div>
-
-          {/* Exercise completion status - compact */}
-          {workout.exercises && workout.exercises.length > 0 && (
-            <div className="text-sm text-gray-500">
-              <span className={`font-medium ${
-                exerciseStatus.completed === exerciseStatus.total ? 'text-green-600' : 'text-orange-600'
-              }`}>
-                {exerciseStatus.completed}/{exerciseStatus.total} exercises
-                {exerciseStatus.completed === exerciseStatus.total && ' ✅'}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Duration display - smaller and inline */}
-        {duration && (
-          <div className="text-sm font-medium text-gray-700">
-            {duration}
-          </div>
-        )}
-      </div>
-
-      {/* Control Buttons - more compact */}
-      {!readOnly && (
-        <div className="mt-3 flex items-center space-x-2">
-          {timerStatus === 'not_started' && (
-            <Button
-              type="button"
-              onClick={handleStartSession}
-              disabled={isStarting}
-            >
-              {isStarting ? 'Starting...' : 'Start Workout'}
-            </Button>
-          )}
-          
-          {timerStatus === 'in_progress' && (
-            <div className="flex items-center space-x-2">
+    <>
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between">
+          {/* Left: Cancel button (when in progress) or empty space */}
+          <div className="w-20">
+            {!readOnly && timerStatus === 'in_progress' && (
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
+                onClick={handleCancelClick}
+                disabled={isCancelling}
+                className="text-gray-500 -ml-2"
+              >
+                {isCancelling ? '...' : 'Cancel'}
+              </Button>
+            )}
+          </div>
+
+          {/* Center: Duration + exercise progress */}
+          <div className="flex flex-col items-center">
+            {duration && (
+              <span className="text-lg font-semibold text-gray-900">{duration}</span>
+            )}
+            {workout.exercises && workout.exercises.length > 0 && timerStatus !== 'not_started' && (
+              <span className={`text-xs ${
+                exerciseStatus.completed === exerciseStatus.total ? 'text-green-600' : 'text-gray-500'
+              }`}>
+                {exerciseStatus.completed} of {exerciseStatus.total} exercises
+              </span>
+            )}
+          </div>
+
+          {/* Right: Start/Finish button */}
+          <div className="w-20 flex justify-end">
+            {!readOnly && timerStatus === 'not_started' && (
+              <Button
+                type="button"
+                onClick={handleStartSession}
+                disabled={isStarting}
+                className="px-8"
+              >
+                {isStarting ? '...' : 'Start'}
+              </Button>
+            )}
+            {!readOnly && timerStatus === 'in_progress' && (
+              <Button
+                type="button"
                 onClick={handleFinishSession}
                 disabled={isFinishing || !allExercisesCompleted()}
+                className={!allExercisesCompleted() ? 'opacity-50' : ''}
               >
-                {isFinishing ? 'Finishing...' : 'Finish Workout'}
+                {isFinishing ? '...' : 'Finish'}
               </Button>
-              {!allExercisesCompleted() && (
-                <span className="text-xs text-orange-600">
-                  Complete all exercises first
-                </span>
-              )}
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg p-6 mx-4 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Workout?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              This will reset the timer and clear your progress.
+            </p>
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowCancelConfirm(false)}
+              >
+                Keep Going
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleCancelConfirm}
+                disabled={isCancelling}
+              >
+                {isCancelling ? '...' : 'Cancel Workout'}
+              </Button>
             </div>
-          )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

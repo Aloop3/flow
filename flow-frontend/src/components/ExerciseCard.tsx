@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FileText } from 'lucide-react';
 import { completeExercise } from '../services/api';
 import type { Exercise } from '../services/api';
 import type { SetData } from '../services/workoutStorage';
@@ -39,7 +40,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     const saved = localStorage.getItem(`exercise-expanded-${exercise.exercise_id}`);
     return saved ? JSON.parse(saved) : false;
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddingSet, setIsAddingSet] = useState(false);
+  const [isCompletingExercise, setIsCompletingExercise] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Local status for optimistic toggle updates only
@@ -75,9 +77,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   const handleCompleteExercise = async () => {
-    if (readOnly) return;
+    if (readOnly || isCompletingExercise) return;
 
-    setIsSubmitting(true);
+    // Optimistic update - show completed immediately
+    setLocalStatus('completed');
+    setIsCompletingExercise(true);
     setError(null);
 
     try {
@@ -92,15 +96,17 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     } catch (err: unknown) {
       console.error('Error completing exercise:', err);
       setError('Failed to complete exercise. Please try again.');
+      // Revert optimistic update on failure
+      setLocalStatus('planned');
     } finally {
-      setIsSubmitting(false);
+      setIsCompletingExercise(false);
     }
   };
 
   const handleAddSet = async () => {
     if (readOnly || !onAddSet) return;
 
-    setIsSubmitting(true);
+    setIsAddingSet(true);
     setError(null);
 
     try {
@@ -109,7 +115,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       console.error('Error adding set:', err);
       setError('Failed to add set. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setIsAddingSet(false);
     }
   };
 
@@ -152,7 +158,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   return (
-    <div className="border rounded-lg bg-white shadow-sm overflow-hidden">
+    <div>
       {/* Header - Always visible */}
       {!forceExpanded && (
         <div
@@ -203,33 +209,33 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
       {/* Expanded content - Sets table */}
       {shouldShowContent && (
-        <div className={forceExpanded ? 'p-4' : 'border-t px-4 pb-4'}>
+        <div className={forceExpanded ? '' : 'border-t px-4 pb-4'}>
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="w-full">
+          <div className="overflow-hidden">
+            <table className="w-full table-fixed">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10 md:w-16">
+                  <th className="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '12%' }}>
                     Set
                   </th>
-                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20 md:w-32">
+                  <th className="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '22%' }}>
                     {displayUnit}
                   </th>
-                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-13 md:w-24">
+                  <th className="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '18%' }}>
                     Reps
                   </th>
-                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-13 md:w-24">
+                  <th className="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '18%' }}>
                     RPE
                   </th>
-                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-11 md:w-28">
+                  <th className="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '18%' }}>
                     Notes
                   </th>
-                  <th className="px-0.5 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-11 md:w-16">
+                  <th className="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '12%' }}>
                     ✓
                   </th>
                 </tr>
@@ -251,35 +257,33 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             </table>
           </div>
 
-          {/* Action buttons - stacked on mobile, row on desktop */}
-          <div className="flex flex-col sm:flex-row sm:justify-between gap-3 mt-4">
-            <div className="flex flex-wrap gap-2">
-              {!readOnly && onAddSet && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleAddSet}
-                  disabled={isSubmitting}
-                  className="flex-1 sm:flex-none"
-                >
-                  {isSubmitting ? 'Adding...' : 'Add Set'}
-                </Button>
-              )}
-            </div>
+          {/* Action buttons */}
+          <div className="flex flex-col gap-3 mt-4 px-4">
+            {!readOnly && onAddSet && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleAddSet}
+                disabled={isAddingSet}
+                className="w-full bg-ocean-navy text-white hover:bg-ocean-navy-dark"
+              >
+                {isAddingSet ? 'Adding...' : 'Add Set'}
+              </Button>
+            )}
 
             <div className="flex justify-center sm:justify-end">
               {localStatus === 'completed' && (
-                <span className="inline-flex items-center px-3 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-md">
+                <span className="inline-flex items-center px-3 py-2 text-sm font-medium text-ocean-teal bg-ocean-seafoam-light rounded-md">
                   ✓ Completed
                 </span>
               )}
               {!readOnly && allSetsCompleted && localStatus !== 'completed' && (
                 <Button
                   onClick={handleCompleteExercise}
-                  disabled={isSubmitting}
+                  disabled={isCompletingExercise}
                   className="w-full sm:w-auto"
                 >
-                  {isSubmitting ? 'Completing...' : 'Complete Exercise'}
+                  {isCompletingExercise ? 'Completing...' : 'Complete Exercise'}
                 </Button>
               )}
             </div>
@@ -340,6 +344,26 @@ const SetRow: React.FC<SetRowProps> = ({
     setNotes(setData.notes || '');
   }, [setData.weight, setData.reps, setData.rpe, setData.notes]);
 
+  // Debounced auto-save on change (saves to localStorage without waiting for blur)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debouncedSave = useCallback((updates: Partial<{ weight: number; reps: number; rpe: number | undefined }>) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      onUpdate(updates);
+    }, 300); // 300ms debounce
+  }, [onUpdate]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleBlur = (field: 'weight' | 'reps' | 'rpe', value: string) => {
     const numValue = parseFloat(value) || 0;
     // Clear errors when user enters a value (0 is valid)
@@ -360,17 +384,7 @@ const SetRow: React.FC<SetRowProps> = ({
   };
 
   const handleToggleWithValidation = () => {
-    // Only validate when trying to mark as complete (not when un-marking)
-    if (!setData.completed) {
-      const weightEmpty = weight.trim() === '';
-      const repsEmpty = reps.trim() === '';
-
-      if (weightEmpty || repsEmpty) {
-        if (weightEmpty) setWeightError(true);
-        if (repsEmpty) setRepsError(true);
-        return; // Block completion
-      }
-    }
+    // Toggle immediately - no validation blocking
     setWeightError(false);
     setRepsError(false);
     onToggleCompletion();
@@ -402,7 +416,7 @@ const SetRow: React.FC<SetRowProps> = ({
   return (
     <tr className={`border-b hover:bg-gray-50 ${deleteMode ? 'bg-red-50' : ''}`}>
       {/* Set number - click to toggle delete mode, click again to delete */}
-      <td className="px-0.5 md:px-2 py-2 text-center font-medium w-10 md:w-16">
+      <td className="py-2 text-center font-medium">
         <div className="flex items-center justify-center">
           <button
             type="button"
@@ -412,7 +426,7 @@ const SetRow: React.FC<SetRowProps> = ({
               deleteMode
                 ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
                 : setData.completed
-                  ? 'bg-green-100 text-green-800'
+                  ? 'bg-ocean-seafoam-light text-ocean-teal'
                   : canDelete && !readOnly
                     ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer'
                     : 'bg-gray-100 text-gray-600'
@@ -425,7 +439,7 @@ const SetRow: React.FC<SetRowProps> = ({
       </td>
 
       {/* Weight */}
-      <td className="px-0.5 md:px-2 py-2 w-20 md:w-32">
+      <td className="py-2">
         <Input
           type="number"
           inputMode="decimal"
@@ -434,10 +448,11 @@ const SetRow: React.FC<SetRowProps> = ({
           onChange={(e) => {
             setWeight(e.target.value);
             if (e.target.value.trim() !== '') setWeightError(false);
+            debouncedSave({ weight: parseFloat(e.target.value) || 0 });
           }}
           onBlur={(e) => handleBlur('weight', e.target.value)}
           onFocus={(e) => e.target.select()}
-          className={`w-16 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto ${
+          className={`w-full max-w-[70px] px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto ${
             weightError ? 'border-2 border-red-500 bg-red-50' : ''
           }`}
           disabled={readOnly}
@@ -445,7 +460,7 @@ const SetRow: React.FC<SetRowProps> = ({
       </td>
 
       {/* Reps */}
-      <td className="px-0.5 md:px-2 py-2 w-13 md:w-24">
+      <td className="py-2">
         <Input
           type="number"
           inputMode="numeric"
@@ -453,10 +468,11 @@ const SetRow: React.FC<SetRowProps> = ({
           onChange={(e) => {
             setReps(e.target.value);
             if (e.target.value.trim() !== '') setRepsError(false);
+            debouncedSave({ reps: parseFloat(e.target.value) || 0 });
           }}
           onBlur={(e) => handleBlur('reps', e.target.value)}
           onFocus={(e) => e.target.select()}
-          className={`w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto ${
+          className={`w-full max-w-[50px] px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto ${
             repsError ? 'border-2 border-red-500 bg-red-50' : ''
           }`}
           disabled={readOnly}
@@ -464,7 +480,7 @@ const SetRow: React.FC<SetRowProps> = ({
       </td>
 
       {/* RPE */}
-      <td className="px-0.5 md:px-2 py-2 w-13 md:w-24">
+      <td className="py-2">
         <Input
           type="number"
           inputMode="decimal"
@@ -472,17 +488,20 @@ const SetRow: React.FC<SetRowProps> = ({
           min={1}
           max={10}
           value={rpe}
-          onChange={(e) => setRpe(e.target.value)}
+          onChange={(e) => {
+            setRpe(e.target.value);
+            debouncedSave({ rpe: parseFloat(e.target.value) || undefined });
+          }}
           onBlur={(e) => handleBlur('rpe', e.target.value)}
           onFocus={(e) => e.target.select()}
-          className="w-10 px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto"
+          className="w-full max-w-[50px] px-1 py-1 text-xs text-center bg-transparent border-0 hover:border hover:border-gray-300 focus:border-ocean-teal focus:bg-white rounded transition-all mx-auto block h-auto"
           placeholder="RPE"
           disabled={readOnly}
         />
       </td>
 
       {/* Notes */}
-      <td className="px-0.5 md:px-2 py-2 w-11 md:w-28">
+      <td className="py-2">
         <div className="flex justify-center items-center">
           <button
             type="button"
@@ -495,7 +514,7 @@ const SetRow: React.FC<SetRowProps> = ({
             title={notes ? 'View notes' : 'Add notes'}
             disabled={readOnly}
           >
-            <span className="text-xs">📝</span>
+            <FileText className="h-3.5 w-3.5" />
           </button>
         </div>
         {/* Notes Modal Overlay */}
@@ -548,7 +567,7 @@ const SetRow: React.FC<SetRowProps> = ({
       </td>
 
       {/* Completion checkbox */}
-      <td className="px-0.5 md:px-2 py-2 text-center w-11 md:w-16">
+      <td className="py-2 text-center">
         <button
           type="button"
           onClick={handleToggleWithValidation}
@@ -559,8 +578,8 @@ const SetRow: React.FC<SetRowProps> = ({
               : 'cursor-pointer hover:scale-110 transform'
           } ${
             setData.completed
-              ? 'bg-green-500 text-white hover:bg-green-600 shadow-md'
-              : 'border-2 border-gray-300 hover:border-green-400 hover:bg-green-50'
+              ? 'bg-ocean-teal text-white hover:bg-ocean-navy shadow-md'
+              : 'border-2 border-gray-300 hover:border-ocean-teal hover:bg-ocean-seafoam-light'
           }`}
           title={setData.completed ? 'Mark incomplete' : 'Mark complete'}
         >

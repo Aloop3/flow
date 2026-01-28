@@ -83,24 +83,24 @@ const WorkoutCompletion: React.FC<WorkoutCompletionProps> = ({ workout }) => {
   const duration = formatDuration(workout);
 
   return (
-    <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-4 text-center">
-      <h3 className="text-lg font-semibold text-green-900 mb-1">🎉 Workout Completed!</h3>
-      <div className="text-sm text-green-700 mb-4">Session Duration: {duration}</div>
+    <div className="bg-green-50 border border-green-200 rounded-lg pt-3 pb-2 px-4 mb-2 text-center">
+      <h3 className="text-base font-semibold text-green-900">🎉 Workout Completed!</h3>
+      <div className="text-xs text-green-700 mb-2">Duration: {duration}</div>
 
-      <div className="flex items-center justify-around py-3 mb-4">
+      <div className="flex items-center justify-around py-2">
         <div>
           <div className="text-xs text-green-700 uppercase tracking-wide">Volume</div>
           <div className="text-sm font-semibold text-green-900">{volume.lb.toLocaleString()} lb / {volume.kg.toLocaleString()} kg</div>
         </div>
-        <div className="w-px h-8 bg-green-200" />
+        <div className="w-px h-6 bg-green-200" />
         <div>
           <div className="text-xs text-green-700 uppercase tracking-wide">Top RPE</div>
-          <div className="text-base font-semibold text-green-900">{highestRPE > 0 ? highestRPE : '—'}</div>
+          <div className="text-sm font-semibold text-green-900">{highestRPE > 0 ? highestRPE : '—'}</div>
         </div>
-        <div className="w-px h-8 bg-green-200" />
+        <div className="w-px h-6 bg-green-200" />
         <div>
           <div className="text-xs text-green-700 uppercase tracking-wide">Exercises</div>
-          <div className="text-base font-semibold text-green-900">{completedExercises}</div>
+          <div className="text-sm font-semibold text-green-900">{completedExercises}</div>
         </div>
       </div>
     </div>
