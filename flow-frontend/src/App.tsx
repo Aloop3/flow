@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Authenticator } from '@aws-amplify/ui-react';
+import { Authenticator, ThemeProvider } from '@aws-amplify/ui-react';
 import { getCurrentUser } from 'aws-amplify/auth';
 import '@aws-amplify/ui-react/styles.css';
+import { amplifyTheme } from './theme/amplifyTheme';
+import { AuthHeader } from './components/auth/AuthHeader';
+import { AuthFooter } from './components/auth/AuthFooter';
 import RoleSelector from './components/RoleSelector';
 import Dashboard from './pages/Dashboard';
 import Blocks from './pages/Blocks';
@@ -156,24 +159,30 @@ function App() {
   }, []);
 
   return (
-    <Authenticator 
-      signUpAttributes={['name']} 
-      initialState="signIn"
-      loginMechanisms={['email']}
-    >
-      {({ signOut, user }) => {
-        const safeSignOut = signOut ?? (() => {});
-        return (
-          <>
-            {user ? (
-              <AuthenticatedApp user={user} signOut={safeSignOut} />
-            ) : (
-              <div>Loading...</div>
-            )}
-          </>
-        );
-      }}
-    </Authenticator>
+    <ThemeProvider theme={amplifyTheme}>
+      <Authenticator
+        signUpAttributes={['name']}
+        initialState="signIn"
+        loginMechanisms={['email']}
+        components={{
+          Header: AuthHeader,
+          Footer: AuthFooter,
+        }}
+      >
+        {({ signOut, user }) => {
+          const safeSignOut = signOut ?? (() => {});
+          return (
+            <>
+              {user ? (
+                <AuthenticatedApp user={user} signOut={safeSignOut} />
+              ) : (
+                <div>Loading...</div>
+              )}
+            </>
+          );
+        }}
+      </Authenticator>
+    </ThemeProvider>
   );
 }
 
