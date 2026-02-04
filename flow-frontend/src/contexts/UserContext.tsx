@@ -51,10 +51,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, user }) =>
     const exerciseLower = exerciseType.toLowerCase();
     
     // Check for Big 3 movements FIRST (before equipment check)
+    // Use exact match to avoid "Incline Bench Press" → kg (should be lb)
     const bigThree = ['squat', 'bench press', 'deadlift'];
-    const isBigThree = bigThree.some(lift => 
-      exerciseLower.includes(lift)
-    );
+    const isBigThree = bigThree.includes(exerciseLower);
     
     if (isBigThree) {
       return 'kg';
