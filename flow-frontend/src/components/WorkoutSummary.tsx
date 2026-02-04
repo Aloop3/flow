@@ -11,7 +11,7 @@ const calculateVolume = (workout: Workout): { lb: number; kg: number } => {
   let totalLb = 0;
   
   workout.exercises.forEach(exercise => {
-    const displayUnit = exercise.display_unit || 'kg';
+    const displayUnit = exercise.display_unit || 'lb';
     
     if (exercise.sets_data && exercise.sets_data.length > 0) {
       // Use detailed sets_data for accurate calculation
