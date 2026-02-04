@@ -1,9 +1,8 @@
 import React from 'react';
-
-type FocusType = 'squat' | 'bench' | 'deadlift' | 'cardio' | 'rest' | string;
+import { FOCUS_OPTIONS } from '../constants/focusOptions';
 
 interface FocusTagProps {
-  focus: FocusType;
+  focus: string;
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -16,6 +15,14 @@ const FocusTag: React.FC<FocusTagProps> = ({ focus, size = 'md' }) => {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'deadlift':
         return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'secondary_squat':
+        return 'bg-red-50 text-red-700 border-red-100';
+      case 'secondary_bench':
+        return 'bg-blue-50 text-blue-700 border-blue-100';
+      case 'secondary_deadlift':
+        return 'bg-purple-50 text-purple-700 border-purple-100';
+      case 'sbd':
+        return 'bg-amber-100 text-amber-800 border-amber-200';
       case 'cardio':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'rest':
@@ -23,6 +30,11 @@ const FocusTag: React.FC<FocusTagProps> = ({ focus, size = 'md' }) => {
       default:
         return 'bg-gray-100 text-gray-600 border-gray-200';
     }
+  };
+
+  const getLabel = (focusType: string): string => {
+    const option = FOCUS_OPTIONS.find(o => o.value === focusType.toLowerCase());
+    return option?.label || focusType.charAt(0).toUpperCase() + focusType.slice(1);
   };
 
   const sizeClasses = {
@@ -33,7 +45,7 @@ const FocusTag: React.FC<FocusTagProps> = ({ focus, size = 'md' }) => {
 
   return (
     <span className={`inline-flex items-center font-medium rounded-full border ${getTagColor(focus)} ${sizeClasses[size]}`}>
-      {focus ? focus.charAt(0).toUpperCase() + focus.slice(1) : 'None'}
+      {focus ? getLabel(focus) : 'None'}
     </span>
   );
 };

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FocusTag from '../components/FocusTag';
+import { FOCUS_OPTIONS, MAX_FOCUS_SELECTIONS, parseFocusTags, formatFocusTags } from '../constants/focusOptions';
 import { getBlock, getWeeks, getDays, updateDay, updateBlock } from '../services/api';
 import type { Block, Week, Day } from '../services/api';
 import DayForm from '../components/DayForm';
@@ -63,81 +63,84 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isSavingDescription, setIsSavingDescription] = useState(false);
   const [descriptionContent, setDescriptionContent] = useState('');
-  const focusOptions = [
-    { value: '', label: 'No focus' },
-    { value: 'squat', label: 'Squat' },
-    { value: 'bench', label: 'Bench' },
-    { value: 'deadlift', label: 'Deadlift' },
-    { value: 'cardio', label: 'Cardio' },
-    { value: 'rest', label: 'Rest' },
-  ];
+  // Focus options imported from constants
 
-  const focusTagRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
   
-  const FocusDropdownPortal = ({ 
-    isOpen, 
-    onClose, 
-    onSelect, 
-    triggerRef,
-    options, 
-    isSaving 
+  const FocusModal = ({
+    isOpen,
+    onClose,
+    onToggle,
+    onClear,
+    currentFocus,
+    isSaving
   }: {
     isOpen: boolean;
     onClose: () => void;
-    onSelect: (value: string) => void;
-    triggerRef: React.RefObject<HTMLDivElement>;
-    options: Array<{ value: string; label: string }>;
+    onToggle: (value: string) => void;
+    onClear: () => void;
+    currentFocus: string | null | undefined;
     isSaving: boolean;
   }) => {
-    const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+    const currentTags = parseFocusTags(currentFocus);
 
-    useEffect(() => {
-      if (isOpen && triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        setPosition({
-          top: rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX
-        });
-      } else {
-        setPosition(null);
-      }
-    }, [isOpen, triggerRef]);
+    if (!isOpen) return null;
 
-    if (!isOpen || !position) return null;
-
-    return createPortal(
-      <>
-        {/* Backdrop */}
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={onClose}
-        />
-        
-        {/* Dropdown */}
-        <div 
-          className="absolute z-50 bg-white border border-gray-300 rounded-md shadow-xl py-1 min-w-[120px]"
-          style={{
-            top: position.top,
-            left: position.left
-          }}
-        >
-          {options.map(option => (
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-medium text-gray-900">Training Focus</h3>
             <button
-              key={option.value}
-              onClick={() => onSelect(option.value)}
-              disabled={isSaving}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2 disabled:opacity-50"
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
             >
-              {option.value ? (
-                <FocusTag focus={option.value} size="sm" />
-              ) : (
-                <span className="text-gray-500 italic text-sm">No focus</span>
-              )}
+              ✕
             </button>
-          ))}
+          </div>
+          <p className="text-sm text-gray-500 mb-3">Select up to {MAX_FOCUS_SELECTIONS}</p>
+          <div className="grid grid-cols-3 gap-2">
+            {FOCUS_OPTIONS.map(option => {
+              const isSelected = currentTags.includes(option.value);
+              const isDisabled = !isSelected && currentTags.length >= MAX_FOCUS_SELECTIONS;
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => onToggle(option.value)}
+                  disabled={isSaving || isDisabled}
+                  className={`p-2 rounded border transition-all ${
+                    isSelected
+                      ? 'ring-2 ring-ocean-teal ring-offset-1 bg-ocean-seafoam-light'
+                      : isDisabled
+                      ? 'opacity-40 cursor-not-allowed'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <FocusTag focus={option.value} size="sm" />
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex justify-between items-center mt-4">
+            {currentTags.length > 0 ? (
+              <button
+                onClick={onClear}
+                className="text-sm text-gray-400 hover:text-red-500"
+                disabled={isSaving}
+              >
+                Clear all
+              </button>
+            ) : (
+              <div />
+            )}
+            <Button
+              onClick={onClose}
+              disabled={isSaving}
+            >
+              Done
+            </Button>
+          </div>
         </div>
-      </>,
-      document.body
+      </div>
     );
   };
 
@@ -193,14 +196,29 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     setEditingFocusDayId(dayId);
   }
 
-  async function handleFocusChange(dayId: string, newFocus: string) {
-    // Similar logic to DayDetail
-    if (newFocus === daysMap[activeWeek!]
-        .find(d => d.day_id === dayId)?.focus) {
-      setEditingFocusDayId(null);
-      return;
+  async function handleFocusToggle(dayId: string, value: string) {
+    const currentDay = daysMap[activeWeek!]?.find(d => d.day_id === dayId);
+    if (!currentDay) return;
+
+    const currentTags = parseFocusTags(currentDay.focus);
+    const index = currentTags.indexOf(value);
+
+    if (index >= 0) {
+      currentTags.splice(index, 1);
+    } else if (currentTags.length < MAX_FOCUS_SELECTIONS) {
+      currentTags.push(value);
     }
 
+    const newFocus = formatFocusTags(currentTags);
+    await saveFocus(dayId, newFocus);
+  }
+
+  async function handleFocusClear(dayId: string) {
+    await saveFocus(dayId, '');
+    setEditingFocusDayId(null);
+  }
+
+  async function saveFocus(dayId: string, newFocus: string) {
     setIsSavingFocus(true);
     try {
       await updateDay(dayId, { focus: newFocus || null });
@@ -210,12 +228,10 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
           d.day_id === dayId ? { ...d, focus: newFocus || null } : d
         )
       }));
-      toast.success('Focus updated successfully!');
     } catch {
       toast.error('Failed to update focus');
     } finally {
       setIsSavingFocus(false);
-      setEditingFocusDayId(null);
     }
   }
 
@@ -397,7 +413,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       if (selectedItems.length === 0 || (!bulkFocus && bulkFocus !== 'clear')) return;
 
       const isClearingFocus = bulkFocus === 'clear';
-      const newFocusValue = isClearingFocus ? undefined : bulkFocus;
+      const newFocusValue = isClearingFocus ? null : bulkFocus;
       
       // Collect all updates needed
       const updates: { dayId: string; weekId: string }[] = [];
@@ -549,12 +565,6 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       console.error('Bulk focus update error:', error);
       toast.error('Bulk update failed - please try again');
     }
-  };
-
-  const handleClearFocus = async () => {
-    // Simplified - just call handleBulkUpdate with 'clear' value
-    setBulkFocus('clear');
-    await handleBulkUpdate();
   };
 
   const descriptionEditableRef = useRef<HTMLDivElement>(null);
@@ -871,11 +881,14 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                       <SelectValue placeholder="Select Focus" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="squat">Squat</SelectItem>
-                                      <SelectItem value="bench">Bench</SelectItem>
-                                      <SelectItem value="deadlift">Deadlift</SelectItem>
-                                      <SelectItem value="cardio">Cardio</SelectItem>
-                                      <SelectItem value="rest">Rest</SelectItem>
+                                      <SelectItem value="clear" className="text-red-600">
+                                        Clear All
+                                      </SelectItem>
+                                      {FOCUS_OPTIONS.map(option => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -904,16 +917,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                     disabled={!bulkFocus || Object.values(selectedDays).filter(Boolean).length === 0}
                                     className="flex-1"
                                   >
-                                    Apply Focus
-                                  </Button>
-
-                                  <Button
-                                    onClick={handleClearFocus}
-                                    disabled={Object.values(selectedDays).filter(Boolean).length === 0}
-                                    variant="outline"
-                                    className="flex-1"
-                                  >
-                                    Clear Focus
+                                    Apply
                                   </Button>
 
                                   <Button
@@ -1022,28 +1026,37 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                                     <TableCell>
                                       <div className="relative inline-block">
                                         <div
-                                          ref={editingFocusDayId === day.day_id ? focusTagRef : null}
-                                          onClick={() => handleFocusClick(day.day_id)}
+                                          onClick={() => !isBulkEditing && handleFocusClick(day.day_id)}
                                           className={`
-                                            inline-block cursor-pointer p-1 rounded transition-all duration-200
-                                            hover:bg-gray-100
-                                            ${isSavingFocus ? 'opacity-50' : ''}
+                                            inline-flex items-center gap-1 p-1 rounded transition-all duration-200
+                                            ${isBulkEditing ? 'cursor-default' : 'cursor-pointer hover:bg-gray-100'}
+                                            ${isSavingFocus && editingFocusDayId === day.day_id ? 'opacity-50' : ''}
                                           `}
                                         >
-                                          <FocusTag focus={day.focus || ''} size="sm" />
+                                          {parseFocusTags(day.focus).length > 0 ? (
+                                            parseFocusTags(day.focus).map(tag => (
+                                              <FocusTag key={tag} focus={tag} size="sm" />
+                                            ))
+                                          ) : (
+                                            <span className="text-gray-400 text-xs px-2 py-0.5 border border-dashed border-gray-300 rounded">
+                                              {isBulkEditing ? 'None' : '+ Focus'}
+                                            </span>
+                                          )}
                                           {isSavingFocus && editingFocusDayId === day.day_id && (
                                             <span className="inline-block ml-1 animate-spin h-4 w-4 border-2 border-ocean-teal border-t-transparent rounded-full" />
                                           )}
                                         </div>
 
-                                        <FocusDropdownPortal
-                                          isOpen={editingFocusDayId === day.day_id}
-                                          onClose={() => setEditingFocusDayId(null)}
-                                          onSelect={(value) => handleFocusChange(day.day_id, value)}
-                                          triggerRef={focusTagRef}
-                                          options={focusOptions}
-                                          isSaving={isSavingFocus}
-                                        />
+                                        {!isBulkEditing && (
+                                          <FocusModal
+                                            isOpen={editingFocusDayId === day.day_id}
+                                            onClose={() => setEditingFocusDayId(null)}
+                                            onToggle={(value) => handleFocusToggle(day.day_id, value)}
+                                            onClear={() => handleFocusClear(day.day_id)}
+                                            currentFocus={day.focus}
+                                            isSaving={isSavingFocus}
+                                          />
+                                        )}
                                       </div>
                                     </TableCell>
                                     <TableCell className="text-center">
