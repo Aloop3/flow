@@ -30,8 +30,18 @@ class DayConfig(BaseConfig):
     # Query Limits (maximum items per request)
     MAX_ITEMS = BaseConfig.get_int_env("DAY_MAX_ITEMS", 7)  # Maximum days in a week
 
-    # Day Focus Options
-    FOCUS_OPTIONS = ["squat", "bench", "deadlift", "cardio", "rest"]
+    # Day Focus Options (max 2 selections, stored comma-separated)
+    FOCUS_OPTIONS = [
+        "squat",
+        "bench",
+        "deadlift",
+        "secondary_squat",
+        "secondary_bench",
+        "secondary_deadlift",
+        "sbd",
+        "rest",
+        "cardio",
+    ]
 
     # Validation Constants
     MIN_DAY_NUMBER = 1
