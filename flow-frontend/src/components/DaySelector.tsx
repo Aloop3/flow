@@ -6,10 +6,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import { getWeeks, getDays } from '../services/api';
 import type { Week, Day } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
+import FocusTag from './FocusTag';
+import { parseFocusTags } from '../constants/focusOptions';
 
 interface DaySelectorProps {
   isOpen: boolean;
@@ -84,8 +85,8 @@ const DaySelector = ({
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {isLoading ? (
@@ -94,18 +95,18 @@ const DaySelector = ({
             <Skeleton className="h-32 w-full" />
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Week tabs */}
+          <div className="flex flex-col min-h-0 flex-1">
+            {/* Week tabs - sticky at top */}
             {weeks.length > 0 && (
               <>
-                <div className="flex overflow-x-auto pb-2 border-b">
+                <div className="flex overflow-x-auto pb-2 border-b flex-shrink-0 -mx-1 px-1">
                   {weeks.map(week => (
                     <button
                       key={week.week_id}
                       onClick={() => setActiveWeek(week.week_id)}
-                      className={`px-4 py-2 text-sm whitespace-nowrap ${
+                      className={`px-4 py-2 text-sm whitespace-nowrap flex-shrink-0 ${
                         activeWeek === week.week_id
-                          ? 'border-b-2 border-blue-500 text-blue-600 font-medium'
+                          ? 'border-b-2 border-ocean-teal text-ocean-navy font-medium'
                           : 'text-gray-500 hover:text-gray-700'
                       }`}
                     >
@@ -114,30 +115,36 @@ const DaySelector = ({
                   ))}
                 </div>
 
-                {/* Days grid */}
+                {/* Days grid - scrollable */}
                 {activeWeek && days[activeWeek] && (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {days[activeWeek]
-                      .filter(day => day.day_id !== excludeDayId)
-                      .sort((a, b) => a.day_number - b.day_number)
-                      .map(day => (
-                        <button
-                          key={day.day_id}
-                          onClick={() => handleDayClick(day.day_id)}
-                          className="border rounded-md p-3 text-left hover:bg-gray-50"
-                        >
-                          <p className="font-medium">Day {day.day_number}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(day.date, { weekday: 'short', month: 'short', day: 'numeric' })}
-                          </p>
-                          {day.focus && (
-                            <Badge variant="secondary" className="mt-1">
-                              {day.focus}
-                            </Badge>
-                          )}
-                        </button>
-                      ))
-                    }
+                  <div className="overflow-y-auto flex-1 pt-4 -mx-1 px-1">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {days[activeWeek]
+                        .filter(day => day.day_id !== excludeDayId)
+                        .sort((a, b) => a.day_number - b.day_number)
+                        .map(day => (
+                          <button
+                            key={day.day_id}
+                            onClick={() => handleDayClick(day.day_id)}
+                            className="border rounded-md p-3 text-left hover:bg-gray-50 active:bg-gray-100 flex items-center justify-between gap-2"
+                          >
+                            <div>
+                              <p className="font-medium">Day {day.day_number}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatDate(day.date, { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </p>
+                            </div>
+                            {day.focus && (
+                              <div className="flex gap-1 flex-shrink-0">
+                                {parseFocusTags(day.focus).map(tag => (
+                                  <FocusTag key={tag} focus={tag} size="sm" />
+                                ))}
+                              </div>
+                            )}
+                          </button>
+                        ))
+                      }
+                    </div>
                   </div>
                 )}
               </>
