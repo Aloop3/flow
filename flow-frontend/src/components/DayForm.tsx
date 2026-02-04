@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/form';
 import FocusTag from './FocusTag';
 import { formatDate } from '../utils/dateUtils';
+import { FOCUS_OPTIONS, MAX_FOCUS_SELECTIONS, parseFocusTags, formatFocusTags } from '../constants/focusOptions';
 
 const dayFormSchema = z.object({
   day_id: z.string(),
@@ -45,14 +46,6 @@ const DayForm = ({ day, onSubmit, isLoading, onCancel }: DayFormProps) => {
     },
   });
 
-  const focusOptions = [
-    { value: 'squat', label: 'Squat' },
-    { value: 'bench', label: 'Bench' },
-    { value: 'deadlift', label: 'Deadlift' },
-    { value: 'cardio', label: 'Cardio' },
-    { value: 'rest', label: 'Rest' }
-  ];
-
   const handleFormSubmit = async (data: DayFormValues) => {
     try {
       await onSubmit(data);
@@ -62,6 +55,22 @@ const DayForm = ({ day, onSubmit, isLoading, onCancel }: DayFormProps) => {
   };
 
   const selectedFocus = form.watch('focus');
+  const selectedTags = parseFocusTags(selectedFocus);
+
+  const handleTagToggle = (value: string, currentFocus: string) => {
+    const tags = parseFocusTags(currentFocus);
+    const index = tags.indexOf(value);
+
+    if (index >= 0) {
+      // Remove tag
+      tags.splice(index, 1);
+    } else if (tags.length < MAX_FOCUS_SELECTIONS) {
+      // Add tag
+      tags.push(value);
+    }
+
+    return formatFocusTags(tags);
+  };
 
   return (
     <Form {...form}>
@@ -77,29 +86,38 @@ const DayForm = ({ day, onSubmit, isLoading, onCancel }: DayFormProps) => {
           name="focus"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Training Focus</FormLabel>
+              <FormLabel>Training Focus (select up to {MAX_FOCUS_SELECTIONS})</FormLabel>
               <FormControl>
-                <div className="grid grid-cols-5 gap-2">
-                  {focusOptions.map(option => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => field.onChange(option.value)}
-                      className={`p-2 rounded border ${
-                        field.value === option.value
-                          ? 'ring-2 ring-blue-500 ring-offset-1'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <FocusTag focus={option.value} />
-                    </button>
-                  ))}
+                <div className="grid grid-cols-3 gap-2">
+                  {FOCUS_OPTIONS.map(option => {
+                    const isSelected = selectedTags.includes(option.value);
+                    const isDisabled = !isSelected && selectedTags.length >= MAX_FOCUS_SELECTIONS;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => field.onChange(handleTagToggle(option.value, field.value || ''))}
+                        disabled={isDisabled}
+                        className={`p-2 rounded border transition-all ${
+                          isSelected
+                            ? 'ring-2 ring-ocean-teal ring-offset-1'
+                            : isDisabled
+                            ? 'border-gray-100 opacity-50 cursor-not-allowed'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <FocusTag focus={option.value} size="sm" />
+                      </button>
+                    );
+                  })}
                 </div>
               </FormControl>
-              {selectedFocus && (
-                <div className="mt-2">
-                  <span className="text-sm text-muted-foreground">Selected: </span>
-                  <FocusTag focus={selectedFocus} />
+              {selectedTags.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Selected:</span>
+                  {selectedTags.map(tag => (
+                    <FocusTag key={tag} focus={tag} size="sm" />
+                  ))}
                 </div>
               )}
               <FormMessage />

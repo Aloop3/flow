@@ -7,6 +7,7 @@ import { getDay, getWorkoutByDay, getEffectiveAthleteId, copyWorkout, ApiError }
 import type { Day, Workout } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
 import FocusTag from '../components/FocusTag';
+import { FOCUS_OPTIONS, MAX_FOCUS_SELECTIONS, parseFocusTags, formatFocusTags } from '../constants/focusOptions';
 import { toast } from 'react-toastify';
 import ExerciseList from '../components/ExerciseList';
 import { updateDay } from '../services/api';
@@ -205,37 +206,55 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
     }
   };
 
-  // Focus editing handlers
-  const focusOptions = [
-    { value: '', label: 'No focus' },
-    { value: 'squat', label: 'Squat' },
-    { value: 'bench', label: 'Bench' },
-    { value: 'deadlift', label: 'Deadlift' },
-    { value: 'cardio', label: 'Cardio' },
-    { value: 'rest', label: 'Rest' }
-  ];
+  // Focus editing handled via imported constants
 
   const handleFocusClick = () => {
     setIsEditingFocus(true);
   };
 
-  const handleFocusChange = async (newFocus: string) => {
+  const handleFocusToggle = (value: string) => {
+    if (!day) return;
+
+    const currentTags = parseFocusTags(day.focus);
+    const index = currentTags.indexOf(value);
+
+    if (index >= 0) {
+      currentTags.splice(index, 1);
+    } else if (currentTags.length < MAX_FOCUS_SELECTIONS) {
+      currentTags.push(value);
+    }
+
+    const newFocus = formatFocusTags(currentTags);
+    handleFocusSave(newFocus);
+  };
+
+  const handleFocusSave = async (newFocus: string) => {
     if (!day || newFocus === (day.focus || '')) {
-      setIsEditingFocus(false);
       return;
     }
 
     setIsSavingFocus(true);
     try {
       await updateDay(day.day_id, { focus: newFocus || null });
-      // Update only the focus field
       setDay(prev => prev ? { ...prev, focus: newFocus || null } : null);
-      toast.success('Focus updated successfully!');
     } catch (error) {
       console.error('Error saving focus:', error);
       toast.error('Failed to update focus');
     } finally {
+      setIsSavingFocus(false);
+    }
+  };
+
+  const handleClearFocus = async () => {
+    setIsSavingFocus(true);
+    try {
+      await updateDay(day!.day_id, { focus: null });
+      setDay(prev => prev ? { ...prev, focus: null } : null);
       setIsEditingFocus(false);
+    } catch (error) {
+      console.error('Error clearing focus:', error);
+      toast.error('Failed to clear focus');
+    } finally {
       setIsSavingFocus(false);
     }
   };
@@ -284,43 +303,23 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
 
           {/* Focus and Notes - Inline Row */}
           <div className="flex items-center justify-between mb-4">
-            {/* Focus Dropdown */}
-            <div className="relative z-20">
-              {isEditingFocus ? (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setIsEditingFocus(false)} />
-                  <div className="bg-white border border-gray-300 rounded-md shadow-lg py-1 z-20 absolute top-0 left-0 min-w-[120px]">
-                    {focusOptions.map(option => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleFocusChange(option.value)}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2"
-                        disabled={isSavingFocus}
-                      >
-                        {option.value ? (
-                          <FocusTag focus={option.value} size="sm" />
-                        ) : (
-                          <span className="text-gray-500 italic text-sm">No focus</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </>
+            {/* Focus Trigger */}
+            <button
+              onClick={handleFocusClick}
+              className={`cursor-pointer rounded transition-all duration-200 hover:bg-gray-100 ${isSavingFocus ? 'opacity-50' : ''}`}
+            >
+              {day.focus ? (
+                <div className="flex gap-1">
+                  {parseFocusTags(day.focus).map(tag => (
+                    <FocusTag key={tag} focus={tag} size="sm" />
+                  ))}
+                </div>
               ) : (
-                <button
-                  onClick={handleFocusClick}
-                  className={`cursor-pointer rounded transition-all duration-200 hover:bg-gray-100 ${isSavingFocus ? 'opacity-50' : ''}`}
-                >
-                  {day.focus ? (
-                    <FocusTag focus={day.focus} size="sm" />
-                  ) : (
-                    <span className="text-gray-400 text-sm px-2 py-1 border border-dashed border-gray-300 rounded">
-                      + Focus
-                    </span>
-                  )}
-                </button>
+                <span className="text-gray-400 text-sm px-2 py-1 border border-dashed border-gray-300 rounded">
+                  + Focus
+                </span>
               )}
-            </div>
+            </button>
 
             {/* Notes Button/Preview */}
             <button
@@ -455,6 +454,66 @@ const DayDetail = ({ user, signOut }: DayDetailProps) => {
                 disabled={isSavingNotes}
               >
                 {isSavingNotes ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Focus Modal */}
+      {isEditingFocus && day && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-medium text-gray-900">Training Focus</h3>
+              <button
+                onClick={() => setIsEditingFocus(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-3">Select up to {MAX_FOCUS_SELECTIONS}</p>
+            <div className="grid grid-cols-3 gap-2">
+              {FOCUS_OPTIONS.map(option => {
+                const currentTags = parseFocusTags(day.focus);
+                const isSelected = currentTags.includes(option.value);
+                const isDisabled = !isSelected && currentTags.length >= MAX_FOCUS_SELECTIONS;
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => handleFocusToggle(option.value)}
+                    disabled={isSavingFocus || isDisabled}
+                    className={`p-2 rounded border transition-all ${
+                      isSelected
+                        ? 'ring-2 ring-ocean-teal ring-offset-1 bg-ocean-seafoam-light'
+                        : isDisabled
+                        ? 'opacity-40 cursor-not-allowed'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <FocusTag focus={option.value} size="sm" />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-between items-center mt-4">
+              {parseFocusTags(day.focus).length > 0 ? (
+                <button
+                  onClick={handleClearFocus}
+                  className="text-sm text-gray-400 hover:text-red-500"
+                  disabled={isSavingFocus}
+                >
+                  Clear all
+                </button>
+              ) : (
+                <div />
+              )}
+              <Button
+                onClick={() => setIsEditingFocus(false)}
+                disabled={isSavingFocus}
+              >
+                Done
               </Button>
             </div>
           </div>
