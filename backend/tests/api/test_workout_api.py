@@ -604,6 +604,8 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["error"], "Delete error")
         mock_delete_workout.assert_called_once_with("workout123")
 
+    @patch("src.api.workout_api.convert_exercise_weights_for_display")
+    @patch("src.api.workout_api.get_user_weight_preference")
     @patch(
         "src.services.relationship_service.RelationshipService.get_active_relationship"
     )
@@ -618,9 +620,11 @@ class TestWorkoutAPI(BaseTest):
         mock_get_week,
         mock_get_block,
         mock_get_relationship,
+        mock_get_preference,
+        mock_convert_weights,
     ):
         """
-        Test successful creation of a workout for a specific day
+        Test successful creation of a workout for a specific day with weight conversion
         """
         # Setup mock day
         mock_day = Day(
@@ -663,8 +667,23 @@ class TestWorkoutAPI(BaseTest):
             status="not_started",
             notes="",
         )
-        mock_workout.exercises = []
+        mock_workout.exercises = [
+            MagicMock(
+                exercise_id="ex1",
+                exercise_type="Bench Press",
+                sets=3,
+                reps=10,
+                weight=225.0,
+            )
+        ]
         mock_create_workout.return_value = mock_workout
+
+        # Mock user preference and weight conversion
+        mock_get_preference.return_value = "auto"
+        mock_convert_weights.side_effect = lambda exercise, pref, ex_type, ex_cat: {
+            **exercise,
+            "display_unit": "kg",
+        }
 
         # Prepare test event
         event = {
@@ -693,6 +712,10 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 201)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["athlete_id"], "athlete456")
+
+        # Verify weight conversion was called
+        mock_get_preference.assert_called_once_with("athlete456")
+        self.assertTrue(mock_convert_weights.called)
 
     @patch("src.services.day_service.DayService.get_day")
     def test_create_day_workout_day_not_found(self, mock_get_day):
@@ -788,6 +811,8 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response["statusCode"], 400)
         self.assertIn("No exercises provided", response["body"])
 
+    @patch("src.api.workout_api.convert_exercise_weights_for_display")
+    @patch("src.api.workout_api.get_user_weight_preference")
     @patch(
         "src.services.relationship_service.RelationshipService.get_active_relationship"
     )
@@ -804,9 +829,11 @@ class TestWorkoutAPI(BaseTest):
         mock_get_week,
         mock_get_block,
         mock_get_relationship,
+        mock_get_preference,
+        mock_convert_weights,
     ):
         """
-        Test successful workout copying from one day to another
+        Test successful workout copying from one day to another with weight conversion
         """
         # Setup mocks - source day, week, block structure
         mock_source_day = Day(
@@ -876,8 +903,27 @@ class TestWorkoutAPI(BaseTest):
             "day_id": "target-day-789",
             "date": "2025-03-20",
             "status": "not_started",
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "exercise_type": "Bench Press",
+                    "weight": 225.0,
+                },
+                {
+                    "exercise_id": "ex2",
+                    "exercise_type": "Squat",
+                    "weight": 315.0,
+                },
+            ],
         }
         mock_create_workout.return_value = mock_new_workout
+
+        # Mock user preference and weight conversion
+        mock_get_preference.return_value = "auto"
+        mock_convert_weights.side_effect = lambda exercise, pref, ex_type, ex_cat: {
+            **exercise,
+            "display_unit": "kg",
+        }
 
         # Prepare test event
         event = {
@@ -896,6 +942,10 @@ class TestWorkoutAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["workout_id"], "new-workout-123")
         self.assertEqual(response_body["day_id"], "target-day-789")
+
+        # Verify weight conversion was called
+        mock_get_preference.assert_called_once_with("athlete456")
+        self.assertTrue(mock_convert_weights.called)
 
         # Verify service calls
         mock_get_workout.assert_any_call("athlete456", "source-day-123")
@@ -1138,6 +1188,8 @@ class TestWorkoutAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Target day already has a workout", response_body["error"])
 
+    @patch("src.api.workout_api.convert_exercise_weights_for_display")
+    @patch("src.api.workout_api.get_user_weight_preference")
     @patch(
         "src.services.relationship_service.RelationshipService.get_active_relationship"
     )
@@ -1152,9 +1204,11 @@ class TestWorkoutAPI(BaseTest):
         mock_get_week,
         mock_get_block,
         mock_get_relationship,
+        mock_get_preference,
+        mock_convert_weights,
     ):
         """
-        Test coach creating a workout for their athlete
+        Test coach creating a workout for their athlete with weight conversion
         """
         # Setup mock day
         mock_day = Day(
@@ -1207,6 +1261,13 @@ class TestWorkoutAPI(BaseTest):
         mock_workout.exercises = []
         mock_create_workout.return_value = mock_workout
 
+        # Mock user preference and weight conversion
+        mock_get_preference.return_value = "auto"
+        mock_convert_weights.side_effect = lambda exercise, pref, ex_type, ex_cat: {
+            **exercise,
+            "display_unit": "kg",
+        }
+
         # Prepare test event from coach
         event = {
             "pathParameters": {"day_id": "day789"},
@@ -1238,6 +1299,9 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(
             response_body["athlete_id"], "athlete456"
         )  # Should be athlete, not coach
+
+        # Verify weight conversion was called with coach's user ID
+        mock_get_preference.assert_called_once_with("coach789")
 
         # Verify create_workout was called with athlete_id, not coach_id
         mock_create_workout.assert_called_once()
