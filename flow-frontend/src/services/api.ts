@@ -1602,22 +1602,19 @@ export const getMaxWeightProgression = async (
 
 export const getVolumeData = async (
   athleteId: string,
-  groupBy: 'daily' | 'weekly' | 'monthly' = 'monthly' // Map to backend's time_period
+  _groupBy: 'daily' | 'weekly' | 'monthly' = 'monthly' // Grouping handled by frontend
 ): Promise<VolumeData[]> => {
   try {
     const headers = await getAuthHeaders();
-    
+
     const params = new URLSearchParams();
-    // Map frontend groupBy to backend time_period
-    const timePeriod = groupBy === 'daily' ? 'week' :  // Daily shows last 7 days
-                       groupBy === 'weekly' ? 'month' : // Weekly shows last 30 days grouped by week
-                       'all'; // Monthly shows all data grouped by month
-    params.append('time_period', timePeriod);
+    // Always fetch all data - frontend handles grouping (daily/weekly/monthly)
+    params.append('time_period', 'all');
     
     const queryString = params.toString();
     const path = `/analytics/volume/${athleteId}?${queryString}`;
     
-    console.log('Fetching volume data for athlete:', athleteId, 'time_period:', timePeriod);
+    console.log('Fetching volume data for athlete:', athleteId, 'time_period: all');
     const apiResponse = await get({
       apiName: 'flow-api',
       path,

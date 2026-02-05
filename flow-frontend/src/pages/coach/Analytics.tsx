@@ -4,14 +4,12 @@ import Layout from '../../components/Layout';
 import {
   getMaxWeightProgression,
   getVolumeData,
-  getFrequencyAnalysis,
   getBlocks,
   getCoachRelationships,
   getUser,
   get1RMAllTime,
   type MaxWeightData,
   type VolumeData,
-  type FrequencyData,
   type Block
 } from '../../services/api';
 import {
@@ -19,8 +17,6 @@ import {
   Line,
   BarChart,
   Bar,
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -54,7 +50,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
   const [isLoadingAthletes, setIsLoadingAthletes] = useState(false);
   const [maxWeightData, setMaxWeightData] = useState<{[key: string]: MaxWeightData[]}>({});
   const [volumeData, setVolumeData] = useState<VolumeData[]>([]);
-  const [frequencyData, setFrequencyData] = useState<{[key: string]: FrequencyData[]}>({});
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
   const [athletes, setAthletes] = useState<Athlete[]>([]);
@@ -157,30 +152,8 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
     initializeAnalytics();
   }, [currentAthleteId, user.role, user.user_id, selectedAthleteId, athletes]);
 
-  useEffect(() => {
-    const reloadVolumeData = async () => {
-      if (!currentAthleteId) return;
-      
-      try {
-        console.log(`Reloading volume data for ${volumeTimeRange} view`);
-        const callStartTime = performance.now();
-        
-        const volumeResult = await getVolumeData(
-          currentAthleteId, 
-          volumeTimeRange === 'daily' ? 'weekly' : volumeTimeRange
-        );
-        
-        const callEndTime = performance.now();
-        console.log(`Volume data reloaded in ${callEndTime - callStartTime}ms`);
-        
-        setVolumeData(volumeResult);
-      } catch (error) {
-        console.error('Error reloading volume data:', error);
-      }
-    };
-
-    reloadVolumeData();
-  }, [volumeTimeRange, currentAthleteId]); // Only depends on volume time range and athlete
+  // Volume data toggle (daily/weekly/monthly) only changes frontend grouping
+  // No refetch needed - data is fetched once with all other analytics
 
   useEffect(() => {
   console.log('🔍 1RM useEffect triggered. currentAthleteId:', currentAthleteId);
@@ -238,7 +211,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
       // Start timing
       const overallStartTime = performance.now();
 
-      // Create all API calls in parallel - 7 calls total
+      // Create all API calls in parallel - 4 calls total
       const apiCalls = [
         // Max weight progression calls (3 exercises)
         ...SBD_EXERCISES.map(exerciseType => {
@@ -252,7 +225,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
             .catch(error => {
               const callEndTime = performance.now();
               console.error(`Max weight error for ${exerciseType} after ${callEndTime - callStartTime}ms:`, error);
-              
+
               // Re-throw permission errors to be handled by parent
               if (error.message?.includes('403') || error.message?.includes('401')) {
                 throw error;
@@ -260,28 +233,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
               return { type: 'maxWeight', exerciseType, data: [] };
             });
         }),
-        
-        // Frequency analysis calls (3 exercises)
-        ...SBD_EXERCISES.map(exerciseType => {
-          const callStartTime = performance.now();
-          return getFrequencyAnalysis(athleteId, exerciseType)
-            .then(data => {
-              const callEndTime = performance.now();
-              console.log(`Frequency ${exerciseType} completed in ${callEndTime - callStartTime}ms`);
-              return { type: 'frequency', exerciseType, data };
-            })
-            .catch(error => {
-              const callEndTime = performance.now();
-              console.error(`Frequency error for ${exerciseType} after ${callEndTime - callStartTime}ms:`, error);
-              
-              // Re-throw permission errors to be handled by parent
-              if (error.message?.includes('403') || error.message?.includes('401')) {
-                throw error;
-              }
-              return { type: 'frequency', exerciseType, data: [] };
-            });
-        }),
-        
+
         // Volume data call (1 call)
         (() => {
           const callStartTime = performance.now();
@@ -294,7 +246,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
             .catch(error => {
               const callEndTime = performance.now();
               console.error(`Volume data error after ${callEndTime - callStartTime}ms:`, error);
-              
+
               // Re-throw permission errors to be handled by parent
               if (error.message?.includes('403') || error.message?.includes('401')) {
                 throw error;
@@ -316,16 +268,12 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
       
       // Process results
       const maxWeightResults: {[key: string]: MaxWeightData[]} = {};
-      const frequencyResults: {[key: string]: FrequencyData[]} = {};
       let volumeResult: VolumeData[] = [];
-      
+
       results.forEach(result => {
         if (result.type === 'maxWeight' && 'exerciseType' in result) {
           maxWeightResults[result.exerciseType] = result.data as MaxWeightData[];
           console.log(`Max weight result (${result.exerciseType}):`, result.data);
-        } else if (result.type === 'frequency' && 'exerciseType' in result) {
-          frequencyResults[result.exerciseType] = result.data as FrequencyData[];
-          console.log(`Frequency result (${result.exerciseType}):`, result.data);
         } else if (result.type === 'volume') {
           volumeResult = result.data as VolumeData[];
           console.log('Volume data result (monthly):', result.data);
@@ -334,7 +282,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
 
       // Update state
       setMaxWeightData(maxWeightResults);
-      setFrequencyData(frequencyResults);
       setVolumeData(volumeResult);
 
       console.log('Analytics data loaded successfully with parallel calls');
@@ -425,9 +372,8 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
   );
 
   // Check if we have any data
-  const hasData = Object.values(maxWeightData).some(data => data.length > 0) || 
-                  volumeData.length > 0 || 
-                  Object.values(frequencyData).some(data => data.length > 0);
+  const hasData = Object.values(maxWeightData).some(data => data.length > 0) ||
+                  volumeData.length > 0;
 
   return (
     <Layout user={user} signOut={signOut}>
@@ -778,82 +724,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                 </Card>
               )}
 
-              {/* Frequency Analysis - One for each SBD exercise */}
-              {['squat', 'bench press', 'deadlift'].map(exerciseType => {
-                const exerciseData = frequencyData[exerciseType] || [];
-                const exerciseName = capitalizeExerciseName(exerciseType);
-                
-                // Format frequency data with meaningful time labels
-                const chartData = exerciseData.map((item, index) => {
-                  // Create meaningful labels based on the exercise data
-                  const date = new Date();
-                  date.setMonth(date.getMonth() - (exerciseData.length - index - 1));
-                  
-                  return {
-                    month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-                    weekly: parseFloat((item.frequency_per_week || 0).toFixed(1)),
-                    monthly: parseFloat((item.frequency_per_month || 0).toFixed(1)),
-                    sessions: item.total_sessions || 0
-                  };
-                });
-                
-                return exerciseData.length > 0 ? (
-                  <Card key={`frequency-${exerciseType}`}>
-                    <CardHeader>
-                      <CardTitle>{exerciseName} Training Frequency</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis 
-                            dataKey="month" 
-                            tick={{ fontSize: 12 }}
-                            stroke="#6b7280"
-                          />
-                          <YAxis 
-                            tick={{ fontSize: 12 }}
-                            stroke="#6b7280"
-                            label={{ 
-                              value: 'Sessions/Week', 
-                              angle: -90, 
-                              position: 'insideLeft',
-                              style: { textAnchor: 'middle' }
-                            }}
-                          />
-                          <Tooltip 
-                            formatter={(value: any, name: string) => {
-                              const labels = {
-                                weekly: 'Sessions/Week',
-                                monthly: 'Sessions/Month', 
-                                sessions: 'Total Sessions'
-                              };
-                              return [value, labels[name as keyof typeof labels] || name];
-                            }}
-                            labelFormatter={(label: string) => `Month: ${label}`}
-                            contentStyle={{ 
-                              backgroundColor: '#fff', 
-                              border: '1px solid #e5e7eb',
-                              borderRadius: '6px',
-                              fontSize: '12px'
-                            }}
-                          />
-                          <Area 
-                            type="monotone" 
-                            dataKey="weekly" 
-                            stackId="1"
-                            stroke="#f59e0b" 
-                            fill="#f59e0b"
-                            fillOpacity={0.6}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                    </CardContent>
-                  </Card>
-                ) : null;
-              })}
             </div>
           </div>
         )}
