@@ -330,7 +330,6 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
       <div className="divide-y divide-ocean-slate/30">
         {optimisticExercises.map((exercise) => {
           const setProgress = getSetProgress(exercise);
-          const hasSetData = exercise.sets_data && exercise.sets_data.length > 0;
           const isExpanded = expandedExerciseId === exercise.exercise_id;
           
           return (
@@ -406,8 +405,8 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
 
                 {/* Progress bar and reorder buttons row */}
                 <div className="mt-2 flex items-center space-x-2" onClick={() => handleExerciseClick(exercise)}>
-                  {/* Progress bar - shows if has data */}
-                  {(hasSetData || setProgress.completed > 0) ? (
+                  {/* Progress bar - shows if exercise has planned sets */}
+                  {setProgress.total > 0 ? (
                     <div className="flex-grow">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
                         <span>Set progress</span>
