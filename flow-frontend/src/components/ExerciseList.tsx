@@ -470,6 +470,7 @@ const ExerciseList = ({ athleteId, exercises, workoutId, dayId, onExerciseComple
                       onUncompleteExercise={() => handleUncompleteExercise(exercise)}
                       onAddSet={() => handleAddSet(exercise)}
                       onDeleteSet={(setNum) => handleDeleteSet(exercise, setNum)}
+                      syncBeforeComplete={workoutDraft.syncNow}
                       readOnly={readOnly}
                       forceExpanded={true}
                     />

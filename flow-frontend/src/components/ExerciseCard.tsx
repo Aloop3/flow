@@ -15,6 +15,7 @@ interface ExerciseCardProps {
   onUncompleteExercise?: () => Promise<void>;
   onAddSet?: () => Promise<void>;
   onDeleteSet?: (setNumber: number) => Promise<void>;
+  syncBeforeComplete?: () => Promise<void>;
   readOnly?: boolean;
   forceExpanded?: boolean;
 }
@@ -32,6 +33,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onUncompleteExercise,
   onAddSet,
   onDeleteSet,
+  syncBeforeComplete,
   readOnly = false,
   forceExpanded = false,
 }) => {
@@ -85,6 +87,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     setError(null);
 
     try {
+      // Sync any pending set changes before completing exercise
+      // This prevents race condition where toggle isn't synced yet
+      if (syncBeforeComplete) {
+        await syncBeforeComplete();
+      }
+
       await completeExercise(exercise.exercise_id, {
         sets: exercise.sets,
         reps: exercise.reps,
