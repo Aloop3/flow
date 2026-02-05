@@ -140,7 +140,26 @@ def create_day_workout(event, context):
             status="not_started",
         )
 
-        return create_response(201, workout.to_dict())
+        # Get user preference for weight conversion
+        user_preference = get_user_weight_preference(current_user_id)
+
+        # Convert workout to dict and process exercises
+        workout_dict = workout.to_dict()
+
+        # Convert exercise weights to display units
+        if "exercises" in workout_dict and workout_dict["exercises"]:
+            converted_exercises = []
+            for exercise in workout_dict["exercises"]:
+                converted_exercise = convert_exercise_weights_for_display(
+                    exercise,
+                    user_preference,
+                    exercise.get("exercise_type"),
+                    exercise.get("exercise_category"),
+                )
+                converted_exercises.append(converted_exercise)
+            workout_dict["exercises"] = converted_exercises
+
+        return create_response(201, workout_dict)
     except Exception as e:
         logger.error(f"Error creating day workout: {str(e)}")
         return create_response(500, {"error": str(e)})
@@ -386,7 +405,26 @@ def copy_workout(event, context):
             status="not_started",
         )
 
-        return create_response(201, new_workout.to_dict())
+        # Get user preference for weight conversion
+        user_preference = get_user_weight_preference(current_user_id)
+
+        # Convert workout to dict and process exercises
+        workout_dict = new_workout.to_dict()
+
+        # Convert exercise weights to display units
+        if "exercises" in workout_dict and workout_dict["exercises"]:
+            converted_exercises = []
+            for exercise in workout_dict["exercises"]:
+                converted_exercise = convert_exercise_weights_for_display(
+                    exercise,
+                    user_preference,
+                    exercise.get("exercise_type"),
+                    exercise.get("exercise_category"),
+                )
+                converted_exercises.append(converted_exercise)
+            workout_dict["exercises"] = converted_exercises
+
+        return create_response(201, workout_dict)
 
     except Exception as e:
         logger.error(f"Error copying workout: {str(e)}")
