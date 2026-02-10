@@ -1155,8 +1155,7 @@ export const createCustomExercise = async (
     console.log('For user_id:', user_id);
 
     const headers = await getAuthHeaders();
-    console.log('Auth headers:', headers);
-    
+
     const requestBody = {
       name: exerciseData.name.trim(),
       category: exerciseData.category.toLowerCase()
