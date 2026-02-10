@@ -100,7 +100,7 @@ class TestAnalyticsService(unittest.TestCase):
     def test_is_exercise_analytics_complete_incomplete_exercise(self):
         """
         Test _is_exercise_analytics_complete with incomplete exercise status
-        Should return False when exercise status is not 'completed'
+        Should return True - exercise status is no longer checked, only completed sets matter
         """
         exercise = {
             "status": "in_progress",
@@ -111,12 +111,12 @@ class TestAnalyticsService(unittest.TestCase):
         }
 
         is_complete = self.analytics_service._is_exercise_analytics_complete(exercise)
-        self.assertFalse(is_complete)
+        self.assertTrue(is_complete)
 
     def test_is_exercise_analytics_complete_incomplete_workout(self):
         """
         Test _is_exercise_analytics_complete with incomplete workout status
-        Should return False when workout status is not 'completed'
+        Should return True - workout status is no longer checked, only completed sets matter
         """
         exercise = {
             "status": "completed",
@@ -127,7 +127,7 @@ class TestAnalyticsService(unittest.TestCase):
         }
 
         is_complete = self.analytics_service._is_exercise_analytics_complete(exercise)
-        self.assertFalse(is_complete)
+        self.assertTrue(is_complete)
 
     def test_is_exercise_analytics_complete_no_completed_sets(self):
         """
@@ -271,8 +271,8 @@ class TestAnalyticsService(unittest.TestCase):
 
     def test_get_max_weight_history_filters_incomplete_exercises(self):
         """
-        Test that max weight history filters out incomplete exercises
-        Should only include exercises where status=completed, workout_status=completed, and at least one completed set
+        Test that max weight history only requires at least one completed set
+        Exercise status and workout status are no longer checked
         """
         mock_exercises = [
             {
@@ -329,10 +329,13 @@ class TestAnalyticsService(unittest.TestCase):
 
         result = self.analytics_service.get_max_weight_history("athlete123", "squat")
 
-        # Should only include ex1 (all conditions met) and ex4 (has completed sets)
+        # All exercises with at least one completed set are included (ex1, ex2, ex3, ex4)
+        # ex1: date 2024-01-01, weight 100; ex2: date 2024-01-01, weight 200
+        # ex3: date 2024-01-02, weight 150; ex4: date 2024-01-03, weight 120 (only completed set)
         expected_result = [
-            {"date": "2024-01-01", "max_weight": 100},
-            {"date": "2024-01-03", "max_weight": 120},  # Only completed set weight
+            {"date": "2024-01-01", "max_weight": 200},  # max(100, 200)
+            {"date": "2024-01-02", "max_weight": 150},
+            {"date": "2024-01-03", "max_weight": 120},
         ]
         self.assertEqual(result, expected_result)
 
@@ -415,8 +418,8 @@ class TestAnalyticsService(unittest.TestCase):
 
     def test_calculate_volume_only_counts_analytics_complete_exercises(self):
         """
-        Test that volume calculation only includes analytics-complete exercises
-        Should filter by exercise status, workout status, and at least one completed set
+        Test that volume calculation only requires at least one completed set
+        Exercise status and workout status are no longer checked
         """
         mock_exercises = [
             {
@@ -499,10 +502,10 @@ class TestAnalyticsService(unittest.TestCase):
 
             result = self.analytics_service.calculate_volume("athlete123", "week")
 
-        # Should count ex1 (500) + ex3 (500 from completed set) = 1000
-        # ex2 is filtered out (exercise not completed)
+        # ex1 (500) + ex2 (500, now included - exercise status no longer checked)
+        # + ex3 (500 from completed set) = 1500
         # ex4 is filtered out (no completed sets)
-        expected_result = [{"date": "2024-01-01", "volume": 1000}]
+        expected_result = [{"date": "2024-01-01", "volume": 1500}]
         self.assertEqual(result, expected_result)
 
     def test_get_exercise_frequency_success(self):
@@ -1438,8 +1441,8 @@ class TestAnalyticsService(unittest.TestCase):
 
     def test_get_all_time_max_weight_filters_incomplete_exercises(self):
         """
-        Test get_all_time_max_weight filters out exercises that don't pass analytics complete check
-        Should only consider exercises that are analytically complete
+        Test get_all_time_max_weight includes all exercises with at least one completed set
+        Exercise status and workout status are no longer checked
         """
         mock_exercises = [
             {
@@ -1492,8 +1495,10 @@ class TestAnalyticsService(unittest.TestCase):
             "test-athlete-id", "deadlift"
         )
 
-        # Should only consider ex1 (completed), returning 100, not 200 or 180
-        self.assertEqual(max_weight, 100.0)
+        # All exercises with completed sets are included (ex1, ex2, ex3)
+        # exercise status and workout status no longer checked
+        # ex2 has weight 200 (highest), so max is 200
+        self.assertEqual(max_weight, 200.0)
 
     def test_get_all_time_max_weight_no_matching_exercises(self):
         """

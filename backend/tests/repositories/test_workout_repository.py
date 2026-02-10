@@ -381,6 +381,51 @@ class TestWorkoutRepository(unittest.TestCase):
         # Assert the result matches our mock response
         self.assertEqual(result, mock_response.get("Attributes"))
 
+    def test_get_all_workouts_by_athlete(self):
+        """
+        Test retrieving ALL workouts for an athlete (single page)
+        Should return all items without Limit constraint
+        """
+        mock_workouts = [
+            {"workout_id": "w1", "athlete_id": "athlete123", "date": "2025-01-01"},
+            {"workout_id": "w2", "athlete_id": "athlete123", "date": "2025-01-02"},
+        ]
+
+        self.mock_table.query.return_value = {"Items": mock_workouts}
+
+        result = self.workout_repository.get_all_workouts_by_athlete("athlete123")
+
+        self.mock_table.query.assert_called_once()
+        call_kwargs = self.mock_table.query.call_args[1]
+        self.assertNotIn("Limit", call_kwargs)
+        self.assertEqual(len(result), 2)
+
+    def test_get_all_workouts_by_athlete_pagination(self):
+        """
+        Test retrieving ALL workouts with DynamoDB pagination
+        Should follow LastEvaluatedKey to fetch all pages
+        """
+        page1 = {
+            "Items": [{"workout_id": "w1", "athlete_id": "athlete123"}],
+            "LastEvaluatedKey": {"workout_id": "w1"},
+        }
+        page2 = {
+            "Items": [{"workout_id": "w2", "athlete_id": "athlete123"}],
+        }
+
+        self.mock_table.query.side_effect = [page1, page2]
+
+        result = self.workout_repository.get_all_workouts_by_athlete("athlete123")
+
+        self.assertEqual(self.mock_table.query.call_count, 2)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["workout_id"], "w1")
+        self.assertEqual(result[1]["workout_id"], "w2")
+
+        # Verify second call included ExclusiveStartKey
+        second_call_kwargs = self.mock_table.query.call_args_list[1][1]
+        self.assertEqual(second_call_kwargs["ExclusiveStartKey"], {"workout_id": "w1"})
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
