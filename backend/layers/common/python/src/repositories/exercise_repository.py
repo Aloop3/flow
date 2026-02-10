@@ -167,7 +167,7 @@ class ExerciseRepository(BaseRepository):
 
         # Get all workouts for the athlete
         workout_repo = WorkoutRepository()
-        workouts = workout_repo.get_workouts_by_athlete(athlete_id)
+        workouts = workout_repo.get_all_workouts_by_athlete(athlete_id)
 
         # Filter workouts by date if specified
         if start_date:

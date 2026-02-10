@@ -20,7 +20,7 @@ class WorkoutRepository(BaseRepository):
 
     def get_workouts_by_athlete(self, athlete_id: str) -> List[Dict[str, Any]]:
         """
-        Retrieves all workouts for a specific athlete.
+        Retrieves workouts for a specific athlete (first page, limited).
 
         :param athlete_id: The ID of the athlete.
         :return: A list of dictionaries containing the workout data.
@@ -32,6 +32,29 @@ class WorkoutRepository(BaseRepository):
         )
 
         return response.get("Items", [])
+
+    def get_all_workouts_by_athlete(self, athlete_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieves ALL workouts for a specific athlete, paginating through DynamoDB results.
+        Used by analytics to ensure no historical data is missed.
+
+        :param athlete_id: The ID of the athlete.
+        :return: A list of all workout dictionaries.
+        """
+        query_params = {
+            "IndexName": WorkoutConfig.ATHLETE_INDEX,
+            "KeyConditionExpression": Key("athlete_id").eq(athlete_id),
+        }
+
+        items = []
+        while True:
+            response = self.table.query(**query_params)
+            items.extend(response.get("Items", []))
+            if "LastEvaluatedKey" not in response:
+                break
+            query_params["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+
+        return items
 
     def get_workout_by_day(
         self, athlete_id: str, day_id: str
