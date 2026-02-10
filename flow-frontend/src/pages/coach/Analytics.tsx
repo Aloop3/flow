@@ -4,13 +4,11 @@ import Layout from '../../components/Layout';
 import {
   getMaxWeightProgression,
   getVolumeData,
-  getBlocks,
   getCoachRelationships,
   getUser,
   get1RMAllTime,
   type MaxWeightData,
-  type VolumeData,
-  type Block
+  type VolumeData
 } from '../../services/api';
 import {
   LineChart,
@@ -50,12 +48,17 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
   const [isLoadingAthletes, setIsLoadingAthletes] = useState(false);
   const [maxWeightData, setMaxWeightData] = useState<{[key: string]: MaxWeightData[]}>({});
   const [volumeData, setVolumeData] = useState<VolumeData[]>([]);
-  const [blocks, setBlocks] = useState<Block[]>([]);
+
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentAthleteName, setCurrentAthleteName] = useState<string>('');
   const [volumeTimeRange, setVolumeTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  const [maxWeightTimeRanges, setMaxWeightTimeRanges] = useState<Record<string, 'daily' | 'weekly' | 'monthly'>>({
+    'squat': 'weekly',
+    'bench press': 'weekly',
+    'deadlift': 'weekly',
+  });
   const [sbdData, setSbdData] = useState<{
     exerciseType: string;
     exerciseName: string;
@@ -125,10 +128,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
         } else {
           setCurrentAthleteName(user.role === 'coach' ? 'My Analytics' : '');
         }
-
-        // Load blocks for date range context
-        const blocksData = await getBlocks(currentAthleteId);
-        setBlocks(blocksData || []);
 
         // Load analytics data
         await loadAnalyticsData(currentAthleteId);
@@ -445,29 +444,6 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
           <EmptyState />
         ) : (
           <div className="space-y-8">
-            {/* Quick Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Total Programs */}
-              <Card>
-                <CardContent className="pt-6">
-                  <h3 className="text-sm font-medium text-gray-500">Total Programs</h3>
-                  <p className="text-2xl font-semibold text-gray-900">{blocks.length}</p>
-                </CardContent>
-              </Card>
-
-              {/* Active Program */}
-              {blocks.find(b => b.status === 'active') && (
-                <Card>
-                  <CardContent className="pt-6">
-                    <h3 className="text-sm font-medium text-gray-500">Active Program</h3>
-                    <p className="text-2xl font-semibold text-gray-900 truncate">
-                      {blocks.find(b => b.status === 'active')?.title}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
             {/* 1RM with Total */}
             <Card>
               <CardHeader>
@@ -522,61 +498,114 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
 
             {/* Charts Grid - SBD Exercise Analytics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Max Weight Progression Charts - One for each SBD exercise */}
+              {/* Max Weight Charts - One for each SBD exercise */}
               {['squat', 'bench press', 'deadlift'].map(exerciseType => {
                 const exerciseData = maxWeightData[exerciseType] || [];
                 const exerciseName = capitalizeExerciseName(exerciseType);
-                
-                // Format data for Recharts
-                const chartData = exerciseData.map(item => ({
-                  date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                  weight: item.max_weight,
-                  fullDate: item.date,
-                  unit: item.unit
-                }));
-                
+                const unit = exerciseData[0]?.unit || 'kg';
+                const timeRange = maxWeightTimeRanges[exerciseType] || 'weekly';
+
+                // Aggregate data based on selected time range
+                const chartData = (() => {
+                  const rawData = exerciseData.map(item => ({
+                    date: item.date,
+                    weight: item.max_weight,
+                  }));
+
+                  if (timeRange === 'daily') {
+                    return rawData.map(item => ({
+                      date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                      weight: item.weight,
+                      fullDate: item.date,
+                    }));
+                  } else if (timeRange === 'weekly') {
+                    const grouped = rawData.reduce((acc, item) => {
+                      const d = new Date(item.date);
+                      const weekStart = new Date(d);
+                      weekStart.setDate(d.getDate() - d.getDay());
+                      const key = weekStart.toISOString().slice(0, 10);
+                      if (!acc[key]) acc[key] = { weights: [], weekStart: weekStart.getTime() };
+                      acc[key].weights.push(item.weight);
+                      return acc;
+                    }, {} as Record<string, { weights: number[]; weekStart: number }>);
+                    return Object.entries(grouped)
+                      .sort(([, a], [, b]) => a.weekStart - b.weekStart)
+                      .map(([, v]) => ({
+                        date: new Date(v.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                        weight: Math.max(...v.weights),
+                        fullDate: '',
+                      }));
+                  } else {
+                    const grouped = rawData.reduce((acc, item) => {
+                      const d = new Date(item.date);
+                      const key = `${d.getFullYear()}-${d.getMonth()}`;
+                      if (!acc[key]) acc[key] = { weights: [], ts: d.getTime(), date: d };
+                      acc[key].weights.push(item.weight);
+                      return acc;
+                    }, {} as Record<string, { weights: number[]; ts: number; date: Date }>);
+                    return Object.entries(grouped)
+                      .sort(([, a], [, b]) => a.ts - b.ts)
+                      .map(([, v]) => ({
+                        date: v.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+                        weight: Math.max(...v.weights),
+                        fullDate: '',
+                      }));
+                  }
+                })();
+
                 return exerciseData.length > 0 ? (
                   <Card key={`max-weight-${exerciseType}`}>
                     <CardHeader>
-                      <CardTitle>{exerciseName} Max Weight Progression</CardTitle>
+                      <div className="flex justify-between items-center">
+                        <CardTitle>{exerciseName} Max Weight ({unit})</CardTitle>
+                        <div className="flex bg-gray-100 rounded-lg p-1">
+                          {(['daily', 'weekly', 'monthly'] as const).map((range) => (
+                            <button
+                              key={range}
+                              onClick={() => setMaxWeightTimeRanges(prev => ({ ...prev, [exerciseType]: range }))}
+                              className={`px-2 py-1 text-xs font-medium rounded-md transition-colors duration-200 ${
+                                timeRange === range
+                                  ? 'bg-white text-blue-600 shadow-sm'
+                                  : 'text-gray-600 hover:text-gray-900'
+                              }`}
+                            >
+                              {range.charAt(0).toUpperCase() + range.slice(1)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                        <LineChart data={chartData} margin={{ top: 5, right: 30, left: 5, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis 
-                            dataKey="date" 
-                            tick={{ fontSize: 12 }}
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fontSize: 11 }}
                             stroke="#6b7280"
                           />
-                          <YAxis 
-                            tick={{ fontSize: 12 }}
+                          <YAxis
+                            tick={{ fontSize: 11 }}
                             stroke="#6b7280"
-                            label={{ 
-                              value: `Weight (${chartData[0]?.unit || 'kg'})`, 
-                              angle: -90, 
-                              position: 'insideLeft',
-                              style: { textAnchor: 'middle' }
-                            }}
                           />
-                          <Tooltip 
-                            formatter={(value: any) => [`${value}${chartData[0]?.unit || 'kg'}`, 'Max Weight']}
+                          <Tooltip
+                            formatter={(value: any) => [`${value}${unit}`, 'Max Weight']}
                             labelFormatter={(label: string) => `Date: ${label}`}
-                            contentStyle={{ 
-                              backgroundColor: '#fff', 
+                            contentStyle={{
+                              backgroundColor: '#fff',
                               border: '1px solid #e5e7eb',
                               borderRadius: '6px',
                               fontSize: '12px'
                             }}
                           />
-                          <Line 
-                            type="monotone" 
-                            dataKey="weight" 
-                            stroke="#3b82f6" 
+                          <Line
+                            type="monotone"
+                            dataKey="weight"
+                            stroke="#3b82f6"
                             strokeWidth={2}
-                            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                            activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                            dot={false}
+                            activeDot={{ r: 5, stroke: '#3b82f6', strokeWidth: 2 }}
                           />
                         </LineChart>
                       </ResponsiveContainer>
@@ -591,7 +620,7 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                 <Card>
                   <CardHeader>
                     <div className="flex justify-between items-center">
-                      <CardTitle>Training Volume</CardTitle>
+                      <CardTitle>Training Volume (kg)</CardTitle>
                       {/* Time Range Toggle Buttons */}
                       <div className="flex bg-gray-100 rounded-lg p-1">
                         {(['daily', 'weekly', 'monthly'] as const).map((range) => (
@@ -684,23 +713,17 @@ const Analytics = ({ user, signOut }: AnalyticsProps) => {
                               .sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
                           }
                         })()} 
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        margin={{ top: 5, right: 30, left: 5, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis 
-                          dataKey="date" 
-                          tick={{ fontSize: 12 }}
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 11 }}
                           stroke="#6b7280"
                         />
-                        <YAxis 
-                          tick={{ fontSize: 12 }}
+                        <YAxis
+                          tick={{ fontSize: 11 }}
                           stroke="#6b7280"
-                          label={{ 
-                            value: 'Volume (kg)', 
-                            angle: -90, 
-                            position: 'insideLeft',
-                            style: { textAnchor: 'middle' }
-                          }}
                         />
                         <Tooltip 
                           formatter={(value: any) => [`${value.toLocaleString()}kg`, 'Total Volume']}
