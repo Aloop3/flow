@@ -674,7 +674,7 @@ class TestExerciseRepository(unittest.TestCase):
             {"workout_id": "workout1", "date": "2025-03-01", "status": "completed"},
             {"workout_id": "workout2", "date": "2025-03-02", "status": "in_progress"},
         ]
-        mock_workout_repo.get_workouts_by_athlete.return_value = mock_workouts
+        mock_workout_repo.get_all_workouts_by_athlete.return_value = mock_workouts
 
         # Mock exercise data for each workout
         workout1_exercises = [
@@ -709,7 +709,9 @@ class TestExerciseRepository(unittest.TestCase):
         result = self.repository.get_exercises_with_workout_context("athlete123")
 
         # Verify workout repository was called
-        mock_workout_repo.get_workouts_by_athlete.assert_called_once_with("athlete123")
+        mock_workout_repo.get_all_workouts_by_athlete.assert_called_once_with(
+            "athlete123"
+        )
 
         # Verify table queries for exercises
         self.assertEqual(self.table_mock.query.call_count, 2)
@@ -753,7 +755,7 @@ class TestExerciseRepository(unittest.TestCase):
                 "status": "completed",
             },
         ]
-        mock_workout_repo.get_workouts_by_athlete.return_value = mock_workouts
+        mock_workout_repo.get_all_workouts_by_athlete.return_value = mock_workouts
 
         # Mock exercise data - mixed exercise types
         workout2_exercises = [
@@ -784,7 +786,9 @@ class TestExerciseRepository(unittest.TestCase):
         )
 
         # Verify workout repository was called
-        mock_workout_repo.get_workouts_by_athlete.assert_called_once_with("athlete123")
+        mock_workout_repo.get_all_workouts_by_athlete.assert_called_once_with(
+            "athlete123"
+        )
 
         # Verify only one table query (workout1 filtered out by date)
         self.table_mock.query.assert_called_once()
@@ -810,13 +814,15 @@ class TestExerciseRepository(unittest.TestCase):
         mock_workout_repo_class.return_value = mock_workout_repo
 
         # Mock empty workout data
-        mock_workout_repo.get_workouts_by_athlete.return_value = []
+        mock_workout_repo.get_all_workouts_by_athlete.return_value = []
 
         # Call the method
         result = self.repository.get_exercises_with_workout_context("athlete123")
 
         # Verify workout repository was called
-        mock_workout_repo.get_workouts_by_athlete.assert_called_once_with("athlete123")
+        mock_workout_repo.get_all_workouts_by_athlete.assert_called_once_with(
+            "athlete123"
+        )
 
         # Verify no table queries for exercises
         self.table_mock.query.assert_not_called()

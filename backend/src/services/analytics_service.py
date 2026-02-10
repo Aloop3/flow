@@ -41,20 +41,14 @@ class AnalyticsService:
     def _is_exercise_analytics_complete(self, exercise: Dict[str, Any]) -> bool:
         """
         Check if exercise qualifies for analytics.
-        Must have status='completed' AND at least one completed set in sets_data.
+        Requires at least one completed set in sets_data.
+        Does NOT require workout_status='completed' since athletes often
+        complete individual exercises without explicitly finishing the workout.
 
         :param exercise: Exercise dict with sets_data and status
         :return: True if exercise should count in analytics
         """
-        # Check exercise status
-        if exercise.get("status") != "completed":
-            return False
-
-        # Check workout status
-        if exercise.get("workout_status") != "completed":
-            return False
-
-        # Check at least one set is completed
+        # Check at least one set is completed in sets_data
         sets_data = exercise.get("sets_data", [])
         if not sets_data:
             return False
