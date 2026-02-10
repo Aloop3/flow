@@ -1,16 +1,20 @@
-import { View, Text } from '@aws-amplify/ui-react';
-
 export function AuthFooter() {
   return (
-    <View textAlign="center" padding="1rem">
-      <Text
-        style={{
-          color: 'hsl(215, 16%, 47%)', // ocean-slate
-          fontSize: '0.75rem',
-        }}
-      >
-        Built for powerlifting athletes and coaches
-      </Text>
-    </View>
+    <div style={{
+      padding: '1rem 2rem',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+      width: '100%',
+    }}>
+      <span style={{
+        color: 'rgba(245, 245, 245, 0.3)',
+        fontSize: '0.75rem',
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}>
+        Flow 
+      </span>
+    </div>
   );
 }
