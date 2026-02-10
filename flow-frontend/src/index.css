@@ -98,30 +98,95 @@
   }
 }
 
-/* Amplify Authenticator styles */
+/* Amplify Authenticator - Dark split layout */
 [data-amplify-authenticator] {
-  --amplify-components-authenticator-router-box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --amplify-components-authenticator-router-border-width: 0;
   min-height: 100vh;
+  background: hsl(222, 47%, 7%);
+}
+
+/* Mobile: compact stacked layout */
+[data-amplify-authenticator] [data-amplify-container] {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  background: linear-gradient(135deg, hsl(210, 40%, 96%) 0%, hsl(152, 76%, 95%) 100%);
+  padding: 1rem;
+  width: 100%;
 }
 
 [data-amplify-authenticator] [data-amplify-router] {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  background: hsl(222, 47%, 11%) !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3) !important;
+  max-width: 420px;
+  width: 100%;
 }
 
-/* Make input fields match app styling */
+/* Dark input fields */
 [data-amplify-authenticator] input {
   font-family: 'Inter', system-ui, sans-serif;
+  background: hsl(222, 47%, 9%) !important;
+  color: hsl(210, 40%, 95%) !important;
 }
 
-/* Style the primary button */
+[data-amplify-authenticator] input::placeholder {
+  color: hsl(215, 20%, 45%) !important;
+}
+
+[data-amplify-authenticator] label {
+  color: hsl(215, 20%, 65%) !important;
+}
+
 [data-amplify-authenticator] button[type="submit"] {
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.01em;
+}
+
+/* Password toggle & secondary buttons */
+[data-amplify-authenticator] .amplify-field__show-password {
+  color: hsl(215, 20%, 55%) !important;
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Desktop: split layout (hero left, form right) */
+@media (min-width: 768px) {
+  [data-amplify-authenticator] [data-amplify-container] {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr auto;
+    padding: 0 clamp(2rem, 5vw, 6rem);
+    align-items: stretch;
+    min-height: 100vh;
+  }
+
+  /* Hero (AuthHeader) - left column, full height */
+  [data-amplify-authenticator] [data-amplify-container] > :first-child {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    justify-content: center;
+    padding-left: clamp(3rem, 8vw, 8rem) !important;
+  }
+
+  /* Flow brand - pin to top-left on desktop */
+  [data-amplify-authenticator] [data-amplify-container] > :first-child > span:first-child {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    margin-bottom: 0;
+  }
+
+  /* Form - right column, vertically centered */
+  [data-amplify-authenticator] [data-amplify-router] {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    justify-self: center;
+  }
+
+  /* Footer - bottom, full width */
+  [data-amplify-authenticator] [data-amplify-container] > :last-child {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
 }

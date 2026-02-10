@@ -1,91 +1,90 @@
 import { Theme } from '@aws-amplify/ui-react';
 
 /**
- * Custom Amplify Authenticator theme using Flow's ocean palette
+ * Dark theme for Flow's login page
  *
- * Ocean colors:
- * - navy-dark: hsl(222, 47%, 11%) - darkest
- * - navy: hsl(212, 52%, 25%) - primary buttons
- * - teal: hsl(175, 84%, 32%) - accents, success
- * - seafoam-light: hsl(152, 76%, 90%) - light backgrounds
- * - mist: hsl(210, 40%, 96%) - page background
- * - slate: hsl(215, 16%, 47%) - muted text
+ * Ocean colors adapted for dark background:
+ * - Page bg: hsl(222, 47%, 7%)
+ * - Card bg: hsl(222, 47%, 11%)
+ * - Accent: teal hsl(175, 84%, 32-40%)
+ * - Text: light grays
  */
 export const amplifyTheme: Theme = {
-  name: 'flow-ocean-theme',
+  name: 'flow-dark-theme',
   tokens: {
     colors: {
       brand: {
         primary: {
-          10: { value: 'hsl(152, 76%, 90%)' },  // seafoam-light
+          10: { value: 'hsl(175, 84%, 95%)' },
           20: { value: 'hsl(175, 84%, 80%)' },
           40: { value: 'hsl(175, 84%, 60%)' },
-          60: { value: 'hsl(175, 84%, 40%)' },
-          80: { value: 'hsl(175, 84%, 32%)' },  // teal
-          90: { value: 'hsl(212, 52%, 25%)' },  // navy
-          100: { value: 'hsl(222, 47%, 11%)' }, // navy-dark
+          60: { value: 'hsl(175, 84%, 45%)' },
+          80: { value: 'hsl(175, 84%, 32%)' },   // button bg
+          90: { value: 'hsl(175, 84%, 25%)' },   // hover
+          100: { value: 'hsl(175, 84%, 20%)' },  // active
         },
       },
       background: {
-        primary: { value: 'hsl(210, 40%, 96%)' },   // mist
-        secondary: { value: 'hsl(0, 0%, 100%)' },   // white
+        primary: { value: 'hsl(222, 47%, 7%)' },
+        secondary: { value: 'hsl(222, 47%, 11%)' },
       },
       font: {
-        primary: { value: 'hsl(222, 47%, 11%)' },   // navy-dark
-        secondary: { value: 'hsl(215, 16%, 47%)' }, // slate
-        interactive: { value: 'hsl(175, 84%, 32%)' }, // teal
+        primary: { value: 'hsl(210, 40%, 95%)' },
+        secondary: { value: 'hsl(215, 20%, 55%)' },
+        interactive: { value: 'hsl(175, 84%, 40%)' },
       },
       border: {
-        primary: { value: 'hsl(215, 20%, 85%)' },
-        focus: { value: 'hsl(175, 84%, 32%)' },     // teal
+        primary: { value: 'rgba(255, 255, 255, 0.1)' },
+        focus: { value: 'hsl(175, 84%, 40%)' },
       },
     },
     components: {
       authenticator: {
         router: {
-          borderWidth: { value: '0' },
-          boxShadow: { value: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' },
+          borderWidth: { value: '1px' },
+          boxShadow: { value: '0 10px 25px -5px rgba(0, 0, 0, 0.3)' },
         },
       },
       button: {
         primary: {
-          backgroundColor: { value: 'hsl(212, 52%, 25%)' }, // navy
+          backgroundColor: { value: 'hsl(175, 84%, 32%)' },
           color: { value: 'white' },
           _hover: {
-            backgroundColor: { value: 'hsl(222, 47%, 11%)' }, // navy-dark
+            backgroundColor: { value: 'hsl(175, 84%, 25%)' },
           },
           _focus: {
-            backgroundColor: { value: 'hsl(222, 47%, 11%)' },
-            boxShadow: { value: '0 0 0 2px hsl(175, 84%, 32%)' }, // teal ring
+            backgroundColor: { value: 'hsl(175, 84%, 25%)' },
+            boxShadow: { value: '0 0 0 2px hsl(175, 84%, 40%)' },
           },
           _active: {
-            backgroundColor: { value: 'hsl(222, 47%, 15%)' },
+            backgroundColor: { value: 'hsl(175, 84%, 20%)' },
           },
         },
         link: {
-          color: { value: 'hsl(175, 84%, 32%)' }, // teal
+          color: { value: 'hsl(175, 84%, 40%)' },
           _hover: {
-            color: { value: 'hsl(175, 84%, 25%)' },
+            color: { value: 'hsl(175, 84%, 50%)' },
             backgroundColor: { value: 'transparent' },
           },
         },
       },
       fieldcontrol: {
-        borderColor: { value: 'hsl(215, 20%, 85%)' },
+        borderColor: { value: 'rgba(255, 255, 255, 0.12)' },
+        color: { value: 'hsl(210, 40%, 95%)' },
         _focus: {
-          borderColor: { value: 'hsl(175, 84%, 32%)' }, // teal
-          boxShadow: { value: '0 0 0 1px hsl(175, 84%, 32%)' },
+          borderColor: { value: 'hsl(175, 84%, 40%)' },
+          boxShadow: { value: '0 0 0 1px hsl(175, 84%, 40%)' },
         },
       },
       tabs: {
         item: {
-          color: { value: 'hsl(215, 16%, 47%)' }, // slate
+          color: { value: 'hsl(215, 20%, 55%)' },
           _hover: {
-            color: { value: 'hsl(212, 52%, 25%)' }, // navy
+            color: { value: 'hsl(210, 40%, 90%)' },
           },
           _active: {
-            color: { value: 'hsl(212, 52%, 25%)' }, // navy
-            borderColor: { value: 'hsl(175, 84%, 32%)' }, // teal
+            color: { value: 'hsl(210, 40%, 95%)' },
+            borderColor: { value: 'hsl(175, 84%, 40%)' },
           },
         },
       },
