@@ -1,17 +1,18 @@
 import React from 'react';
 import type { Workout } from '../services/api';
+import { useWeightUnit } from '../contexts/UserContext';
 
 interface WorkoutSummaryProps {
   workout: Workout;
 }
 
 // Utility function to calculate total volume using sets_data
-const calculateVolume = (workout: Workout): { lb: number; kg: number } => {
+const calculateVolume = (workout: Workout, getDisplayUnit: (exerciseType: string) => 'kg' | 'lb'): { lb: number; kg: number } => {
   let totalKg = 0;
   let totalLb = 0;
-  
+
   workout.exercises.forEach(exercise => {
-    const displayUnit = exercise.display_unit || 'lb';
+    const displayUnit = exercise.display_unit || getDisplayUnit(exercise.exercise_type);
     
     if (exercise.sets_data && exercise.sets_data.length > 0) {
       // Use detailed sets_data for accurate calculation
@@ -70,7 +71,8 @@ const getHighestRPE = (workout: Workout): number => {
 };
 
 const WorkoutSummary: React.FC<WorkoutSummaryProps> = ({ workout }) => {
-  const volume = calculateVolume(workout);
+  const { getDisplayUnit } = useWeightUnit();
+  const volume = calculateVolume(workout, getDisplayUnit);
   const highestRPE = getHighestRPE(workout);
   const totalExercises = workout.exercises.length;
 

@@ -208,10 +208,14 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["error"], "DynamoDB error occurred")
         mock_create_workout.assert_called_once()
 
+    @patch("src.api.workout_api.convert_exercise_weights_for_display")
+    @patch("src.api.workout_api.get_user_weight_preference")
     @patch("src.services.workout_service.WorkoutService.get_workout")
-    def test_get_workout_success(self, mock_get_workout):
+    def test_get_workout_success(
+        self, mock_get_workout, mock_get_preference, mock_convert_weights
+    ):
         """
-        Test successful workout retrieval
+        Test successful workout retrieval with weight conversion
         """
 
         # Setup
@@ -225,15 +229,24 @@ class TestWorkoutAPI(BaseTest):
             "exercises": [
                 {
                     "exercise_id": "ex1",
+                    "exercise_type": "Squat",
                     "sets": 5,
                     "reps": 5,
-                    "weight": 315.0,
+                    "weight": 100.0,
                 }
             ],
         }
         mock_get_workout.return_value = mock_workout
+        mock_get_preference.return_value = "auto"
+        mock_convert_weights.side_effect = lambda exercise, pref, ex_type, ex_cat: {
+            **exercise,
+            "display_unit": "kg",
+        }
 
-        event = {"pathParameters": {"workout_id": "workout123"}}
+        event = {
+            "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
         context = {}
 
         # Call API
@@ -246,6 +259,8 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["athlete_id"], "athlete456")
         self.assertEqual(len(response_body["exercises"]), 1)
         mock_get_workout.assert_called_once_with("workout123")
+        mock_get_preference.assert_called_once_with("test-user-id")
+        self.assertTrue(mock_convert_weights.called)
 
     @patch("src.services.workout_service.WorkoutService.get_workout")
     def test_get_workout_not_found(self, mock_get_workout):
@@ -446,10 +461,14 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["error"], "Service error")
         mock_get_workout.assert_called_once_with("athlete456", "day789")
 
+    @patch("src.api.workout_api.convert_exercise_weights_for_display")
+    @patch("src.api.workout_api.get_user_weight_preference")
     @patch("src.services.workout_service.WorkoutService.update_workout")
-    def test_update_workout_success(self, mock_update_workout):
+    def test_update_workout_success(
+        self, mock_update_workout, mock_get_preference, mock_convert_weights
+    ):
         """
-        Test successful workout update
+        Test successful workout update with weight conversion
         """
 
         # Setup
@@ -460,20 +479,27 @@ class TestWorkoutAPI(BaseTest):
             "day_id": "day789",
             "date": "2025-03-15",
             "notes": "Updated notes",
-            "status": "in_progress",  # Updated status
+            "status": "in_progress",
             "exercises": [
                 {
                     "exercise_id": "ex1",
-                    "sets": 4,  # Updated sets
+                    "exercise_type": "Squat",
+                    "sets": 4,
                     "reps": 5,
-                    "weight": 315.0,
+                    "weight": 100.0,
                 }
             ],
         }
         mock_update_workout.return_value = mock_workout
+        mock_get_preference.return_value = "auto"
+        mock_convert_weights.side_effect = lambda exercise, pref, ex_type, ex_cat: {
+            **exercise,
+            "display_unit": "kg",
+        }
 
         event = {
             "pathParameters": {"workout_id": "workout123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
             "body": json.dumps(
                 {
                     "notes": "Updated notes",
@@ -483,7 +509,7 @@ class TestWorkoutAPI(BaseTest):
                             "exercise_id": "ex1",
                             "sets": 4,
                             "reps": 5,
-                            "weight": 315.0,
+                            "weight": 100.0,
                         }
                     ],
                 }
@@ -502,6 +528,8 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["status"], "in_progress")
         self.assertEqual(response_body["exercises"][0]["sets"], 4)
         mock_update_workout.assert_called_once()
+        mock_get_preference.assert_called_once_with("test-user-id")
+        self.assertTrue(mock_convert_weights.called)
 
     @patch("src.services.workout_service.WorkoutService.update_workout")
     def test_update_workout_not_found(self, mock_update_workout):
@@ -1308,11 +1336,19 @@ class TestWorkoutAPI(BaseTest):
         call_args = mock_create_workout.call_args[1]
         self.assertEqual(call_args["athlete_id"], "athlete456")
 
+    @patch("src.api.workout_api.convert_exercise_weights_for_display")
+    @patch("src.api.workout_api.get_user_weight_preference")
     @patch("src.services.workout_service.WorkoutService.start_workout_session")
     @patch("src.services.workout_service.WorkoutService.get_workout")
-    def test_start_workout_session_success(self, mock_get_workout, mock_start_session):
+    def test_start_workout_session_success(
+        self,
+        mock_get_workout,
+        mock_start_session,
+        mock_get_preference,
+        mock_convert_weights,
+    ):
         """
-        Test successful workout timing session start
+        Test successful workout timing session start with weight conversion
         """
         # Setup mock workout
         mock_workout = MagicMock()
@@ -1325,12 +1361,25 @@ class TestWorkoutAPI(BaseTest):
             "status": "in_progress",
             "start_time": "2025-06-24T14:30:00.123456",
             "finish_time": None,
-            "exercises": [],
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "exercise_type": "Squat",
+                    "sets": 5,
+                    "reps": 5,
+                    "weight": 100.0,
+                }
+            ],
         }
 
         # Setup mocks
         mock_get_workout.return_value = mock_workout
         mock_start_session.return_value = mock_workout
+        mock_get_preference.return_value = "auto"
+        mock_convert_weights.side_effect = lambda exercise, pref, ex_type, ex_cat: {
+            **exercise,
+            "display_unit": "kg",
+        }
 
         # Setup event - athlete starting their own workout
         event = {
@@ -1349,6 +1398,10 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["status"], "in_progress")
         self.assertEqual(response_body["start_time"], "2025-06-24T14:30:00.123456")
         self.assertIsNone(response_body["finish_time"])
+
+        # Verify weight conversion
+        mock_get_preference.assert_called_once_with("athlete456")
+        self.assertTrue(mock_convert_weights.called)
 
         # Verify service calls
         mock_get_workout.assert_called_once_with("workout123")
@@ -1513,13 +1566,19 @@ class TestWorkoutAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Failed to start workout session")
 
+    @patch("src.api.workout_api.convert_exercise_weights_for_display")
+    @patch("src.api.workout_api.get_user_weight_preference")
     @patch("src.services.workout_service.WorkoutService.finish_workout_session")
     @patch("src.services.workout_service.WorkoutService.get_workout")
     def test_finish_workout_session_success(
-        self, mock_get_workout, mock_finish_session
+        self,
+        mock_get_workout,
+        mock_finish_session,
+        mock_get_preference,
+        mock_convert_weights,
     ):
         """
-        Test successful workout timing session finish
+        Test successful workout timing session finish with weight conversion
         """
         # Setup mock workout
         mock_workout = MagicMock()
@@ -1532,12 +1591,25 @@ class TestWorkoutAPI(BaseTest):
             "status": "in_progress",
             "start_time": "2025-06-24T14:30:00.123456",
             "finish_time": "2025-06-24T15:45:00.789012",
-            "exercises": [],
+            "exercises": [
+                {
+                    "exercise_id": "ex1",
+                    "exercise_type": "Deadlift",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight": 180.0,
+                }
+            ],
         }
 
         # Setup mocks
         mock_get_workout.return_value = mock_workout
         mock_finish_session.return_value = mock_workout
+        mock_get_preference.return_value = "auto"
+        mock_convert_weights.side_effect = lambda exercise, pref, ex_type, ex_cat: {
+            **exercise,
+            "display_unit": "kg",
+        }
 
         # Setup event
         event = {
@@ -1555,6 +1627,10 @@ class TestWorkoutAPI(BaseTest):
         self.assertEqual(response_body["workout_id"], "workout123")
         self.assertEqual(response_body["start_time"], "2025-06-24T14:30:00.123456")
         self.assertEqual(response_body["finish_time"], "2025-06-24T15:45:00.789012")
+
+        # Verify weight conversion
+        mock_get_preference.assert_called_once_with("athlete456")
+        self.assertTrue(mock_convert_weights.called)
 
         # Verify service calls
         mock_get_workout.assert_called_once_with("workout123")

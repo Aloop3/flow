@@ -18,6 +18,7 @@ import { trackExerciseSet, deleteSet, completeExercise, reorderExerciseSets } fr
 import type { Exercise, ExerciseSetData } from '../services/api';
 import { Button } from '@/components/ui/button';
 import SortableInlineSetRow from './SortableInlineSetRow';
+import { useWeightUnit } from '../contexts/UserContext';
 
 interface ExerciseTrackerProps {
   exercise: Exercise;
@@ -63,7 +64,8 @@ const ExerciseTracker: React.FC<ExerciseTrackerProps> = ({
     return savedState ? JSON.parse(savedState) : false;
   });
 
-  const displayUnit = exercise.display_unit || 'lb';
+  const { getDisplayUnit } = useWeightUnit();
+  const displayUnit = exercise.display_unit || getDisplayUnit(exercise.exercise_type);
   
 
   const convertSetDataForDisplay = (setData: ExerciseSetData): ExerciseSetData => {
