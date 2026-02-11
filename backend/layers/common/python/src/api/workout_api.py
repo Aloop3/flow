@@ -180,7 +180,26 @@ def get_workout(event, context):
         if not workout:
             return create_response(404, {"error": "Workout not found"})
 
-        return create_response(200, workout.to_dict())
+        # Get user preference for weight conversion
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        user_preference = get_user_weight_preference(user_id)
+
+        # Convert workout to dict and process exercises
+        workout_dict = workout.to_dict()
+
+        if "exercises" in workout_dict and workout_dict["exercises"]:
+            converted_exercises = []
+            for exercise in workout_dict["exercises"]:
+                converted_exercise = convert_exercise_weights_for_display(
+                    exercise,
+                    user_preference,
+                    exercise.get("exercise_type"),
+                    exercise.get("exercise_category"),
+                )
+                converted_exercises.append(converted_exercise)
+            workout_dict["exercises"] = converted_exercises
+
+        return create_response(200, workout_dict)
 
     except Exception as e:
         logger.error(f"Error getting workout: {e}")
@@ -266,7 +285,26 @@ def update_workout(event, context):
         if not workout:
             return create_response(404, {"error": "Workout not found"})
 
-        return create_response(200, workout.to_dict())
+        # Get user preference for weight conversion
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        user_preference = get_user_weight_preference(user_id)
+
+        # Convert workout to dict and process exercises
+        workout_dict = workout.to_dict()
+
+        if "exercises" in workout_dict and workout_dict["exercises"]:
+            converted_exercises = []
+            for exercise in workout_dict["exercises"]:
+                converted_exercise = convert_exercise_weights_for_display(
+                    exercise,
+                    user_preference,
+                    exercise.get("exercise_type"),
+                    exercise.get("exercise_category"),
+                )
+                converted_exercises.append(converted_exercise)
+            workout_dict["exercises"] = converted_exercises
+
+        return create_response(200, workout_dict)
 
     except Exception as e:
         logger.error(f"Error updating workout: {str(e)}")
@@ -465,7 +503,23 @@ def start_workout_session(event, context):
         if not updated_workout:
             return create_response(500, {"error": "Failed to start workout session"})
 
-        return create_response(200, updated_workout.to_dict())
+        # Convert exercise weights to display units
+        user_preference = get_user_weight_preference(current_user_id)
+        workout_dict = updated_workout.to_dict()
+
+        if "exercises" in workout_dict and workout_dict["exercises"]:
+            converted_exercises = []
+            for exercise in workout_dict["exercises"]:
+                converted_exercise = convert_exercise_weights_for_display(
+                    exercise,
+                    user_preference,
+                    exercise.get("exercise_type"),
+                    exercise.get("exercise_category"),
+                )
+                converted_exercises.append(converted_exercise)
+            workout_dict["exercises"] = converted_exercises
+
+        return create_response(200, workout_dict)
 
     except ValueError as e:
         return create_response(400, {"error": str(e)})
@@ -512,7 +566,23 @@ def finish_workout_session(event, context):
                 },
             )
 
-        return create_response(200, updated_workout.to_dict())
+        # Convert exercise weights to display units
+        user_preference = get_user_weight_preference(current_user_id)
+        workout_dict = updated_workout.to_dict()
+
+        if "exercises" in workout_dict and workout_dict["exercises"]:
+            converted_exercises = []
+            for exercise in workout_dict["exercises"]:
+                converted_exercise = convert_exercise_weights_for_display(
+                    exercise,
+                    user_preference,
+                    exercise.get("exercise_type"),
+                    exercise.get("exercise_category"),
+                )
+                converted_exercises.append(converted_exercise)
+            workout_dict["exercises"] = converted_exercises
+
+        return create_response(200, workout_dict)
 
     except ValueError as e:
         return create_response(400, {"error": str(e)})
