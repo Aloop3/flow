@@ -1,17 +1,18 @@
 import React from 'react';
 import type { Workout } from '../services/api';
+import { useWeightUnit } from '../contexts/UserContext';
 
 interface WorkoutCompletionProps {
   workout: Workout;
 }
 
 // Volume calculation utility
-const calculateVolume = (workout: Workout): { lb: number; kg: number } => {
+const calculateVolume = (workout: Workout, getDisplayUnit: (exerciseType: string) => 'kg' | 'lb'): { lb: number; kg: number } => {
   let totalLb = 0;
   let totalKg = 0;
 
   workout.exercises.forEach((exercise) => {
-    const displayUnit = exercise.display_unit || 'lb';
+    const displayUnit = exercise.display_unit || getDisplayUnit(exercise.exercise_type);
 
     if (exercise.sets_data && exercise.sets_data.length > 0) {
       const exerciseVolume = exercise.sets_data
@@ -77,7 +78,8 @@ const formatDuration = (workout: Workout): string => {
 };
 
 const WorkoutCompletion: React.FC<WorkoutCompletionProps> = ({ workout }) => {
-  const volume = calculateVolume(workout);
+  const { getDisplayUnit } = useWeightUnit();
+  const volume = calculateVolume(workout, getDisplayUnit);
   const highestRPE = getHighestRPE(workout);
   const completedExercises = workout.exercises.filter(ex => ex.status === 'completed').length;
   const duration = formatDuration(workout);

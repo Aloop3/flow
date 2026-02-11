@@ -5,6 +5,7 @@ import { FileText } from 'lucide-react';
 import { completeExercise } from '../services/api';
 import type { Exercise } from '../services/api';
 import type { SetData } from '../services/workoutStorage';
+import { useWeightUnit } from '../contexts/UserContext';
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -54,7 +55,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     setLocalStatus(exercise.status);
   }, [exercise.status]);
 
-  const displayUnit = exercise.display_unit || 'lb';
+  const { getDisplayUnit } = useWeightUnit();
+  const displayUnit = exercise.display_unit || getDisplayUnit(exercise.exercise_type);
   const totalSets = exercise.sets; // Use server count (stable)
 
   // Calculate completion from setsData, capped at totalSets
