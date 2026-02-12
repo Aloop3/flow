@@ -193,6 +193,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-DaysTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-BlocksTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-RelationshipsTable"
 
       Events:
         # Week API Routes
@@ -236,6 +242,15 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-ExercisesTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-WeeksTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-BlocksTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-RelationshipsTable"
 
       Events:
         # Day API Routes

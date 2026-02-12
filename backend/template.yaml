@@ -368,6 +368,10 @@ Resources:
             TableName: !Ref WeeksTable
         - DynamoDBCrudPolicy:
             TableName: !Ref DaysTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RelationshipsTable
 
 
       Events:
@@ -410,6 +414,12 @@ Resources:
             TableName: !Ref DaysTable
         - DynamoDBCrudPolicy:
             TableName: !Ref ExercisesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WeeksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlocksTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RelationshipsTable
 
 
       Events:

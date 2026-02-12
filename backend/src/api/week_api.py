@@ -1,6 +1,8 @@
 import json
 import logging
 from src.services.week_service import WeekService
+from src.services.block_service import BlockService
+from src.services.relationship_service import RelationshipService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
 from src.middleware.common_middleware import log_request, handle_errors
@@ -9,6 +11,8 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 week_service = WeekService()
+block_service = BlockService()
+relationship_service = RelationshipService()
 
 
 @with_middleware([log_request, handle_errors])
@@ -27,6 +31,20 @@ def create_week(event, context):
         # Validate required fields
         if not block_id or not week_number:
             return create_response(400, {"error": "Missing required fields"})
+
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        block = block_service.get_block(block_id)
+        if not block:
+            return create_response(404, {"error": "Block not found"})
+        if user_id != block.athlete_id and user_id != block.coach_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=block.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this block"}
+                )
 
         # Create week
         week = week_service.create_week(
@@ -48,6 +66,20 @@ def get_weeks_for_block(event, context):
     try:
         block_id = event["pathParameters"]["block_id"]
 
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        block = block_service.get_block(block_id)
+        if not block:
+            return create_response(404, {"error": "Block not found"})
+        if user_id != block.athlete_id and user_id != block.coach_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=block.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this block"}
+                )
+
         # Get weeks
         weeks = week_service.get_weeks_for_block(block_id)
 
@@ -67,13 +99,30 @@ def update_week(event, context):
         week_id = event["pathParameters"]["week_id"]
         body = json.loads(event["body"])
 
-        # Update week
-        update_week = week_service.update_week(week_id, body)
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        existing_week = week_service.get_week(week_id)
+        if not existing_week:
+            return create_response(404, {"error": "Week not found"})
+        block = block_service.get_block(existing_week.block_id)
+        if not block:
+            return create_response(404, {"error": "Block not found"})
+        if user_id != block.athlete_id and user_id != block.coach_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=block.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this week"}
+                )
 
-        if not update_week:
+        # Update week
+        updated_week = week_service.update_week(week_id, body)
+
+        if not updated_week:
             return create_response(404, {"error": "Week not found"})
 
-        return create_response(200, update_week.to_dict())
+        return create_response(200, updated_week.to_dict())
 
     except Exception as e:
         logger.error(f"Error updating week: {str(e)}")
@@ -88,11 +137,25 @@ def delete_week(event, context):
     try:
         week_id = event["pathParameters"]["week_id"]
 
-        # Delete week
-        delete_week = week_service.delete_week(week_id)
-
-        if not delete_week:
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        existing_week = week_service.get_week(week_id)
+        if not existing_week:
             return create_response(404, {"error": "Week not found"})
+        block = block_service.get_block(existing_week.block_id)
+        if not block:
+            return create_response(404, {"error": "Block not found"})
+        if user_id != block.athlete_id and user_id != block.coach_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=block.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this week"}
+                )
+
+        # Delete week
+        week_service.delete_week(week_id)
 
         return create_response(204, {})
 
