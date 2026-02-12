@@ -44,6 +44,17 @@ def create_workout(event, context):
         if not athlete_id or not day_id or not date:
             return create_response(400, {"error": "Missing required fields"})
 
+        # Validate permissions: user must be athlete or their coach
+        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if current_user_id != athlete_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=current_user_id, athlete_id=athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized to create workout for this athlete"}
+                )
+
         # Create a Workout
         workout = workout_service.create_workout(
             athlete_id=athlete_id,
@@ -180,8 +191,18 @@ def get_workout(event, context):
         if not workout:
             return create_response(404, {"error": "Workout not found"})
 
-        # Get user preference for weight conversion
+        # Validate permissions: user must be athlete or their coach
         user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if user_id != workout.athlete_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=workout.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this workout"}
+                )
+
+        # Get user preference for weight conversion
         user_preference = get_user_weight_preference(user_id)
 
         # Convert workout to dict and process exercises
@@ -215,6 +236,17 @@ def get_workouts_by_athlete(event, context):
         # Extract athlete_id from path parameters
         athlete_id = event["pathParameters"]["athlete_id"]
 
+        # Validate permissions: user must be athlete or their coach
+        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if current_user_id != athlete_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=current_user_id, athlete_id=athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this athlete's workouts"}
+                )
+
         # Use workout repository directly since the service doesn't expose this method
         workout_repo = WorkoutRepository()
 
@@ -237,6 +269,17 @@ def get_workout_by_day(event, context):
         athlete_id = event["pathParameters"]["athlete_id"]
         day_id = event["pathParameters"]["day_id"]
 
+        # Validate permissions: user must be athlete or their coach
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if user_id != athlete_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this athlete's workouts"}
+                )
+
         # Get workout
         workout = workout_service.get_workout_by_day(athlete_id, day_id)
 
@@ -244,7 +287,6 @@ def get_workout_by_day(event, context):
             return create_response(404, {"error": "Workout not found"})
 
         # Get user preference for weight conversion
-        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
         user_preference = get_user_weight_preference(user_id)
 
         # Convert workout to dict and process exercises
@@ -279,6 +321,21 @@ def update_workout(event, context):
         workout_id = event["pathParameters"]["workout_id"]
         body = json.loads(event["body"])
 
+        # Validate permissions: user must be athlete or their coach
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        existing_workout = workout_service.get_workout(workout_id)
+        if not existing_workout:
+            return create_response(404, {"error": "Workout not found"})
+
+        if user_id != existing_workout.athlete_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=existing_workout.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized to update this workout"}
+                )
+
         # Update workout
         workout = workout_service.update_workout(workout_id, body)
 
@@ -286,7 +343,6 @@ def update_workout(event, context):
             return create_response(404, {"error": "Workout not found"})
 
         # Get user preference for weight conversion
-        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
         user_preference = get_user_weight_preference(user_id)
 
         # Convert workout to dict and process exercises
@@ -319,6 +375,21 @@ def delete_workout(event, context):
     try:
         # Extract workout_id from path parameters
         workout_id = event["pathParameters"]["workout_id"]
+
+        # Validate permissions before deleting: user must be athlete or their coach
+        current_user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        workout = workout_service.get_workout(workout_id)
+        if not workout:
+            return create_response(404, {"error": "Workout not found"})
+
+        if current_user_id != workout.athlete_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=current_user_id, athlete_id=workout.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized to delete this workout"}
+                )
 
         # Delete workout
         result = workout_service.delete_workout(workout_id)
