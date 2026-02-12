@@ -179,7 +179,13 @@ class TestWorkoutFlow(unittest.TestCase):
         ), patch(
             "src.api.block_api.block_service.create_block", return_value=block
         ), patch(
+            "src.api.week_api.block_service.get_block", return_value=block
+        ), patch(
             "src.api.week_api.week_service.create_week", return_value=week
+        ), patch(
+            "src.api.day_api.week_service.get_week", return_value=week
+        ), patch(
+            "src.api.day_api.block_service.get_block", return_value=block
         ), patch(
             "src.api.day_api.day_service.create_day", return_value=day
         ), patch(
