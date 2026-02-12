@@ -29,10 +29,12 @@ class TestExerciseAPI(BaseTest):
     )
     @patch("src.api.exercise_api.convert_weight_to_kg", return_value=315.0)
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="lb")
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.create_exercise")
     def test_create_exercise_success(
         self,
         mock_create_exercise,
+        mock_get_workout,
         mock_convert_kg,
         mock_get_unit,
         mock_convert_display,
@@ -42,6 +44,10 @@ class TestExerciseAPI(BaseTest):
         Test successful exercise creation
         """
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
             "exercise_id": "ex123",
@@ -122,14 +128,23 @@ class TestExerciseAPI(BaseTest):
         "src.api.exercise_api.convert_exercise_weights_for_display",
         side_effect=lambda x, y, z: x,
     )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.create_exercise")
     def test_create_exercise_exception(
-        self, mock_create_exercise, mock_convert_display, mock_get_pref
+        self,
+        mock_create_exercise,
+        mock_get_workout,
+        mock_convert_display,
+        mock_get_pref,
     ):
         """
         Test exception handling during exercise creation
         """
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_create_exercise.side_effect = Exception("Database connection error")
 
         event = self.create_test_event_with_auth(
@@ -157,14 +172,19 @@ class TestExerciseAPI(BaseTest):
         "src.api.exercise_api.convert_exercise_weights_for_display",
         side_effect=lambda ex_dict, user_pref, ex_type, ex_category=None: ex_dict,
     )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.get_exercises_for_workout")
     def test_get_exercises_for_workout_success(
-        self, mock_get_exercises, mock_convert_display, mock_get_pref
+        self, mock_get_exercises, mock_get_workout, mock_convert_display, mock_get_pref
     ):
         """
         Test successful retrieval of exercises for a workout
         """
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
             "exercise_id": "ex123",
@@ -189,14 +209,19 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body[0]["exercise_id"], "ex123")
 
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.get_exercises_for_workout")
     def test_get_exercises_for_workout_exception(
-        self, mock_get_exercises, mock_get_pref
+        self, mock_get_exercises, mock_get_workout, mock_get_pref
     ):
         """
         Test exception handling during exercise retrieval
         """
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_get_exercises.side_effect = Exception("Database query failed")
 
         event = self.create_test_event_with_auth({}, {"workout_id": "workout456"})
@@ -251,13 +276,25 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(result, "auto")  # Should fallback to "auto"
         mock_get_user.assert_called_once_with("test-user-id")
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.update_exercise")
-    def test_update_exercise_success(self, mock_update_exercise):
+    def test_update_exercise_success(
+        self, mock_update_exercise, mock_get_exercise, mock_get_workout
+    ):
         """
         Test successful exercise update
         """
 
-        # Setup
+        # Setup ownership mocks
+        mock_existing = MagicMock()
+        mock_existing.workout_id = "workout456"
+        mock_get_exercise.return_value = mock_existing
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
             "exercise_id": "ex123",
@@ -281,6 +318,7 @@ class TestExerciseAPI(BaseTest):
                     "notes": "Use belt and knee sleeves",
                 }
             ),
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
         }
         context = {}
 
@@ -305,18 +343,19 @@ class TestExerciseAPI(BaseTest):
             },
         )
 
-    @patch("src.services.exercise_service.ExerciseService.update_exercise")
-    def test_update_exercise_not_found(self, mock_update_exercise):
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    def test_update_exercise_not_found(self, mock_get_exercise):
         """
         Test exercise update when exercise not found
         """
 
         # Setup
-        mock_update_exercise.return_value = None
+        mock_get_exercise.return_value = None
 
         event = {
             "pathParameters": {"exercise_id": "nonexistent"},
             "body": json.dumps({"sets": 3}),
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
         }
         context = {}
 
@@ -328,17 +367,30 @@ class TestExerciseAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Exercise not found", response_body["error"])
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.update_exercise")
-    def test_update_exercise_exception(self, mock_update_exercise):
+    def test_update_exercise_exception(
+        self, mock_update_exercise, mock_get_exercise, mock_get_workout
+    ):
         """
         Test exception handling in update exercise
         """
-        # Setup - simulate an exception
+        # Setup ownership mocks
+        mock_existing = MagicMock()
+        mock_existing.workout_id = "workout456"
+        mock_get_exercise.return_value = mock_existing
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_update_exercise.side_effect = Exception("Update operation failed")
 
         event = {
             "pathParameters": {"exercise_id": "ex123"},
             "body": json.dumps({"sets": 3, "weight": 335.0}),
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
         }
         context = {}
 
@@ -351,16 +403,31 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body["error"], "Update operation failed")
         mock_update_exercise.assert_called_once()
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.delete_exercise")
-    def test_delete_exercise_success(self, mock_delete_exercise):
+    def test_delete_exercise_success(
+        self, mock_delete_exercise, mock_get_exercise, mock_get_workout
+    ):
         """
         Test successful exercise deletion
         """
 
-        # Setup
+        # Setup ownership mocks
+        mock_existing = MagicMock()
+        mock_existing.workout_id = "workout456"
+        mock_get_exercise.return_value = mock_existing
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_delete_exercise.return_value = True
 
-        event = {"pathParameters": {"exercise_id": "ex123"}}
+        event = {
+            "pathParameters": {"exercise_id": "ex123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
         context = {}
 
         # Call API
@@ -370,16 +437,19 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response["statusCode"], 204)
         mock_delete_exercise.assert_called_once_with("ex123")
 
-    @patch("src.services.exercise_service.ExerciseService.delete_exercise")
-    def test_delete_exercise_not_found(self, mock_delete_exercise):
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    def test_delete_exercise_not_found(self, mock_get_exercise):
         """
         Test exercise deletion when exercise not found
         """
 
         # Setup
-        mock_delete_exercise.return_value = False
+        mock_get_exercise.return_value = None
 
-        event = {"pathParameters": {"exercise_id": "nonexistent"}}
+        event = {
+            "pathParameters": {"exercise_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
         context = {}
 
         # Call API
@@ -390,15 +460,30 @@ class TestExerciseAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Exercise not found", response_body["error"])
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.delete_exercise")
-    def test_delete_exercise_exception(self, mock_delete_exercise):
+    def test_delete_exercise_exception(
+        self, mock_delete_exercise, mock_get_exercise, mock_get_workout
+    ):
         """
         Test exception handling in delete exercise
         """
-        # Setup - simulate an exception
+        # Setup ownership mocks
+        mock_existing = MagicMock()
+        mock_existing.workout_id = "workout456"
+        mock_get_exercise.return_value = mock_existing
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_delete_exercise.side_effect = Exception("Delete operation failed")
 
-        event = {"pathParameters": {"exercise_id": "ex123"}}
+        event = {
+            "pathParameters": {"exercise_id": "ex123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
         context = {}
 
         # Call API
@@ -410,13 +495,18 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response_body["error"], "Delete operation failed")
         mock_delete_exercise.assert_called_once_with("ex123")
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.reorder_exercises")
-    def test_reorder_exercises_success(self, mock_reorder_exercises):
+    def test_reorder_exercises_success(self, mock_reorder_exercises, mock_get_workout):
         """
         Test successful exercise reordering
         """
 
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise1 = MagicMock()
         mock_exercise1.to_dict.return_value = {
             "exercise_id": "ex1",
@@ -438,7 +528,8 @@ class TestExerciseAPI(BaseTest):
                     "workout_id": "workout456",
                     "exercise_order": ["ex2", "ex1"],  # New order
                 }
-            )
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
         }
         context = {}
 
@@ -481,18 +572,26 @@ class TestExerciseAPI(BaseTest):
         self.assertIn("Missing required fields", response_body["error"])
         mock_reorder_exercises.assert_not_called()
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.reorder_exercises")
-    def test_reorder_exercises_exception(self, mock_reorder_exercises):
+    def test_reorder_exercises_exception(
+        self, mock_reorder_exercises, mock_get_workout
+    ):
         """
         Test exception handling in reorder exercises
         """
-        # Setup - simulate an exception
+        # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_reorder_exercises.side_effect = Exception("Reorder operation failed")
 
         event = {
             "body": json.dumps(
                 {"workout_id": "workout456", "exercise_order": ["ex2", "ex1"]}
-            )
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
         }
         context = {}
 
@@ -510,11 +609,20 @@ class TestExerciseAPI(BaseTest):
         "src.api.exercise_api.convert_exercise_weights_for_display",
         side_effect=lambda ex_dict, user_pref, ex_type, ex_category=None: ex_dict,
     )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.api.exercise_api.ExerciseService")
     def test_reorder_sets_success(
-        self, mock_service_class, mock_convert_weights, mock_get_preference
+        self,
+        mock_service_class,
+        mock_get_workout,
+        mock_convert_weights,
+        mock_get_preference,
     ):
         # Arrange
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         body_data = {"set_order": [3, 1, 2]}
         path_parameters = {"exercise_id": "test-exercise-id"}
         event = self.create_test_event_with_auth(body_data, path_parameters)
@@ -626,8 +734,9 @@ class TestExerciseAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Exercise not found", response_body["error"])
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.api.exercise_api.ExerciseService")
-    def test_reorder_sets_value_error(self, mock_service_class):
+    def test_reorder_sets_value_error(self, mock_service_class, mock_get_workout):
         """
         Test reorder_sets when service raises ValueError.
 
@@ -636,6 +745,10 @@ class TestExerciseAPI(BaseTest):
         Then: Should return 400 error with ValueError message
         """
         # Arrange
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         body_data = {"set_order": [1, 2, 4]}  # Invalid set number
         path_parameters = {"exercise_id": "test-exercise-id"}
         event = self.create_test_event_with_auth(body_data, path_parameters)
@@ -664,12 +777,14 @@ class TestExerciseAPI(BaseTest):
     )
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
     @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.track_set")
     def test_track_set_success(
         self,
         mock_track_set,
         mock_get_exercise,
+        mock_get_workout,
         mock_convert_kg,
         mock_get_unit,
         mock_convert_display,
@@ -679,6 +794,10 @@ class TestExerciseAPI(BaseTest):
         Test successful set tracking
         """
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise = MagicMock()
         mock_exercise.exercise_type = "Squat"
         mock_get_exercise.return_value = mock_exercise
@@ -799,12 +918,14 @@ class TestExerciseAPI(BaseTest):
     )
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
     @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.exercise_service.ExerciseService.track_set")
     def test_track_set_exception(
         self,
         mock_track_set,
         mock_get_exercise,
+        mock_get_workout,
         mock_convert_kg,
         mock_get_unit,
         mock_convert_display,
@@ -812,6 +933,10 @@ class TestExerciseAPI(BaseTest):
     ):
         """Test track_set with exception during processing"""
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise = MagicMock()
         mock_exercise.exercise_type = "Squat"
         mock_get_exercise.return_value = mock_exercise
@@ -834,12 +959,17 @@ class TestExerciseAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Server error", response_body["error"])
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.api.exercise_api.ExerciseService")
-    def test_delete_exercise_set_success(self, MockExerciseService):
+    def test_delete_exercise_set_success(self, MockExerciseService, mock_get_workout):
         """
         Test successful exercise set deletion
         """
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
             "exercise_id": "test-exercise-1",
@@ -853,7 +983,8 @@ class TestExerciseAPI(BaseTest):
         mock_service_instance.delete_set.return_value = mock_exercise
 
         event = {
-            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "1"}
+            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "1"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
         }
         context = {}
 
@@ -890,13 +1021,18 @@ class TestExerciseAPI(BaseTest):
         self.assertIn("Exercise not found", response_body["error"])
         mock_service_instance.delete_set.assert_not_called()
 
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.api.exercise_api.ExerciseService")
-    def test_delete_exercise_set_not_found(self, MockExerciseService):
+    def test_delete_exercise_set_not_found(self, MockExerciseService, mock_get_workout):
         """
         Test exercise set deletion when the set is not found
         """
 
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
             "exercise_id": "test-exercise-1",
@@ -910,7 +1046,8 @@ class TestExerciseAPI(BaseTest):
         mock_service_instance.delete_set.return_value = None
 
         event = {
-            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "999"}
+            "pathParameters": {"exercise_id": "test-exercise-1", "set_number": "999"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
         }
         context = {}
 
@@ -1103,11 +1240,17 @@ class TestExerciseAPI(BaseTest):
         "src.api.exercise_api.convert_exercise_weights_for_display",
         side_effect=lambda x, y, z, w=None: x,
     )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.get_exercises_for_workout")
     def test_get_exercises_for_workout_includes_planned_sets_data(
-        self, mock_get_exercises, mock_convert_display, mock_get_pref
+        self, mock_get_exercises, mock_get_workout, mock_convert_display, mock_get_pref
     ):
         """Test that get_exercises_for_workout API returns planned_sets_data"""
+        # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         # Setup mock exercises with planned_sets_data
         mock_exercise = MagicMock()
         mock_exercise.to_dict.return_value = {
@@ -1158,12 +1301,14 @@ class TestExerciseAPI(BaseTest):
     )
     @patch("src.api.exercise_api.get_exercise_default_unit", return_value="kg")
     @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)
+    @patch("src.services.workout_service.WorkoutService.get_workout")
     @patch("src.services.exercise_service.ExerciseService.get_exercise")
     @patch("src.services.workout_service.WorkoutService.complete_exercise")
     def test_complete_exercise_success(
         self,
         mock_complete_exercise,
         mock_get_exercise,
+        mock_get_workout,
         mock_convert_kg,
         mock_get_unit,
         mock_convert_display,
@@ -1171,6 +1316,10 @@ class TestExerciseAPI(BaseTest):
     ):
         """Test successful exercise completion with weight conversion"""
         # Setup
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
         mock_exercise = MagicMock()
         mock_exercise.exercise_type = "Squat"
         mock_get_exercise.return_value = mock_exercise
@@ -1275,6 +1424,377 @@ class TestExerciseAPI(BaseTest):
         self.assertEqual(response["statusCode"], 400)
         response_body = json.loads(response["body"])
         self.assertIn("Invalid JSON", response_body["error"])
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_create_exercise_workout_not_found(self, mock_get_workout):
+        """Test create_exercise when workout doesn't exist"""
+        mock_get_workout.return_value = None
+        event = self.create_test_event_with_auth(
+            {
+                "workout_id": "nonexistent",
+                "exercise_type": "Squat",
+                "sets": 5,
+                "reps": 5,
+            }
+        )
+        response = exercise_api.create_exercise(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_get_exercises_workout_not_found(self, mock_get_workout):
+        """Test get_exercises_for_workout when workout doesn't exist"""
+        mock_get_workout.return_value = None
+        event = self.create_test_event_with_auth({}, {"workout_id": "nonexistent"})
+        response = exercise_api.get_exercises_for_workout(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    def test_update_exercise_workout_not_found(
+        self, mock_get_exercise, mock_get_workout
+    ):
+        """Test update_exercise when workout doesn't exist"""
+        mock_existing = MagicMock()
+        mock_existing.workout_id = "nonexistent"
+        mock_get_exercise.return_value = mock_existing
+        mock_get_workout.return_value = None
+
+        event = self.create_test_event_with_auth({"sets": 3}, {"exercise_id": "ex123"})
+        response = exercise_api.update_exercise(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    def test_complete_exercise_workout_not_found(
+        self, mock_get_exercise, mock_get_pref, mock_get_workout
+    ):
+        """Test complete_exercise when workout doesn't exist"""
+        mock_exercise = MagicMock()
+        mock_exercise.exercise_type = "Squat"
+        mock_get_exercise.return_value = mock_exercise
+        mock_get_workout.return_value = None
+
+        event = self.create_test_event_with_auth(
+            {"sets": 3, "reps": 5, "weight": 315.0}, {"exercise_id": "ex123"}
+        )
+        response = exercise_api.complete_exercise(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    def test_delete_exercise_workout_not_found(
+        self, mock_get_exercise, mock_get_workout
+    ):
+        """Test delete_exercise when workout doesn't exist"""
+        mock_existing = MagicMock()
+        mock_existing.workout_id = "nonexistent"
+        mock_get_exercise.return_value = mock_existing
+        mock_get_workout.return_value = None
+
+        event = {
+            "pathParameters": {"exercise_id": "ex123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
+        response = exercise_api.delete_exercise(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_reorder_exercises_workout_not_found(self, mock_get_workout):
+        """Test reorder_exercises when workout doesn't exist"""
+        mock_get_workout.return_value = None
+        event = {
+            "body": json.dumps(
+                {"workout_id": "nonexistent", "exercise_order": ["ex1"]}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
+        response = exercise_api.reorder_exercises(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_reorder_sets_workout_not_found(self, mock_service_class, mock_get_workout):
+        """Test reorder_sets when workout doesn't exist"""
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+        mock_service.get_exercise.return_value = MagicMock()
+        mock_get_workout.return_value = None
+
+        event = self.create_test_event_with_auth(
+            {"set_order": [1, 2]}, {"exercise_id": "ex123"}
+        )
+        response = exercise_api.reorder_sets(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_track_set_workout_not_found(
+        self, mock_service_class, mock_get_pref, mock_get_workout
+    ):
+        """Test track_set when workout doesn't exist"""
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+        mock_exercise = MagicMock()
+        mock_exercise.exercise_type = "Squat"
+        mock_service.get_exercise.return_value = mock_exercise
+        mock_get_workout.return_value = None
+
+        event = self.create_test_event_with_auth(
+            {"reps": 5, "weight": 315.0}, {"exercise_id": "ex123", "set_number": "1"}
+        )
+        response = exercise_api.track_set(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_delete_exercise_set_workout_not_found(
+        self, mock_service_class, mock_get_workout
+    ):
+        """Test delete_exercise_set when workout doesn't exist"""
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+        mock_service.get_exercise.return_value = MagicMock()
+        mock_get_workout.return_value = None
+
+        event = {
+            "pathParameters": {"exercise_id": "ex123", "set_number": "1"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-user-id"}}},
+        }
+        response = exercise_api.delete_exercise_set(event, {})
+        self.assertEqual(response["statusCode"], 404)
+
+    # ---- IDOR Tests
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.create_exercise")
+    def test_create_exercise_unauthorized(
+        self, mock_create, mock_get_workout, mock_get_relationship
+    ):
+        """Test that user cannot create exercise in another athlete's workout"""
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = self.create_test_event_with_auth(
+            {"workout_id": "workout456", "exercise_type": "Squat", "sets": 5, "reps": 5}
+        )
+        response = exercise_api.create_exercise(event, {})
+        self.assertEqual(response["statusCode"], 403)
+        mock_create.assert_not_called()
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    def test_get_exercises_for_workout_unauthorized(
+        self, mock_get_workout, mock_get_relationship
+    ):
+        """Test that user cannot get exercises from another athlete's workout"""
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = self.create_test_event_with_auth({}, {"workout_id": "workout456"})
+        response = exercise_api.get_exercises_for_workout(event, {})
+        self.assertEqual(response["statusCode"], 403)
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.exercise_service.ExerciseService.update_exercise")
+    def test_update_exercise_unauthorized(
+        self, mock_update, mock_get_exercise, mock_get_workout, mock_get_relationship
+    ):
+        """Test that user cannot update another athlete's exercise"""
+        mock_existing = MagicMock()
+        mock_existing.workout_id = "workout456"
+        mock_get_exercise.return_value = mock_existing
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = self.create_test_event_with_auth({"sets": 3}, {"exercise_id": "ex123"})
+        response = exercise_api.update_exercise(event, {})
+        self.assertEqual(response["statusCode"], 403)
+        mock_update.assert_not_called()
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.workout_service.WorkoutService.complete_exercise")
+    def test_complete_exercise_unauthorized(
+        self,
+        mock_complete,
+        mock_get_exercise,
+        mock_get_pref,
+        mock_get_workout,
+        mock_get_relationship,
+    ):
+        """Test that user cannot complete another athlete's exercise"""
+        mock_exercise = MagicMock()
+        mock_exercise.exercise_type = "Squat"
+        mock_get_exercise.return_value = mock_exercise
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = self.create_test_event_with_auth(
+            {"sets": 3, "reps": 5, "weight": 315.0}, {"exercise_id": "ex123"}
+        )
+        response = exercise_api.complete_exercise(event, {})
+        self.assertEqual(response["statusCode"], 403)
+        mock_complete.assert_not_called()
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.exercise_service.ExerciseService.delete_exercise")
+    def test_delete_exercise_unauthorized(
+        self, mock_delete, mock_get_exercise, mock_get_workout, mock_get_relationship
+    ):
+        """Test that user cannot delete another athlete's exercise"""
+        mock_existing = MagicMock()
+        mock_existing.workout_id = "workout456"
+        mock_get_exercise.return_value = mock_existing
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = {
+            "pathParameters": {"exercise_id": "ex123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "attacker-user"}}},
+        }
+        response = exercise_api.delete_exercise(event, {})
+        self.assertEqual(response["statusCode"], 403)
+        mock_delete.assert_not_called()
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.reorder_exercises")
+    def test_reorder_exercises_unauthorized(
+        self, mock_reorder, mock_get_workout, mock_get_relationship
+    ):
+        """Test that user cannot reorder exercises in another athlete's workout"""
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = {
+            "body": json.dumps(
+                {"workout_id": "workout456", "exercise_order": ["ex2", "ex1"]}
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "attacker-user"}}},
+        }
+        response = exercise_api.reorder_exercises(event, {})
+        self.assertEqual(response["statusCode"], 403)
+        mock_reorder.assert_not_called()
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_reorder_sets_unauthorized(
+        self, mock_service_class, mock_get_workout, mock_get_relationship
+    ):
+        """Test that user cannot reorder sets in another athlete's exercise"""
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        mock_exercise = MagicMock()
+        mock_service.get_exercise.return_value = mock_exercise
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = self.create_test_event_with_auth(
+            {"set_order": [1, 2, 3]}, {"exercise_id": "ex123"}
+        )
+        response = exercise_api.reorder_sets(event, {})
+        self.assertEqual(response["statusCode"], 403)
+        mock_service.reorder_sets.assert_not_called()
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_track_set_unauthorized(
+        self, mock_service_class, mock_get_pref, mock_get_workout, mock_get_relationship
+    ):
+        """Test that user cannot track set in another athlete's exercise"""
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        mock_exercise = MagicMock()
+        mock_exercise.exercise_type = "Squat"
+        mock_service.get_exercise.return_value = mock_exercise
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = self.create_test_event_with_auth(
+            {"reps": 5, "weight": 315.0}, {"exercise_id": "ex123", "set_number": "1"}
+        )
+        response = exercise_api.track_set(event, {})
+        self.assertEqual(response["statusCode"], 403)
+        mock_service.track_set.assert_not_called()
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.api.exercise_api.ExerciseService")
+    def test_delete_exercise_set_unauthorized(
+        self, mock_service_class, mock_get_workout, mock_get_relationship
+    ):
+        """Test that user cannot delete set in another athlete's exercise"""
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        mock_exercise = MagicMock()
+        mock_service.get_exercise.return_value = mock_exercise
+
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "other-athlete"
+        mock_get_workout.return_value = mock_workout
+        mock_get_relationship.return_value = None
+
+        event = {
+            "pathParameters": {"exercise_id": "ex123", "set_number": "1"},
+            "requestContext": {"authorizer": {"claims": {"sub": "attacker-user"}}},
+        }
+        response = exercise_api.delete_exercise_set(event, {})
+        self.assertEqual(response["statusCode"], 403)
+        mock_service.delete_set.assert_not_called()
 
 
 if __name__ == "__main__":
