@@ -141,6 +141,9 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-ExercisesTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-RelationshipsTable"
 
       Events:
         # Block API Routes
@@ -285,6 +288,9 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-UsersTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-RelationshipsTable"
 
       Events:
         # Exercise API Routes

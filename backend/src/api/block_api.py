@@ -4,12 +4,14 @@ from src.services.block_service import BlockService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
 from src.middleware.common_middleware import log_request, handle_errors
+from src.services.relationship_service import RelationshipService
 
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 block_service = BlockService()
+relationship_service = RelationshipService()
 
 
 @with_middleware([log_request, handle_errors])
@@ -46,6 +48,17 @@ def create_block(event, context):
                 )
         except (ValueError, TypeError):
             return create_response(400, {"error": "Number of weeks must be an integer"})
+
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if user_id != athlete_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized to create block for this athlete"}
+                )
 
         # Create block
         block = block_service.create_block(
@@ -88,6 +101,17 @@ def get_block(event, context):
         if not block:
             return create_response(404, {"error": "Block not found"})
 
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if user_id != block.athlete_id and user_id != block.coach_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=block.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this block"}
+                )
+
         # Return successful response
         return create_response(200, block.to_dict())
 
@@ -109,6 +133,17 @@ def get_blocks_by_athlete(event, context):
 
         # Extract athlete_id from path parameters
         athlete_id = event["pathParameters"]["athlete_id"]
+
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if user_id != athlete_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this athlete's blocks"}
+                )
 
         # Get blocks
         blocks = block_service.get_blocks_for_athlete(athlete_id)
@@ -142,6 +177,20 @@ def update_block(event, context):
         except json.JSONDecodeError:
             return create_response(400, {"error": "Invalid JSON in request body"})
 
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        existing_block = block_service.get_block(block_id)
+        if not existing_block:
+            return create_response(404, {"error": "Block not found"})
+        if user_id != existing_block.athlete_id and user_id != existing_block.coach_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=existing_block.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this block"}
+                )
+
         # Update block
         updated_block = block_service.update_block(block_id, body)
 
@@ -162,20 +211,30 @@ def delete_block(event, context):
     """
     Handle DELETE /blocks/{block_id} request to delete a block by ID
     """
-    try:
-        if not event.get("pathParameters") or not event["pathParameters"].get(
-            "block_id"
-        ):
-            return create_response(400, {"error": "Missing block_id parameter"})
+    # Check path parameters
+    if not event.get("pathParameters") or not event["pathParameters"].get("block_id"):
+        return create_response(400, {"error": "Missing block_id parameter"})
 
+    try:
         # Extract block_id from path parameters
         block_id = event["pathParameters"]["block_id"]
 
-        # Delete block
-        delete_block = block_service.delete_block(block_id)
-
-        if not delete_block:
+        # Verify ownership
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        existing_block = block_service.get_block(block_id)
+        if not existing_block:
             return create_response(404, {"error": "Block not found"})
+        if user_id != existing_block.athlete_id and user_id != existing_block.coach_id:
+            relationship = relationship_service.get_active_relationship(
+                coach_id=user_id, athlete_id=existing_block.athlete_id
+            )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this block"}
+                )
+
+        # Delete block
+        block_service.delete_block(block_id)
 
         return create_response(204, {})
 

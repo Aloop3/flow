@@ -318,6 +318,8 @@ Resources:
             TableName: !Ref DaysTable
         - DynamoDBCrudPolicy:
             TableName: !Ref ExercisesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RelationshipsTable
 
 
       Events:
@@ -456,6 +458,8 @@ Resources:
             TableName: !Ref ExercisesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref WorkoutsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RelationshipsTable
 
 
       Events:
