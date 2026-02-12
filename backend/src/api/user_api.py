@@ -1,6 +1,7 @@
 import json
 import logging
 from src.services.user_service import UserService
+from src.services.relationship_service import RelationshipService
 from src.utils.response import create_response
 from src.middleware.middleware import with_middleware
 from src.middleware.common_middleware import log_request, handle_errors
@@ -9,6 +10,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 user_service = UserService()
+relationship_service = RelationshipService()
 
 
 @with_middleware([log_request, handle_errors])
@@ -58,6 +60,23 @@ def get_user(event, context):
         if not user:
             return create_response(404, {"error": "User not found"})
 
+        # Verify ownership: caller must be the user or in a coaching relationship
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if caller_id != user_id:
+            # Check if caller is coach of this user
+            relationship = relationship_service.get_active_relationship(
+                coach_id=caller_id, athlete_id=user_id
+            )
+            if not relationship:
+                # Check if caller is athlete of this user (viewing coach profile)
+                relationship = relationship_service.get_active_relationship(
+                    coach_id=user_id, athlete_id=caller_id
+                )
+            if not relationship:
+                return create_response(
+                    403, {"error": "Unauthorized access to this user"}
+                )
+
         return create_response(200, user.to_dict())
 
     except Exception as e:
@@ -72,6 +91,12 @@ def update_user(event, context):
     """
     try:
         user_id = event["pathParameters"]["user_id"]
+
+        # Verify ownership: only the user can update their own profile
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if caller_id != user_id:
+            return create_response(403, {"error": "Unauthorized to update this user"})
+
         body = json.loads(event["body"])
 
         # Update user

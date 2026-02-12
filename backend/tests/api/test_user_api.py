@@ -499,7 +499,10 @@ class TestUserAPI(BaseTest):
         }
         mock_get_user.return_value = mock_user
 
-        event = {"pathParameters": {"user_id": "user123"}}
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "user123"}}},
+        }
         context = {}
 
         # Bypass middleware for successful test case
@@ -667,6 +670,108 @@ class TestUserAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         self.assertIn("error", json.loads(response["body"]))
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.user_service.UserService.get_user")
+    def test_get_user_unauthorized(self, mock_get_user, mock_get_relationship):
+        """Test user retrieval by unauthorized user (not self, no relationship)"""
+        mock_user = MagicMock()
+        mock_get_user.return_value = mock_user
+        mock_get_relationship.return_value = None  # Both directions return None
+
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        context = {}
+
+        response = user_api.get_user.__wrapped__(event, context)
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+        # Verify both relationship directions were checked
+        self.assertEqual(mock_get_relationship.call_count, 2)
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.user_service.UserService.get_user")
+    def test_get_user_as_coach(self, mock_get_user, mock_get_relationship):
+        """Test user retrieval by coach with active relationship"""
+        mock_user = MagicMock()
+        mock_user.to_dict.return_value = {
+            "user_id": "athlete123",
+            "email": "athlete@example.com",
+            "name": "Test Athlete",
+            "role": "athlete",
+        }
+        mock_get_user.return_value = mock_user
+        mock_get_relationship.return_value = MagicMock()  # Active relationship exists
+
+        event = {
+            "pathParameters": {"user_id": "athlete123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
+        context = {}
+
+        response = user_api.get_user.__wrapped__(event, context)
+
+        self.assertEqual(response["statusCode"], 200)
+        mock_get_relationship.assert_called_once_with(
+            coach_id="coach456", athlete_id="athlete123"
+        )
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.user_service.UserService.get_user")
+    def test_get_user_as_athlete_viewing_coach(
+        self, mock_get_user, mock_get_relationship
+    ):
+        """Test athlete viewing their coach's profile"""
+        mock_user = MagicMock()
+        mock_user.to_dict.return_value = {
+            "user_id": "coach456",
+            "email": "coach@example.com",
+            "name": "Test Coach",
+            "role": "coach",
+        }
+        mock_get_user.return_value = mock_user
+        # First call (coach_id=caller) returns None, second (coach_id=user) returns match
+        mock_get_relationship.side_effect = [None, MagicMock()]
+
+        event = {
+            "pathParameters": {"user_id": "coach456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete123"}}},
+        }
+        context = {}
+
+        response = user_api.get_user.__wrapped__(event, context)
+
+        self.assertEqual(response["statusCode"], 200)
+        self.assertEqual(mock_get_relationship.call_count, 2)
+        mock_get_relationship.assert_any_call(
+            coach_id="athlete123", athlete_id="coach456"
+        )
+        mock_get_relationship.assert_any_call(
+            coach_id="coach456", athlete_id="athlete123"
+        )
+
+    def test_update_user_unauthorized(self):
+        """Test user update by unauthorized user"""
+        event = {
+            "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+            "body": json.dumps({"name": "Hacked Name"}),
+        }
+        context = {}
+
+        response = user_api.update_user.__wrapped__(event, context)
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
     @patch("src.services.user_service.UserService.update_user")
     def test_update_user_success(self, mock_update_user):
         """
@@ -685,6 +790,7 @@ class TestUserAPI(BaseTest):
 
         event = {
             "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "user123"}}},
             "body": json.dumps(
                 {
                     "email": "updated@example.com",
@@ -721,6 +827,7 @@ class TestUserAPI(BaseTest):
 
         event = {
             "pathParameters": {"user_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "nonexistent"}}},
             "body": json.dumps({"name": "Updated User"}),
         }
         context = {}
@@ -859,6 +966,7 @@ class TestUserAPI(BaseTest):
         # Setup
         event = {
             "pathParameters": {"user_id": "user123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "user123"}}},
             "body": json.dumps({"name": "Updated User"}),
         }
         context = {}
@@ -880,7 +988,11 @@ class TestUserAPI(BaseTest):
     def test_update_user_exception(self):
         """Exception in update_user"""
         # Setup - event that will cause exception in JSON parsing
-        event = {"pathParameters": {"user_id": "123"}, "body": "{invalid:json}"}
+        event = {
+            "pathParameters": {"user_id": "123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "123"}}},
+            "body": "{invalid:json}",
+        }
         context = {}
 
         # Direct call without patching
@@ -895,6 +1007,7 @@ class TestUserAPI(BaseTest):
         # Setup - event with valid pathParameters but invalid JSON body
         event = {
             "pathParameters": {"user_id": "123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "123"}}},
             "body": "{email: 'test@example.com', name: 'Test User'}",
         }
         context = {}
