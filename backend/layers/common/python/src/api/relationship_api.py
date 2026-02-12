@@ -27,6 +27,13 @@ def create_relationship(event, context):
         if not coach_id or not athlete_id:
             return create_response(400, {"error": "Missing required fields"})
 
+        # Verify ownership: only the coach can create a relationship
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if caller_id != coach_id:
+            return create_response(
+                403, {"error": "Unauthorized to create relationship for this coach"}
+            )
+
         # Create relationship
         relationship = relationship_service.create_relationship(coach_id, athlete_id)
 
@@ -45,6 +52,18 @@ def accept_relationship(event, context):
     try:
         # Extract relationship_id from path parameters
         relationship_id = event["pathParameters"]["relationship_id"]
+
+        # Verify ownership: only the athlete can accept
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        existing = relationship_service.get_relationship(relationship_id)
+        if not existing:
+            return create_response(
+                404, {"error": "Relationship not found or already accepted"}
+            )
+        if caller_id != existing.athlete_id:
+            return create_response(
+                403, {"error": "Unauthorized to accept this relationship"}
+            )
 
         # Accept relationship
         accept_relationship = relationship_service.accept_relationship(relationship_id)
@@ -70,6 +89,18 @@ def end_relationship(event, context):
         # Extract relationship_id from path parameters
         relationship_id = event["pathParameters"]["relationship_id"]
 
+        # Verify ownership: only the coach or athlete can end
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        existing = relationship_service.get_relationship(relationship_id)
+        if not existing:
+            return create_response(
+                404, {"error": "Relationship not found or already ended"}
+            )
+        if caller_id != existing.coach_id and caller_id != existing.athlete_id:
+            return create_response(
+                403, {"error": "Unauthorized to end this relationship"}
+            )
+
         # End relationship
         end_relationship = relationship_service.end_relationship(relationship_id)
 
@@ -93,6 +124,13 @@ def get_relationships_for_coach(event, context):
     try:
         # Extract coach_id from path parameters
         coach_id = event["pathParameters"]["coach_id"]
+
+        # Verify ownership: only the coach can view their relationships
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if caller_id != coach_id:
+            return create_response(
+                403, {"error": "Unauthorized to view relationships for this coach"}
+            )
 
         # Get query parameter for status filter
         query_params = event.get("queryStringParameters", {}) or {}
@@ -120,6 +158,14 @@ def get_relationships_for_athlete(event, context):
     try:
         # Extract athlete_id from path parameters
         athlete_id = event["pathParameters"]["athlete_id"]
+
+        # Verify ownership: only the athlete can view their relationships
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if caller_id != athlete_id:
+            return create_response(
+                403,
+                {"error": "Unauthorized to view relationships for this athlete"},
+            )
 
         # Get query parameter for status filter
         query_params = event.get("queryStringParameters", {}) or {}
@@ -154,6 +200,13 @@ def get_relationship(event, context):
         if not relationship:
             return create_response(404, {"error": "Relationship not found"})
 
+        # Verify ownership: only the coach or athlete can view
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if caller_id != relationship.coach_id and caller_id != relationship.athlete_id:
+            return create_response(
+                403, {"error": "Unauthorized to view this relationship"}
+            )
+
         return create_response(200, relationship.to_dict())
 
     except Exception as e:
@@ -169,6 +222,13 @@ def generate_invitation_code(event, context):
     try:
         # Extract coach_id from path parameters
         coach_id = event["pathParameters"]["coach_id"]
+
+        # Verify ownership: only the coach can generate invitation codes
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if caller_id != coach_id:
+            return create_response(
+                403, {"error": "Unauthorized to generate invitation for this coach"}
+            )
 
         # Generate invitation code
         relationship = relationship_service.generate_invitation_code(coach_id)
@@ -194,6 +254,14 @@ def accept_invitation_code(event, context):
     try:
         # Extract athlete_id from path parameters
         athlete_id = event["pathParameters"]["athlete_id"]
+
+        # Verify ownership: only the athlete can accept invitations for themselves
+        caller_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if caller_id != athlete_id:
+            return create_response(
+                403, {"error": "Unauthorized to accept invitation for this athlete"}
+            )
+
         body = json.loads(event["body"])
 
         # Extract invitation code from body

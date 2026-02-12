@@ -31,7 +31,8 @@ class TestRelationshipAPI(BaseTest):
         mock_create_relationship.return_value = mock_rel
 
         event = {
-            "body": json.dumps({"coach_id": "coach456", "athlete_id": "athlete789"})
+            "body": json.dumps({"coach_id": "coach456", "athlete_id": "athlete789"}),
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
         }
         context = {}
 
@@ -82,7 +83,8 @@ class TestRelationshipAPI(BaseTest):
         mock_create_relationship.side_effect = Exception("Test exception")
 
         event = {
-            "body": json.dumps({"coach_id": "coach456", "athlete_id": "athlete789"})
+            "body": json.dumps({"coach_id": "coach456", "athlete_id": "athlete789"}),
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
         }
         context = {}
 
@@ -95,23 +97,33 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response_body["error"], "Test exception")
 
     @patch("src.services.relationship_service.RelationshipService.accept_relationship")
-    def test_accept_relationship_success(self, mock_accept_relationship):
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_accept_relationship_success(
+        self, mock_get_relationship, mock_accept_relationship
+    ):
         """
         Test successful relationship acceptance
         """
 
         # Setup
+        mock_existing = MagicMock()
+        mock_existing.athlete_id = "athlete789"
+        mock_get_relationship.return_value = mock_existing
+
         mock_rel = MagicMock()
         mock_rel.to_dict.return_value = {
             "relationship_id": "rel123",
             "coach_id": "coach456",
             "athlete_id": "athlete789",
-            "status": "active",  # Updated from pending to active
+            "status": "active",
             "created_at": "2025-03-13T12:00:00",
         }
         mock_accept_relationship.return_value = mock_rel
 
-        event = {"pathParameters": {"relationship_id": "rel123"}}
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
+        }
         context = {}
 
         # Call API
@@ -124,16 +136,19 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response_body["status"], "active")
         mock_accept_relationship.assert_called_once_with("rel123")
 
-    @patch("src.services.relationship_service.RelationshipService.accept_relationship")
-    def test_accept_relationship_not_found(self, mock_accept_relationship):
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_accept_relationship_not_found(self, mock_get_relationship):
         """
-        Test relationship acceptance when relationship not found or already accepted
+        Test relationship acceptance when relationship not found
         """
 
         # Setup
-        mock_accept_relationship.return_value = None
+        mock_get_relationship.return_value = None
 
-        event = {"pathParameters": {"relationship_id": "nonexistent"}}
+        event = {
+            "pathParameters": {"relationship_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
+        }
         context = {}
 
         # Call API
@@ -144,15 +159,18 @@ class TestRelationshipAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Relationship not found or already", response_body["error"])
 
-    @patch("src.services.relationship_service.RelationshipService.accept_relationship")
-    def test_accept_relationship_exception(self, mock_accept_relationship):
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_accept_relationship_exception(self, mock_get_relationship):
         """
         Test relationship acceptance with exception
         """
         # Setup
-        mock_accept_relationship.side_effect = Exception("Test exception")
+        mock_get_relationship.side_effect = Exception("Test exception")
 
-        event = {"pathParameters": {"relationship_id": "rel123"}}
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
+        }
         context = {}
 
         # Call API
@@ -164,24 +182,35 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response_body["error"], "Test exception")
 
     @patch("src.services.relationship_service.RelationshipService.end_relationship")
-    def test_end_relationship_success_with_ttl(self, mock_end_relationship):
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_end_relationship_success_with_ttl(
+        self, mock_get_relationship, mock_end_relationship
+    ):
         """
         Test successful relationship ending with TTL
         """
 
         # Setup
+        mock_existing = MagicMock()
+        mock_existing.coach_id = "coach456"
+        mock_existing.athlete_id = "athlete789"
+        mock_get_relationship.return_value = mock_existing
+
         mock_rel = MagicMock()
         mock_rel.to_dict.return_value = {
             "relationship_id": "rel123",
             "coach_id": "coach456",
             "athlete_id": "athlete789",
-            "status": "ended",  # Updated from active to ended
+            "status": "ended",
             "created_at": "2025-03-13T12:00:00",
-            "ttl": 1720958400,  # TTL for 60-day cleanup
+            "ttl": 1720958400,
         }
         mock_end_relationship.return_value = mock_rel
 
-        event = {"pathParameters": {"relationship_id": "rel123"}}
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -195,16 +224,19 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response_body["ttl"], 1720958400)
         mock_end_relationship.assert_called_once_with("rel123")
 
-    @patch("src.services.relationship_service.RelationshipService.end_relationship")
-    def test_end_relationship_not_found(self, mock_end_relationship):
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_end_relationship_not_found(self, mock_get_relationship):
         """
-        Test relationship ending when relationship not found or already ended
+        Test relationship ending when relationship not found
         """
 
         # Setup
-        mock_end_relationship.return_value = None
+        mock_get_relationship.return_value = None
 
-        event = {"pathParameters": {"relationship_id": "nonexistent"}}
+        event = {
+            "pathParameters": {"relationship_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -215,15 +247,18 @@ class TestRelationshipAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Relationship not found or already ended", response_body["error"])
 
-    @patch("src.services.relationship_service.RelationshipService.end_relationship")
-    def test_end_relationship_exception(self, mock_end_relationship):
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_end_relationship_exception(self, mock_get_relationship):
         """
         Test relationship ending with exception
         """
         # Setup
-        mock_end_relationship.side_effect = Exception("Test exception")
+        mock_get_relationship.side_effect = Exception("Test exception")
 
-        event = {"pathParameters": {"relationship_id": "rel123"}}
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -263,7 +298,8 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"coach_id": "coach456"},
-            "queryStringParameters": {"status": "active"},  # Filter by status
+            "queryStringParameters": {"status": "active"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
         }
         context = {}
 
@@ -299,7 +335,8 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"coach_id": "coach456"},
-            "queryStringParameters": None,  # No query parameters
+            "queryStringParameters": None,
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
         }
         context = {}
 
@@ -320,7 +357,10 @@ class TestRelationshipAPI(BaseTest):
         # Setup
         mock_get_relationships.side_effect = Exception("Test exception")
 
-        event = {"pathParameters": {"coach_id": "coach456"}}
+        event = {
+            "pathParameters": {"coach_id": "coach456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -338,6 +378,8 @@ class TestRelationshipAPI(BaseTest):
         """
         # Setup
         mock_rel = MagicMock()
+        mock_rel.coach_id = "coach456"
+        mock_rel.athlete_id = "athlete789"
         mock_rel.to_dict.return_value = {
             "relationship_id": "rel123",
             "coach_id": "coach456",
@@ -347,7 +389,10 @@ class TestRelationshipAPI(BaseTest):
         }
         mock_get_relationship.return_value = mock_rel
 
-        event = {"pathParameters": {"relationship_id": "rel123"}}
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -369,7 +414,10 @@ class TestRelationshipAPI(BaseTest):
         # Setup
         mock_get_relationship.return_value = None
 
-        event = {"pathParameters": {"relationship_id": "nonexistent"}}
+        event = {
+            "pathParameters": {"relationship_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -388,7 +436,10 @@ class TestRelationshipAPI(BaseTest):
         # Setup
         mock_get_relationship.side_effect = Exception("Test exception")
 
-        event = {"pathParameters": {"relationship_id": "rel123"}}
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -415,7 +466,10 @@ class TestRelationshipAPI(BaseTest):
         mock_rel.relationship_id = "rel123"
         mock_generate_invitation_code.return_value = mock_rel
 
-        event = {"pathParameters": {"coach_id": "coach456"}}
+        event = {
+            "pathParameters": {"coach_id": "coach456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -439,7 +493,10 @@ class TestRelationshipAPI(BaseTest):
         # Setup
         mock_generate_invitation_code.side_effect = Exception("Test exception")
 
-        event = {"pathParameters": {"coach_id": "coach456"}}
+        event = {
+            "pathParameters": {"coach_id": "coach456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "coach456"}}},
+        }
         context = {}
 
         # Call API
@@ -470,6 +527,7 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
             "body": json.dumps({"invitation_code": "TEST123456"}),
         }
         context = {}
@@ -497,6 +555,7 @@ class TestRelationshipAPI(BaseTest):
         # Setup
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
             "body": json.dumps({}),  # No invitation_code in body
         }
         context = {}
@@ -522,6 +581,7 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
             "body": json.dumps({"invitation_code": "INVALID123"}),
         }
         context = {}
@@ -549,6 +609,7 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
             "body": json.dumps({"invitation_code": "EXPIRED123"}),
         }
         context = {}
@@ -578,6 +639,7 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
             "body": json.dumps({"invitation_code": "TEST123456"}),
         }
         context = {}
@@ -607,6 +669,7 @@ class TestRelationshipAPI(BaseTest):
 
         event = {
             "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
             "body": json.dumps({"invitation_code": "TEST123456"}),
         }
         context = {}
@@ -618,6 +681,163 @@ class TestRelationshipAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
         self.assertEqual(response_body["error"], "Test exception")
+
+    # --- Unauthorized access tests ---
+
+    def test_create_relationship_unauthorized(self):
+        """Test relationship creation by non-coach user"""
+        event = {
+            "body": json.dumps({"coach_id": "coach456", "athlete_id": "athlete789"}),
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        response = relationship_api.create_relationship(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_accept_relationship_unauthorized(self, mock_get_relationship):
+        """Test relationship acceptance by non-athlete user"""
+        mock_existing = MagicMock()
+        mock_existing.athlete_id = "athlete789"
+        mock_get_relationship.return_value = mock_existing
+
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        response = relationship_api.accept_relationship(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_end_relationship_unauthorized(self, mock_get_relationship):
+        """Test relationship ending by unrelated user"""
+        mock_existing = MagicMock()
+        mock_existing.coach_id = "coach456"
+        mock_existing.athlete_id = "athlete789"
+        mock_get_relationship.return_value = mock_existing
+
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        response = relationship_api.end_relationship(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
+    def test_get_relationships_for_coach_unauthorized(self):
+        """Test viewing coach relationships by non-coach user"""
+        event = {
+            "pathParameters": {"coach_id": "coach456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        response = relationship_api.get_relationships_for_coach(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
+    def test_get_relationships_for_athlete_unauthorized(self):
+        """Test viewing athlete relationships by non-athlete user"""
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        response = relationship_api.get_relationships_for_athlete(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
+    @patch("src.services.relationship_service.RelationshipService.get_relationship")
+    def test_get_relationship_unauthorized(self, mock_get_relationship):
+        """Test viewing relationship by unrelated user"""
+        mock_rel = MagicMock()
+        mock_rel.coach_id = "coach456"
+        mock_rel.athlete_id = "athlete789"
+        mock_get_relationship.return_value = mock_rel
+
+        event = {
+            "pathParameters": {"relationship_id": "rel123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        response = relationship_api.get_relationship(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
+    def test_generate_invitation_code_unauthorized(self):
+        """Test invitation code generation by non-coach user"""
+        event = {
+            "pathParameters": {"coach_id": "coach456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        response = relationship_api.generate_invitation_code(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
+    def test_accept_invitation_code_unauthorized(self):
+        """Test invitation code acceptance by non-athlete user"""
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+            "body": json.dumps({"invitation_code": "TEST123456"}),
+        }
+        response = relationship_api.accept_invitation_code(event, {})
+
+        self.assertEqual(response["statusCode"], 403)
+        self.assertIn("Unauthorized", json.loads(response["body"])["error"])
+
+    # --- Missing coverage tests ---
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_relationships_for_athlete"
+    )
+    def test_get_relationships_for_athlete_success(self, mock_get_relationships):
+        """Test successful retrieval of relationships for an athlete"""
+        mock_rel = MagicMock()
+        mock_rel.to_dict.return_value = {
+            "relationship_id": "rel1",
+            "coach_id": "coach456",
+            "athlete_id": "athlete789",
+            "status": "active",
+        }
+        mock_get_relationships.return_value = [mock_rel]
+
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "queryStringParameters": {"status": "active"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
+        }
+        context = {}
+
+        response = relationship_api.get_relationships_for_athlete(event, context)
+
+        self.assertEqual(response["statusCode"], 200)
+        response_body = json.loads(response["body"])
+        self.assertEqual(len(response_body), 1)
+        self.assertEqual(response_body[0]["athlete_id"], "athlete789")
+        mock_get_relationships.assert_called_once_with("athlete789", "active")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_relationships_for_athlete"
+    )
+    def test_get_relationships_for_athlete_exception(self, mock_get_relationships):
+        """Test get relationships for athlete with exception"""
+        mock_get_relationships.side_effect = Exception("Test exception")
+
+        event = {
+            "pathParameters": {"athlete_id": "athlete789"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete789"}}},
+        }
+        context = {}
+
+        response = relationship_api.get_relationships_for_athlete(event, context)
+
+        self.assertEqual(response["statusCode"], 500)
+        self.assertEqual(json.loads(response["body"])["error"], "Test exception")
 
 
 if __name__ == "__main__":

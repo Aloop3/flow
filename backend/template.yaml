@@ -279,7 +279,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
-      
+        - DynamoDBReadPolicy:
+            TableName: !Ref RelationshipsTable
+
       Events:
         # User API Routes
         CreateUser:
