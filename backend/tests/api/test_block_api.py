@@ -45,7 +45,8 @@ class TestBlockAPI(BaseTest):
                     "coach_id": "coach789",
                     "number_of_weeks": 4,
                 }
-            )
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
         }
         context = {}
 
@@ -144,7 +145,8 @@ class TestBlockAPI(BaseTest):
                     "start_date": "2025-03-01",
                     "end_date": "2025-04-01",
                 }
-            )
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
         }
         context = {}
 
@@ -160,6 +162,33 @@ class TestBlockAPI(BaseTest):
         self.assertIn("Service failure", response_body["error"])
         mock_create_block.assert_called_once()
 
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.create_block")
+    def test_create_block_unauthorized(self, mock_create_block, mock_get_relationship):
+        """Test block creation by unauthorized user"""
+        mock_get_relationship.return_value = None
+
+        event = {
+            "body": json.dumps(
+                {
+                    "athlete_id": "athlete456",
+                    "title": "Test Block",
+                    "description": "Test Description",
+                    "start_date": "2025-03-01",
+                    "end_date": "2025-04-01",
+                }
+            ),
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        context = {}
+
+        response = block_api.create_block(event, context)
+
+        self.assertEqual(response["statusCode"], 403)
+        mock_create_block.assert_not_called()
+
     @patch("src.services.block_service.BlockService.get_block")
     def test_get_block_success(self, mock_get_block):
         """
@@ -168,6 +197,8 @@ class TestBlockAPI(BaseTest):
 
         # Setup
         mock_block = MagicMock()
+        mock_block.athlete_id = "athlete456"
+        mock_block.coach_id = "coach789"
         mock_block.to_dict.return_value = {
             "block_id": "block123",
             "athlete_id": "athlete456",
@@ -180,7 +211,10 @@ class TestBlockAPI(BaseTest):
         }
         mock_get_block.return_value = mock_block
 
-        event = {"pathParameters": {"block_id": "block123"}}
+        event = {
+            "pathParameters": {"block_id": "block123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
         context = {}
 
         # Call API
@@ -202,7 +236,10 @@ class TestBlockAPI(BaseTest):
         # Setup
         mock_get_block.return_value = None
 
-        event = {"pathParameters": {"block_id": "nonexistent"}}
+        event = {
+            "pathParameters": {"block_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "some-user"}}},
+        }
         context = {}
 
         # Call API
@@ -212,6 +249,28 @@ class TestBlockAPI(BaseTest):
         self.assertEqual(response["statusCode"], 404)
         response_body = json.loads(response["body"])
         self.assertIn("Block not found", response_body["error"])
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    def test_get_block_unauthorized(self, mock_get_block, mock_get_relationship):
+        """Test block retrieval by unauthorized user"""
+        mock_block = MagicMock()
+        mock_block.athlete_id = "athlete456"
+        mock_block.coach_id = "coach789"
+        mock_get_block.return_value = mock_block
+        mock_get_relationship.return_value = None
+
+        event = {
+            "pathParameters": {"block_id": "block123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        context = {}
+
+        response = block_api.get_block(event, context)
+
+        self.assertEqual(response["statusCode"], 403)
 
     @patch("src.services.block_service.BlockService.get_blocks_for_athlete")
     def test_get_blocks_by_athlete(self, mock_get_blocks):
@@ -234,7 +293,10 @@ class TestBlockAPI(BaseTest):
         }
         mock_get_blocks.return_value = [mock_block1, mock_block2]
 
-        event = {"pathParameters": {"athlete_id": "athlete456"}}
+        event = {
+            "pathParameters": {"athlete_id": "athlete456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
         context = {}
 
         # Call API
@@ -247,6 +309,27 @@ class TestBlockAPI(BaseTest):
         self.assertEqual(response_body[0]["block_id"], "block1")
         self.assertEqual(response_body[1]["block_id"], "block2")
         mock_get_blocks.assert_called_once_with("athlete456")
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_blocks_for_athlete")
+    def test_get_blocks_by_athlete_unauthorized(
+        self, mock_get_blocks, mock_get_relationship
+    ):
+        """Test retrieving blocks by athlete when unauthorized"""
+        mock_get_relationship.return_value = None
+
+        event = {
+            "pathParameters": {"athlete_id": "athlete456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        context = {}
+
+        response = block_api.get_blocks_by_athlete(event, context)
+
+        self.assertEqual(response["statusCode"], 403)
+        mock_get_blocks.assert_not_called()
 
     @patch("src.services.block_service.BlockService.get_block")
     def test_get_block_missing_path_parameter(self, mock_get_block):
@@ -302,7 +385,10 @@ class TestBlockAPI(BaseTest):
         # Setup
         mock_get_blocks.side_effect = Exception("Test exception")
 
-        event = {"pathParameters": {"athlete_id": "athlete456"}}
+        event = {
+            "pathParameters": {"athlete_id": "athlete456"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
         context = {}
 
         # Call API
@@ -319,7 +405,10 @@ class TestBlockAPI(BaseTest):
         # Setup
         mock_get_block.side_effect = Exception("Unexpected error")
 
-        event = {"pathParameters": {"block_id": "block123"}}
+        event = {
+            "pathParameters": {"block_id": "block123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "some-user"}}},
+        }
         context = {}
 
         # Call API
@@ -331,14 +420,20 @@ class TestBlockAPI(BaseTest):
         self.assertIn("Unexpected error", response_body["error"])
 
     @patch("src.services.block_service.BlockService.update_block")
-    def test_update_block_with_exception(self, mock_update_block):
+    @patch("src.services.block_service.BlockService.get_block")
+    def test_update_block_with_exception(self, mock_get_block, mock_update_block):
         """Test handling of exceptions during block update"""
         # Setup
+        mock_existing = MagicMock()
+        mock_existing.athlete_id = "athlete456"
+        mock_existing.coach_id = "coach789"
+        mock_get_block.return_value = mock_existing
         mock_update_block.side_effect = Exception("Test exception")
 
         event = {
             "pathParameters": {"block_id": "block123"},
             "body": json.dumps({"title": "Updated Block"}),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
         }
         context = {}
 
@@ -405,12 +500,18 @@ class TestBlockAPI(BaseTest):
         self.assertEqual(response_body["error"], "Invalid JSON in request body")
 
     @patch("src.services.block_service.BlockService.update_block")
-    def test_update_block_success(self, mock_update_block):
+    @patch("src.services.block_service.BlockService.get_block")
+    def test_update_block_success(self, mock_get_block, mock_update_block):
         """
         Test successful block update
         """
 
         # Setup
+        mock_existing = MagicMock()
+        mock_existing.athlete_id = "athlete456"
+        mock_existing.coach_id = "coach789"
+        mock_get_block.return_value = mock_existing
+
         mock_block = MagicMock()
         mock_block.to_dict.return_value = {
             "block_id": "block123",
@@ -432,6 +533,7 @@ class TestBlockAPI(BaseTest):
                     "status": "active",
                 }
             ),
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
         }
         context = {}
 
@@ -463,18 +565,18 @@ class TestBlockAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("error", response_body)
 
-    @patch("src.services.block_service.BlockService.update_block")
-    def test_update_block_not_found(self, mock_update_block):
-        """Test handling of block not found during update"""
+    @patch("src.services.block_service.BlockService.get_block")
+    def test_update_block_not_found(self, mock_get_block):
+        """Test handling of block not found during update ownership check"""
         # Setup
+        mock_get_block.return_value = None
+
         event = {
             "pathParameters": {"block_id": "nonexistent"},
             "body": json.dumps({"title": "Updated Block"}),
+            "requestContext": {"authorizer": {"claims": {"sub": "some-user"}}},
         }
         context = {}
-
-        # Configure the mock to return None, indicating block not found
-        mock_update_block.return_value = None
 
         # Call API
         response = block_api.update_block(event, context)
@@ -484,21 +586,51 @@ class TestBlockAPI(BaseTest):
         response_body = json.loads(response["body"])
         self.assertIn("Block not found", response_body["error"])
 
-        # Verify the mock was called with the expected parameters
-        mock_update_block.assert_called_once_with(
-            "nonexistent", {"title": "Updated Block"}
-        )
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.update_block")
+    @patch("src.services.block_service.BlockService.get_block")
+    def test_update_block_unauthorized(
+        self, mock_get_block, mock_update_block, mock_get_relationship
+    ):
+        """Test block update by unauthorized user"""
+        mock_existing = MagicMock()
+        mock_existing.athlete_id = "athlete456"
+        mock_existing.coach_id = "coach789"
+        mock_get_block.return_value = mock_existing
+        mock_get_relationship.return_value = None
 
+        event = {
+            "pathParameters": {"block_id": "block123"},
+            "body": json.dumps({"title": "Updated Block"}),
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        context = {}
+
+        response = block_api.update_block(event, context)
+
+        self.assertEqual(response["statusCode"], 403)
+        mock_update_block.assert_not_called()
+
+    @patch("src.services.block_service.BlockService.get_block")
     @patch("src.services.block_service.BlockService.delete_block")
-    def test_delete_block_success(self, mock_delete_block):
+    def test_delete_block_success(self, mock_delete_block, mock_get_block):
         """
         Test successful block deletion
         """
 
         # Setup
+        mock_existing = MagicMock()
+        mock_existing.athlete_id = "athlete456"
+        mock_existing.coach_id = "coach789"
+        mock_get_block.return_value = mock_existing
         mock_delete_block.return_value = True
 
-        event = {"pathParameters": {"block_id": "block123"}}
+        event = {
+            "pathParameters": {"block_id": "block123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
         context = {}
 
         # Call API
@@ -508,16 +640,19 @@ class TestBlockAPI(BaseTest):
         self.assertEqual(response["statusCode"], 204)
         mock_delete_block.assert_called_once_with("block123")
 
-    @patch("src.services.block_service.BlockService.delete_block")
-    def test_delete_block_not_found(self, mock_delete_block):
+    @patch("src.services.block_service.BlockService.get_block")
+    def test_delete_block_not_found(self, mock_get_block):
         """
-        Test block deletion when block not found
+        Test block deletion when block not found during ownership check
         """
 
         # Setup
-        mock_delete_block.return_value = False
+        mock_get_block.return_value = None
 
-        event = {"pathParameters": {"block_id": "nonexistent"}}
+        event = {
+            "pathParameters": {"block_id": "nonexistent"},
+            "requestContext": {"authorizer": {"claims": {"sub": "some-user"}}},
+        }
         context = {}
 
         # Call API
@@ -544,13 +679,23 @@ class TestBlockAPI(BaseTest):
         self.assertIn("Missing block_id parameter", response_body["error"])
         mock_delete_block.assert_not_called()
 
+    @patch("src.services.block_service.BlockService.get_block")
     @patch("src.services.block_service.BlockService.delete_block")
-    def test_delete_block_with_general_exception(self, mock_delete_block):
+    def test_delete_block_with_general_exception(
+        self, mock_delete_block, mock_get_block
+    ):
         """Test handling of a general exception in delete_block"""
         # Setup
+        mock_existing = MagicMock()
+        mock_existing.athlete_id = "athlete456"
+        mock_existing.coach_id = "coach789"
+        mock_get_block.return_value = mock_existing
         mock_delete_block.side_effect = Exception("Database connection error")
 
-        event = {"pathParameters": {"block_id": "block123"}}
+        event = {
+            "pathParameters": {"block_id": "block123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "athlete456"}}},
+        }
         context = {}
 
         # Call API
@@ -560,6 +705,32 @@ class TestBlockAPI(BaseTest):
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
         self.assertIn("Database connection error", response_body["error"])
+
+    @patch(
+        "src.services.relationship_service.RelationshipService.get_active_relationship"
+    )
+    @patch("src.services.block_service.BlockService.get_block")
+    @patch("src.services.block_service.BlockService.delete_block")
+    def test_delete_block_unauthorized(
+        self, mock_delete_block, mock_get_block, mock_get_relationship
+    ):
+        """Test block deletion by unauthorized user"""
+        mock_existing = MagicMock()
+        mock_existing.athlete_id = "athlete456"
+        mock_existing.coach_id = "coach789"
+        mock_get_block.return_value = mock_existing
+        mock_get_relationship.return_value = None
+
+        event = {
+            "pathParameters": {"block_id": "block123"},
+            "requestContext": {"authorizer": {"claims": {"sub": "other-user"}}},
+        }
+        context = {}
+
+        response = block_api.delete_block(event, context)
+
+        self.assertEqual(response["statusCode"], 403)
+        mock_delete_block.assert_not_called()
 
 
 if __name__ == "__main__":
