@@ -40,6 +40,7 @@ interface BlockFormProps {
 }
 
 const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) => {
+  const isEditMode = !!initialData.block_id;
   const form = useForm<BlockFormValues>({
     resolver: zodResolver(blockFormSchema),
     defaultValues: {
@@ -115,7 +116,7 @@ const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) =>
               <FormItem>
                 <FormLabel>Start Date</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" {...field} readOnly={isEditMode} className={isEditMode ? 'bg-muted' : ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -144,7 +145,7 @@ const BlockForm = ({ initialData = {}, onSubmit, isLoading }: BlockFormProps) =>
             <FormItem>
               <FormLabel>Number of Weeks</FormLabel>
               <FormControl>
-                <Input type="number" min={3} max={12} {...field} />
+                <Input type="number" min={3} max={12} {...field} readOnly={isEditMode} className={isEditMode ? 'bg-muted' : ''} />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -430,19 +430,16 @@ export const getEffectiveAthleteId = async (
 
 export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<Block> => {
   try {
-    console.log('Sending block data:', JSON.stringify(blockData, null, 2));
-
     // Make sure the date format is correct (YYYY-MM-DD)
     const formattedData = {
       ...blockData,
-      // Ensure dates are in correct format
-      start_date: blockData.start_date.split('T')[0], // Remove any time component
-      end_date: blockData.end_date.split('T')[0], // Remove any time component
-      number_of_week: Number(blockData.number_of_weeks) || 4, // Default to 4 weeks if not provided
+      start_date: blockData.start_date.split('T')[0],
+      end_date: blockData.end_date.split('T')[0],
+      number_of_weeks: Number(blockData.number_of_weeks) || 4,
     };
 
     const headers = await getAuthHeaders();
-    const response = await post({
+    const apiResponse = await post({
       apiName: 'flow-api',
       path: '/blocks',
       options: {
@@ -450,9 +447,17 @@ export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<B
         body: formattedData,
       },
     });
-    return response as unknown as Block;
+
+    const actualResponse = await apiResponse.response;
+
+    if (actualResponse && actualResponse.body) {
+      const responseData = await actualResponse.body.json();
+      return responseData as unknown as Block;
+    }
+
+    throw new Error('No response body from create');
   } catch (error) {
-    console.error('Error creating block (details):', error);
+    console.error('Error creating block:', error);
     throw error;
   }
 };
@@ -460,7 +465,7 @@ export const createBlock = async (blockData: Omit<Block, 'block_id'>): Promise<B
 export const updateBlock = async (block_id: string, blockData: Partial<Block>): Promise<Block> => {
   try {
     const headers = await getAuthHeaders();
-    const response = await put({
+    const apiResponse = await put({
       apiName: 'flow-api',
       path: `/blocks/${block_id}`,
       options: {
@@ -468,7 +473,15 @@ export const updateBlock = async (block_id: string, blockData: Partial<Block>): 
         body: blockData,
       },
     });
-    return response as unknown as Block;
+
+    const actualResponse = await apiResponse.response;
+
+    if (actualResponse && actualResponse.body) {
+      const responseData = await actualResponse.body.json();
+      return responseData as unknown as Block;
+    }
+
+    throw new Error('No response body from update');
   } catch (error) {
     console.error('Error updating block:', error);
     throw error;
