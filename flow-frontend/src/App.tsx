@@ -21,6 +21,8 @@ import CoachBlockCreate from './pages/coach/CoachBlockCreate';
 import { UserProvider } from './contexts/UserContext';
 import Analytics from './pages/coach/Analytics';
 import BetaFeedback from './components/BetaFeedback';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 
 //  AuthenticatedApp component extracted
@@ -141,6 +143,7 @@ const AuthenticatedApp = ({ user, signOut }: { user: any, signOut: () => void })
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <BetaFeedback />
+          <ToastContainer position="top-right" autoClose={4000} />
         </Router>
       </UserProvider>
     );

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import BlockForm from '../components/BlockForm';
 import { getBlock, updateBlock, deleteBlock } from '../services/api';
@@ -45,6 +46,7 @@ const BlockEdit = ({ user, signOut }: BlockEditProps) => {
       navigate(`/blocks/${blockId!}`);
     } catch (error) {
       console.error('Error updating block:', error);
+      toast.error('Failed to save training program. Please try again.');
     } finally {
       setIsSaving(false);
     }
