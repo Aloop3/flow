@@ -1364,7 +1364,78 @@ class TestExerciseAPI(BaseTest):
             weight=140.0,  # Converted weight
             rpe=8.0,
             notes="Felt strong",
+            sets_data=None,
         )
+
+    @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
+    @patch(
+        "src.api.exercise_api.convert_exercise_weights_for_display",
+        side_effect=lambda ex_dict, user_pref, ex_type, ex_category=None: ex_dict,
+    )
+    @patch("src.api.exercise_api.get_exercise_default_unit", return_value="lb")
+    @patch("src.api.exercise_api.convert_weight_to_kg", return_value=140.0)
+    @patch("src.services.workout_service.WorkoutService.get_workout")
+    @patch("src.services.exercise_service.ExerciseService.get_exercise")
+    @patch("src.services.workout_service.WorkoutService.complete_exercise")
+    def test_complete_exercise_with_sets_data(
+        self,
+        mock_complete_exercise,
+        mock_get_exercise,
+        mock_get_workout,
+        mock_convert_kg,
+        mock_get_unit,
+        mock_convert_display,
+        mock_get_pref,
+    ):
+        """Test exercise completion with sets_data converts weights to kg"""
+        mock_workout = MagicMock()
+        mock_workout.athlete_id = "test-user-id"
+        mock_get_workout.return_value = mock_workout
+
+        mock_exercise = MagicMock()
+        mock_exercise.exercise_type = "Squat"
+        mock_get_exercise.return_value = mock_exercise
+
+        mock_completed_exercise = MagicMock()
+        mock_completed_exercise.to_dict.return_value = {
+            "exercise_id": "ex123",
+            "exercise_type": "Squat",
+            "status": "completed",
+            "sets": 2,
+            "reps": 5,
+            "weight": 140.0,
+        }
+        mock_completed_exercise.exercise_type = "Squat"
+        mock_complete_exercise.return_value = mock_completed_exercise
+
+        sets_data = [
+            {"set_number": 1, "weight": 315.0, "reps": 5, "completed": True},
+            {"set_number": 2, "weight": 315.0, "reps": 5, "completed": True},
+        ]
+
+        event = self.create_test_event_with_auth(
+            {
+                "sets": 2,
+                "reps": 5,
+                "weight": 315.0,
+                "sets_data": sets_data,
+            },
+            {"exercise_id": "ex123"},
+        )
+
+        response = exercise_api.complete_exercise(event, {})
+
+        self.assertEqual(response["statusCode"], 200)
+
+        # Verify sets_data weights were converted
+        call_args = mock_complete_exercise.call_args
+        passed_sets_data = call_args[1]["sets_data"]
+        self.assertIsNotNone(passed_sets_data)
+        self.assertEqual(len(passed_sets_data), 2)
+        # Each weight should have been converted via convert_weight_to_kg
+        for sd in passed_sets_data:
+            self.assertEqual(sd["weight"], 140.0)
+            self.assertTrue(sd["completed"])
 
     @patch("src.api.exercise_api.get_user_weight_preference", return_value="auto")
     @patch("src.services.exercise_service.ExerciseService.get_exercise")

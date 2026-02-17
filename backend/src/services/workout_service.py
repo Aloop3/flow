@@ -219,6 +219,7 @@ class WorkoutService:
         weight: float,
         rpe: Optional[float] = None,
         notes: Optional[str] = None,
+        sets_data: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[Exercise]:
         """
         Records the completion of an exercise
@@ -250,6 +251,12 @@ class WorkoutService:
 
         if notes:
             completion_data["notes"] = notes
+
+        # Preserve sets_data: use provided value, or fall back to existing
+        if sets_data is not None:
+            completion_data["sets_data"] = sets_data
+        elif exercise_data.get("sets_data"):
+            completion_data["sets_data"] = exercise_data["sets_data"]
 
         # Update the exercise
         updated_exercise_data = self.exercise_repository.update_exercise(
