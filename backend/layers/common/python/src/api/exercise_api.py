@@ -274,6 +274,7 @@ def complete_exercise(event, context):
         weight = body.get("weight")
         rpe = body.get("rpe")
         notes = body.get("notes")
+        sets_data = body.get("sets_data")
 
         # Validate required fields
         if sets is None or reps is None or weight is None:
@@ -307,6 +308,18 @@ def complete_exercise(event, context):
         )
         weight_kg = convert_weight_to_kg(weight, display_unit)
 
+        # Convert sets_data weights to kg if provided
+        sets_data_kg = None
+        if sets_data:
+            sets_data_kg = []
+            for sd in sets_data:
+                converted = dict(sd)
+                if "weight" in converted and converted["weight"] is not None:
+                    converted["weight"] = convert_weight_to_kg(
+                        converted["weight"], display_unit
+                    )
+                sets_data_kg.append(converted)
+
         # Complete the exercise with converted weight
         updated_exercise = workout_service.complete_exercise(
             exercise_id=exercise_id,
@@ -315,6 +328,7 @@ def complete_exercise(event, context):
             weight=weight_kg,  # Use converted weight
             rpe=rpe,
             notes=notes,
+            sets_data=sets_data_kg,
         )
 
         if not updated_exercise:

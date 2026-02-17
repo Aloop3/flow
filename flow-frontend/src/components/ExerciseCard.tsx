@@ -95,12 +95,27 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         await syncBeforeComplete();
       }
 
+      // Build sets_data from current setsData prop to preserve per-set completion
+      const setsDataForApi = Array.from({ length: exercise.sets }, (_, i) => {
+        const setNum = i + 1;
+        const sd = setsData[setNum];
+        return {
+          set_number: setNum,
+          weight: sd?.weight ?? exercise.weight,
+          reps: sd?.reps ?? exercise.reps,
+          rpe: sd?.rpe ?? exercise.rpe,
+          completed: sd?.completed ?? false,
+          notes: sd?.notes,
+        };
+      });
+
       await completeExercise(exercise.exercise_id, {
         sets: exercise.sets,
         reps: exercise.reps,
         weight: exercise.weight,
         rpe: exercise.rpe,
         notes: exercise.notes,
+        sets_data: setsDataForApi,
       });
       onExerciseComplete?.();
     } catch (err: unknown) {

@@ -1240,6 +1240,14 @@ export const completeExercise = async (
     weight: number;
     rpe?: number;
     notes?: string;
+    sets_data?: Array<{
+      set_number: number;
+      weight: number;
+      reps: number;
+      rpe?: number;
+      completed: boolean;
+      notes?: string;
+    }>;
   },
 ): Promise<Exercise> => {
   try {

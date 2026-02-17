@@ -412,6 +412,103 @@ class TestWorkoutService(unittest.TestCase):
         self.assertEqual(result.weight, 235.0)
         self.assertEqual(result.rpe, 9.0)
 
+    def test_complete_exercise_with_sets_data(self):
+        """
+        Test completing an exercise preserves sets_data when provided
+        """
+        exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout123",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 5,
+            "weight": 100.0,
+            "status": "planned",
+        }
+
+        sets_data = [
+            {"set_number": 1, "weight": 100.0, "reps": 5, "completed": True},
+            {"set_number": 2, "weight": 100.0, "reps": 5, "completed": True},
+            {"set_number": 3, "weight": 100.0, "reps": 5, "completed": True},
+        ]
+
+        updated_exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout123",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 5,
+            "weight": 100.0,
+            "status": "completed",
+            "sets_data": sets_data,
+        }
+
+        self.exercise_repository_mock.get_exercise.return_value = exercise_data
+        self.exercise_repository_mock.update_exercise.return_value = (
+            updated_exercise_data
+        )
+
+        result = self.workout_service.complete_exercise(
+            exercise_id="ex123", sets=3, reps=5, weight=100.0, sets_data=sets_data
+        )
+
+        # Verify sets_data was included in the update
+        call_args = self.exercise_repository_mock.update_exercise.call_args
+        update_data = call_args[0][1]
+        self.assertIn("sets_data", update_data)
+        self.assertEqual(len(update_data["sets_data"]), 3)
+        self.assertTrue(all(s["completed"] for s in update_data["sets_data"]))
+
+        self.assertEqual(result.status, "completed")
+
+    def test_complete_exercise_preserves_existing_sets_data(self):
+        """
+        Test completing an exercise preserves existing sets_data when none provided
+        """
+        existing_sets_data = [
+            {"set_number": 1, "weight": 100.0, "reps": 5, "completed": True},
+            {"set_number": 2, "weight": 100.0, "reps": 5, "completed": True},
+            {"set_number": 3, "weight": 100.0, "reps": 5, "completed": True},
+        ]
+
+        exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout123",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 5,
+            "weight": 100.0,
+            "status": "planned",
+            "sets_data": existing_sets_data,
+        }
+
+        updated_exercise_data = {
+            "exercise_id": "ex123",
+            "workout_id": "workout123",
+            "exercise_type": "Bench Press",
+            "sets": 3,
+            "reps": 5,
+            "weight": 100.0,
+            "status": "completed",
+            "sets_data": existing_sets_data,
+        }
+
+        self.exercise_repository_mock.get_exercise.return_value = exercise_data
+        self.exercise_repository_mock.update_exercise.return_value = (
+            updated_exercise_data
+        )
+
+        # Call without sets_data — should fall back to existing
+        result = self.workout_service.complete_exercise(
+            exercise_id="ex123", sets=3, reps=5, weight=100.0
+        )
+
+        call_args = self.exercise_repository_mock.update_exercise.call_args
+        update_data = call_args[0][1]
+        self.assertIn("sets_data", update_data)
+        self.assertEqual(update_data["sets_data"], existing_sets_data)
+        self.assertEqual(result.status, "completed")
+
     def test_update_workout_status(self):
         """
         Test updating workout status based on exercise completion
