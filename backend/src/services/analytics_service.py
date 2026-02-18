@@ -358,27 +358,29 @@ class AnalyticsService:
             if not athlete_id:
                 return {"error": "Block missing athlete_id"}
 
-            # Get all weeks in the block
+            # Get all weeks in the block (1 query)
             weeks = self.week_repository.get_weeks_by_block(block_id)
+            week_ids = [w["week_id"] for w in weeks if w.get("week_id")]
 
-            # Get all days associated with the block
-            all_days = []
-            for week in weeks:
-                week_id = week.get("week_id")
-                if week_id:
-                    days = self.day_repository.get_days_by_week(week_id)
-                    all_days.extend(days)
+            # Parallel-fetch all days for all weeks at once (W queries → 1 RTT)
+            all_days = self.day_repository.batch_get_days_by_week_ids(week_ids)
 
-            # Get all exercises for these days
+            # Build lookup: day_id → day dict (each day carries its week_id)
+            day_lookup = {d["day_id"]: d for d in all_days if d.get("day_id")}
+            day_ids = list(day_lookup.keys())
+
+            # Parallel-fetch all exercises for all days at once (D queries → 1 RTT)
+            all_exercises_raw = self.exercise_repository.batch_get_exercises_by_day_ids(
+                day_ids
+            )
+
+            # Tag each exercise with its day data for the volume calculation below
             all_exercises = []
-            for day in all_days:
-                day_id = day.get("day_id")
+            for exercise in all_exercises_raw:
+                day_id = exercise.get("day_id")
                 if day_id:
-                    exercises = self.exercise_repository.get_exercises_by_day(day_id)
-                    for exercise in exercises:
-                        # Add day and week info to exercise for later reference
-                        exercise["_day_data"] = day
-                        all_exercises.append(exercise)
+                    exercise["_day_data"] = day_lookup.get(day_id, {})
+                    all_exercises.append(exercise)
 
             # Calculate total block volume
             total_volume = 0.0

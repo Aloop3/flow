@@ -676,7 +676,7 @@ class TestExerciseRepository(unittest.TestCase):
         ]
         mock_workout_repo.get_all_workouts_by_athlete.return_value = mock_workouts
 
-        # Mock exercise data for each workout
+        # Mock exercise data per workout_id (order-independent via patch.object)
         workout1_exercises = [
             {
                 "exercise_id": "ex1",
@@ -687,7 +687,6 @@ class TestExerciseRepository(unittest.TestCase):
                 "weight": Decimal("225.0"),
             }
         ]
-
         workout2_exercises = [
             {
                 "exercise_id": "ex2",
@@ -699,37 +698,34 @@ class TestExerciseRepository(unittest.TestCase):
             }
         ]
 
-        # Configure table mock for exercise queries
-        self.table_mock.query.side_effect = [
-            {"Items": workout1_exercises},
-            {"Items": workout2_exercises},
-        ]
+        def mock_get_exercises_by_workout(workout_id):
+            return (
+                workout1_exercises if workout_id == "workout1" else workout2_exercises
+            )
 
-        # Call the method
-        result = self.repository.get_exercises_with_workout_context("athlete123")
+        with patch.object(
+            self.repository,
+            "get_exercises_by_workout",
+            side_effect=mock_get_exercises_by_workout,
+        ):
+            result = self.repository.get_exercises_with_workout_context("athlete123")
 
         # Verify workout repository was called
         mock_workout_repo.get_all_workouts_by_athlete.assert_called_once_with(
             "athlete123"
         )
 
-        # Verify table queries for exercises
-        self.assertEqual(self.table_mock.query.call_count, 2)
-
         # Verify results have workout context added
         self.assertEqual(len(result), 2)
 
-        # Check first exercise has workout context
-        first_exercise = result[0]
-        self.assertEqual(first_exercise["exercise_id"], "ex1")
-        self.assertEqual(first_exercise["workout_date"], "2025-03-01")
-        self.assertEqual(first_exercise["workout_status"], "completed")
+        # Check exercises have correct context (order-agnostic lookup)
+        ex1_result = next(e for e in result if e["exercise_id"] == "ex1")
+        self.assertEqual(ex1_result["workout_date"], "2025-03-01")
+        self.assertEqual(ex1_result["workout_status"], "completed")
 
-        # Check second exercise has workout context
-        second_exercise = result[1]
-        self.assertEqual(second_exercise["exercise_id"], "ex2")
-        self.assertEqual(second_exercise["workout_date"], "2025-03-02")
-        self.assertEqual(second_exercise["workout_status"], "in_progress")
+        ex2_result = next(e for e in result if e["exercise_id"] == "ex2")
+        self.assertEqual(ex2_result["workout_date"], "2025-03-02")
+        self.assertEqual(ex2_result["workout_status"], "in_progress")
 
     @patch("src.repositories.workout_repository.WorkoutRepository")
     def test_get_exercises_with_workout_context_with_filters(
@@ -746,7 +742,7 @@ class TestExerciseRepository(unittest.TestCase):
         mock_workouts = [
             {
                 "workout_id": "workout1",
-                "date": "2025-02-28",  # Before start_date
+                "date": "2025-02-28",  # Before start_date — filtered out
                 "status": "completed",
             },
             {
@@ -757,7 +753,7 @@ class TestExerciseRepository(unittest.TestCase):
         ]
         mock_workout_repo.get_all_workouts_by_athlete.return_value = mock_workouts
 
-        # Mock exercise data - mixed exercise types
+        # Mock exercise data - mixed exercise types for workout2 only
         workout2_exercises = [
             {
                 "exercise_id": "ex1",
@@ -777,21 +773,22 @@ class TestExerciseRepository(unittest.TestCase):
             },
         ]
 
-        # Configure table mock - only one workout should be queried (after date filter)
-        self.table_mock.query.return_value = {"Items": workout2_exercises}
+        mock_get_exercises = MagicMock(return_value=workout2_exercises)
 
-        # Call the method with filters
-        result = self.repository.get_exercises_with_workout_context(
-            athlete_id="athlete123", exercise_type="Squat", start_date="2025-03-01"
-        )
+        with patch.object(
+            self.repository, "get_exercises_by_workout", mock_get_exercises
+        ):
+            result = self.repository.get_exercises_with_workout_context(
+                athlete_id="athlete123", exercise_type="Squat", start_date="2025-03-01"
+            )
 
         # Verify workout repository was called
         mock_workout_repo.get_all_workouts_by_athlete.assert_called_once_with(
             "athlete123"
         )
 
-        # Verify only one table query (workout1 filtered out by date)
-        self.table_mock.query.assert_called_once()
+        # Only workout2 passes date filter, so get_exercises_by_workout called once
+        mock_get_exercises.assert_called_once_with("workout2")
 
         # Verify results - only Squat exercise should remain after exercise_type filter
         self.assertEqual(len(result), 1)
@@ -801,6 +798,85 @@ class TestExerciseRepository(unittest.TestCase):
         self.assertEqual(exercise["exercise_type"], "Squat")
         self.assertEqual(exercise["workout_date"], "2025-03-01")
         self.assertEqual(exercise["workout_status"], "completed")
+
+    def test_batch_get_exercises_by_workout_ids_empty(self):
+        """
+        Test batch method returns empty list immediately when given no IDs
+        """
+        with patch.object(self.repository, "get_exercises_by_workout") as mock_get:
+            result = self.repository.batch_get_exercises_by_workout_ids([])
+
+        self.assertEqual(result, [])
+        mock_get.assert_not_called()
+
+    def test_batch_get_exercises_by_workout_ids(self):
+        """
+        Test batch method fetches exercises for multiple workout IDs and returns flat list
+        """
+        workout1_exercises = [
+            {"exercise_id": "ex1", "workout_id": "workout1", "exercise_type": "Squat"}
+        ]
+        workout2_exercises = [
+            {
+                "exercise_id": "ex2",
+                "workout_id": "workout2",
+                "exercise_type": "Bench Press",
+            },
+            {
+                "exercise_id": "ex3",
+                "workout_id": "workout2",
+                "exercise_type": "Deadlift",
+            },
+        ]
+
+        def mock_get(workout_id):
+            return (
+                workout1_exercises if workout_id == "workout1" else workout2_exercises
+            )
+
+        with patch.object(
+            self.repository, "get_exercises_by_workout", side_effect=mock_get
+        ):
+            result = self.repository.batch_get_exercises_by_workout_ids(
+                ["workout1", "workout2"]
+            )
+
+        self.assertEqual(len(result), 3)
+        ids = {e["exercise_id"] for e in result}
+        self.assertEqual(ids, {"ex1", "ex2", "ex3"})
+
+    def test_batch_get_exercises_by_day_ids_empty(self):
+        """
+        Test batch method returns empty list immediately when given no IDs
+        """
+        with patch.object(self.repository, "get_exercises_by_day") as mock_get:
+            result = self.repository.batch_get_exercises_by_day_ids([])
+
+        self.assertEqual(result, [])
+        mock_get.assert_not_called()
+
+    def test_batch_get_exercises_by_day_ids(self):
+        """
+        Test batch method fetches exercises for multiple day IDs and returns flat list
+        """
+        day1_exercises = [
+            {"exercise_id": "ex1", "day_id": "day1", "exercise_type": "Squat"}
+        ]
+        day2_exercises = [
+            {"exercise_id": "ex2", "day_id": "day2", "exercise_type": "Bench Press"},
+        ]
+
+        def mock_get(day_id):
+            return day1_exercises if day_id == "day1" else day2_exercises
+
+        with patch.object(
+            self.repository, "get_exercises_by_day", side_effect=mock_get
+        ):
+            result = self.repository.batch_get_exercises_by_day_ids(["day1", "day2"])
+
+        self.assertEqual(len(result), 2)
+        ids = {e["exercise_id"] for e in result}
+        self.assertEqual(ids, {"ex1", "ex2"})
 
     @patch("src.repositories.workout_repository.WorkoutRepository")
     def test_get_exercises_with_workout_context_no_workouts(

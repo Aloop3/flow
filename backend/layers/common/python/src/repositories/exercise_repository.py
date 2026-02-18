@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
@@ -148,6 +149,38 @@ class ExerciseRepository(BaseRepository):
 
         return len(exercises)
 
+    def batch_get_exercises_by_workout_ids(
+        self, workout_ids: List[str]
+    ) -> List[Dict[str, Any]]:
+        """
+        Get exercises for multiple workout_ids in parallel.
+        Returns a flat combined list; each exercise retains its workout_id attribute.
+
+        :param workout_ids: List of workout IDs to fetch exercises for
+        :return: Combined list of exercises for all workout IDs
+        """
+        if not workout_ids:
+            return []
+        with ThreadPoolExecutor(max_workers=min(len(workout_ids), 10)) as executor:
+            results = list(executor.map(self.get_exercises_by_workout, workout_ids))
+        return [ex for exercises in results for ex in exercises]
+
+    def batch_get_exercises_by_day_ids(
+        self, day_ids: List[str]
+    ) -> List[Dict[str, Any]]:
+        """
+        Get exercises for multiple day_ids in parallel.
+        Returns a flat combined list; each exercise retains its day_id attribute.
+
+        :param day_ids: List of day IDs to fetch exercises for
+        :return: Combined list of exercises for all day IDs
+        """
+        if not day_ids:
+            return []
+        with ThreadPoolExecutor(max_workers=min(len(day_ids), 10)) as executor:
+            results = list(executor.map(self.get_exercises_by_day, day_ids))
+        return [ex for exercises in results for ex in exercises]
+
     def get_exercises_with_workout_context(
         self,
         athlete_id: str,
@@ -165,7 +198,7 @@ class ExerciseRepository(BaseRepository):
         """
         from src.repositories.workout_repository import WorkoutRepository
 
-        # Get all workouts for the athlete
+        # Get all workouts for the athlete (1 query)
         workout_repo = WorkoutRepository()
         workouts = workout_repo.get_all_workouts_by_athlete(athlete_id)
 
@@ -173,26 +206,29 @@ class ExerciseRepository(BaseRepository):
         if start_date:
             workouts = [w for w in workouts if w.get("date", "") >= start_date]
 
-        exercises_with_context = []
+        # Build lookup for fast context resolution; skip workouts missing workout_id
+        workout_lookup = {w["workout_id"]: w for w in workouts if w.get("workout_id")}
+        if not workout_lookup:
+            return []
 
-        for workout in workouts:
-            workout_id = workout.get("workout_id")
-            if not workout_id:
+        # Parallel-fetch exercises for all workouts (N queries → 1 RTT)
+        all_exercises = self.batch_get_exercises_by_workout_ids(
+            list(workout_lookup.keys())
+        )
+
+        exercises_with_context = []
+        for exercise in all_exercises:
+            # Filter by exercise type if specified
+            if exercise_type and exercise.get("exercise_type") != exercise_type:
                 continue
 
-            # Get exercises for this workout
-            exercises = self.get_exercises_by_workout(workout_id)
-
-            for exercise in exercises:
-                # Filter by exercise type if specified
-                if exercise_type and exercise.get("exercise_type") != exercise_type:
-                    continue
-
-                # Add workout context to exercise
-                exercise_with_context = {**exercise}
-                exercise_with_context["workout_date"] = workout.get("date")
-                exercise_with_context["workout_status"] = workout.get("status")
-
-                exercises_with_context.append(exercise_with_context)
+            # Resolve workout context via workout_id embedded in the exercise
+            workout = workout_lookup.get(exercise.get("workout_id"), {})
+            exercise_with_context = {
+                **exercise,
+                "workout_date": workout.get("date"),
+                "workout_status": workout.get("status"),
+            }
+            exercises_with_context.append(exercise_with_context)
 
         return exercises_with_context
