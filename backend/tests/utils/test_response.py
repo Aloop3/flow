@@ -24,7 +24,7 @@ class TestResponseUtil(unittest.TestCase):
         # Assert
         self.assertEqual(response["statusCode"], 200)
         self.assertEqual(response["headers"]["Content-Type"], "application/json")
-        self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "*")
+        self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "null")
 
         # Parse the body JSON and check content
         parsed_body = json.loads(response["body"])

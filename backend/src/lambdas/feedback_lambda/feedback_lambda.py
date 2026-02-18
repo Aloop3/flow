@@ -3,28 +3,12 @@ import logging
 import boto3
 import os
 from datetime import datetime as dt, timezone
-from src.utils.cors_utils import add_cors_headers
+from src.utils.cors_utils import add_cors_headers, add_feedback_cors_headers
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 sns = boto3.client("sns")
-
-
-def add_feedback_cors_headers(response):
-    """Add proper CORS headers for feedback endpoint"""
-    if "headers" not in response:
-        response["headers"] = {}
-
-    response["headers"].update(
-        {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
-        }
-    )
-    return response
 
 
 def handler(event, context):

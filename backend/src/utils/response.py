@@ -21,8 +21,8 @@ def create_response(
     :param body: The response body content
     :return: A dictionary representing the API response
     """
-    # Get CORS origin from environment variable, fallback to '*' for dev
-    cors_origin = os.environ.get("CORS_ORIGIN", "*")
+    # Get CORS origin from environment variable; "null" fallback denies all cross-origin if unset
+    cors_origin = os.environ.get("CORS_ORIGIN", "null")
 
     return {
         "statusCode": status_code,

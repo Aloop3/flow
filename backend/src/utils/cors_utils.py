@@ -7,7 +7,7 @@ def add_cors_headers(response, event=None):
         response["headers"] = {}
 
     # Get CORS origin from environment variable
-    cors_origin = os.environ.get("CORS_ORIGIN", "*")
+    cors_origin = os.environ.get("CORS_ORIGIN", "null")
 
     response["headers"].update(
         {
@@ -26,8 +26,8 @@ def add_feedback_cors_headers(response):
     if "headers" not in response:
         response["headers"] = {}
 
-    # Get CORS origin from environment variable, fallback to '*' for dev
-    cors_origin = os.environ.get("CORS_ORIGIN", "*")
+    # Get CORS origin from environment variable; "null" fallback denies all cross-origin if unset
+    cors_origin = os.environ.get("CORS_ORIGIN", "null")
 
     response["headers"].update(
         {
