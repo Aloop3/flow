@@ -14,7 +14,7 @@ def lb_to_kg(weight_lb: float) -> float:
     :param weight_lb: Weight in pounds
     :return: Weight in kilograms, rounded to 2 decimal places
     """
-    return round(weight_lb * 0.453592, 2)
+    return round(float(weight_lb) * 0.453592, 2)
 
 
 def kg_to_lb(weight_kg: float) -> float:
@@ -24,7 +24,7 @@ def kg_to_lb(weight_kg: float) -> float:
     :param weight_kg: Weight in kilograms
     :return: Weight in pounds, rounded to 2 decimal places
     """
-    return round(weight_kg * 2.20462, 2)
+    return round(float(weight_kg) * 2.20462, 2)
 
 
 def convert_weight_to_kg(weight: float, from_unit: str) -> float:

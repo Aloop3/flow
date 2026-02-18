@@ -32,6 +32,9 @@ class WorkoutService:
         # Create the workout object
         workout = Workout.from_dict(workout_data)
 
+        # Exercises table is source of truth — discard any embedded exercises in workout document
+        workout.exercises = []
+
         # Use ExerciseService to fetch exercises for this workout
         exercises = self.exercise_service.get_exercises_for_workout(workout.workout_id)
 
@@ -57,6 +60,9 @@ class WorkoutService:
 
         # Create the workout object
         workout = Workout.from_dict(workout_data)
+
+        # Exercises table is source of truth — discard any embedded exercises in workout document
+        workout.exercises = []
 
         # Use ExerciseService to fetch exercises for this workout
         exercises = self.exercise_service.get_exercises_for_workout(workout.workout_id)
@@ -171,25 +177,26 @@ class WorkoutService:
                 ex.exercise_id: ex for ex in existing_workout.exercises
             }
 
-            # Prepare exercises list for update
-            exercises_to_update = []
+            new_exercise_ids = set()
 
-            for exercise_data in exercises_data:
+            for i, exercise_data in enumerate(exercises_data):
                 exercise_id = exercise_data.get("exercise_id")
 
-                # If this is an existing exercise, include it with updates
                 if exercise_id and exercise_id in existing_exercises:
-                    # Start with the existing exercise data
-                    updated_exercise = existing_exercises[exercise_id].to_dict()
-                    # Remove computed properties before updating
-                    updated_exercise.pop("is_predefined", None)
-                    # Update with new values
-                    updated_exercise.update(exercise_data)
-                    exercises_to_update.append(updated_exercise)
+                    # Update existing exercise in the exercises table
+                    update_fields = {
+                        k: v for k, v in exercise_data.items() if k != "exercise_id"
+                    }
+                    if update_fields:
+                        self.exercise_repository.update_exercise(
+                            exercise_id, update_fields
+                        )
+                    new_exercise_ids.add(exercise_id)
                 else:
-                    # This is a new exercise to add
+                    # Create new exercise in the exercises table
+                    new_id = str(uuid.uuid4())
                     new_exercise = {
-                        "exercise_id": str(uuid.uuid4()),
+                        "exercise_id": new_id,
                         "workout_id": workout_id,
                         "exercise_type": exercise_data.get("exercise_type"),
                         "sets": exercise_data.get("sets"),
@@ -198,12 +205,18 @@ class WorkoutService:
                         "status": exercise_data.get("status", "planned"),
                         "rpe": exercise_data.get("rpe"),
                         "notes": exercise_data.get("notes"),
-                        "order": len(exercises_to_update) + 1,
+                        "order": exercise_data.get("order", i + 1),
                         "exercise_category": exercise_data.get("exercise_category"),
                     }
-                    exercises_to_update.append(new_exercise)
-            # Add the updated exercises list to the update data
-            update_data["exercises"] = exercises_to_update
+                    self.exercise_repository.create_exercise(new_exercise)
+                    new_exercise_ids.add(new_id)
+
+            # Delete exercises removed from the list
+            for exercise_id in existing_exercises:
+                if exercise_id not in new_exercise_ids:
+                    self.exercise_repository.delete_exercise(exercise_id)
+            # Exercises are now managed solely via the exercises table;
+            # do NOT embed them in the workout document
 
         # Update the workout in the repository
         self.workout_repository.update_workout(workout_id, update_data)
