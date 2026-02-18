@@ -417,7 +417,7 @@ class TestBlockAPI(BaseTest):
         # Assert
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
-        self.assertIn("Unexpected error", response_body["error"])
+        self.assertIn("Internal server error", response_body["error"])
 
     @patch("src.services.block_service.BlockService.update_block")
     @patch("src.services.block_service.BlockService.get_block")
@@ -443,7 +443,7 @@ class TestBlockAPI(BaseTest):
         # Assert
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
-        self.assertIn("Test exception", response_body["error"])
+        self.assertIn("Internal server error", response_body["error"])
 
     @patch("src.services.block_service.BlockService.update_block")
     def test_update_block_with_empty_path_parameters(self, mock_update_block):

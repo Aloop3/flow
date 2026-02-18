@@ -93,7 +93,7 @@ class TestLambdaMiddleware(unittest.TestCase):
         # Check that the response indicates an error
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
-        self.assertEqual(response_body["error"], "Middleware error")
+        self.assertEqual(response_body["error"], "Internal server error")
 
         # Check that the handler was not called
         handler.assert_not_called()
@@ -116,7 +116,7 @@ class TestLambdaMiddleware(unittest.TestCase):
         # Check that the response indicates an error
         self.assertEqual(response["statusCode"], 500)
         response_body = json.loads(response["body"])
-        self.assertEqual(response_body["error"], "Handler error")
+        self.assertEqual(response_body["error"], "Internal server error")
 
     def test_validate_auth_middleware(self):
         """

@@ -55,16 +55,16 @@ class LambdaMiddleware:
                 logger.error(f"Validation error: {str(e)}")
                 return create_response(400, {"error": str(e)})
             except Exception as e:
-                logger.error(f"Middleware error: {str(e)}")
-                return create_response(500, {"error": str(e)})
+                logger.error(f"Middleware error: {str(e)}", exc_info=True)
+                return create_response(500, {"error": "Internal server error"})
 
         # Call the handler
         try:
             response = self.handler(event, context)
             return response
         except Exception as e:
-            logger.error(f"Handler error: {str(e)}")
-            return create_response(500, {"error": str(e)})
+            logger.error(f"Handler error: {str(e)}", exc_info=True)
+            return create_response(500, {"error": "Internal server error"})
 
 
 def with_middleware(middlewares: List[Callable] = None):
