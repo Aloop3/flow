@@ -268,8 +268,7 @@ class TestExerciseLambda(BaseTest):
             # Assert
             self.assertEqual(response["statusCode"], 500)
             response_body = json.loads(response["body"])
-            self.assertIn("Internal server error", response_body["error"])
-            self.assertIn("Test exception", response_body["error"])
+            self.assertEqual(response_body["error"], "Internal server error")
             exercise_lambda.ROUTE_MAP[
                 "GET /days/{day_id}/exercises"
             ].assert_called_once_with(event, context)

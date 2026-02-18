@@ -49,10 +49,10 @@ def handler(event, context):
                 {"statusCode": 404, "body": json.dumps({"error": "Route not found"})}
             )
     except Exception as e:
-        logger.error(f"Error processing request: {str(e)}")
+        logger.error(f"Error processing request: {str(e)}", exc_info=True)
         return add_cors_headers(
             {
                 "statusCode": 500,
-                "body": json.dumps({"error": f"Internal server error: {str(e)}"}),
+                "body": json.dumps({"error": "Internal server error"}),
             }
         )

@@ -116,8 +116,8 @@ def get_block(event, context):
         return create_response(200, block.to_dict())
 
     except Exception as e:
-        logger.error(f"Error getting block: {str(e)}")
-        return create_response(500, {"error": f"Internal server error: {str(e)}"})
+        logger.error(f"Error getting block: {str(e)}", exc_info=True)
+        return create_response(500, {"error": "Internal server error"})
 
 
 @with_middleware([log_request, handle_errors])
@@ -202,8 +202,8 @@ def update_block(event, context):
         return create_response(200, updated_block.to_dict())
 
     except Exception as e:
-        logger.error(f"Error updating block: {str(e)}")
-        return create_response(500, {"error": f"Internal server error: {str(e)}"})
+        logger.error(f"Error updating block: {str(e)}", exc_info=True)
+        return create_response(500, {"error": "Internal server error"})
 
 
 @with_middleware([log_request, handle_errors])

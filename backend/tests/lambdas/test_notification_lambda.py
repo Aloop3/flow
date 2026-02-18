@@ -339,7 +339,7 @@ class TestNotificationLambda(unittest.TestCase):
             # Assert
             self.assertEqual(response["statusCode"], 500)
             mock_logger.error.assert_called_with(
-                f"Error processing request: {error_message}"
+                f"Error processing request: {error_message}", exc_info=True
             )
 
         finally:
