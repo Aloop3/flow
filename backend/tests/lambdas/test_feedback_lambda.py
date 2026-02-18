@@ -54,7 +54,7 @@ class TestFeedbackLambda(BaseTest):
         self.assertEqual(response_body["message"], "OK")
         # Verify proper CORS headers are present
         self.assertIn("headers", response)
-        self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "*")
+        self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "null")
         self.assertIn("Access-Control-Allow-Methods", response["headers"])
         self.assertIn("Access-Control-Allow-Headers", response["headers"])
 
@@ -77,7 +77,7 @@ class TestFeedbackLambda(BaseTest):
 
             # Verify CORS headers are present
             self.assertIn("headers", response)
-            self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "*")
+            self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "null")
 
             # Verify SNS publish was called
             mock_sns.publish.assert_called_once()
@@ -168,7 +168,7 @@ class TestFeedbackLambda(BaseTest):
         # CORS headers should now be present
         self.assertIn("Access-Control-Allow-Origin", response["headers"])
         # Should use environment CORS_ORIGIN or default to "*"
-        expected_origin = os.environ.get("CORS_ORIGIN", "*")
+        expected_origin = os.environ.get("CORS_ORIGIN", "null")
         self.assertEqual(
             response["headers"]["Access-Control-Allow-Origin"], expected_origin
         )
@@ -193,7 +193,7 @@ class TestFeedbackLambda(BaseTest):
 
         # CORS headers should now be present
         self.assertIn("Access-Control-Allow-Origin", response["headers"])
-        expected_origin = os.environ.get("CORS_ORIGIN", "*")
+        expected_origin = os.environ.get("CORS_ORIGIN", "null")
         self.assertEqual(
             response["headers"]["Access-Control-Allow-Origin"], expected_origin
         )
