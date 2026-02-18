@@ -400,6 +400,9 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !ImportValue
               Fn::Sub: "flow-${Environment}-RelationshipsTable"
+        - DynamoDBReadPolicy:
+            TableName: !ImportValue
+              Fn::Sub: "flow-${Environment}-UsersTable"
 
       Events:
         # Workout API Routes

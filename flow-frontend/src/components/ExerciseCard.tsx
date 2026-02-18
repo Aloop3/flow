@@ -90,9 +90,13 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
     try {
       // Sync any pending set changes before completing exercise
-      // This prevents race condition where toggle isn't synced yet
+      // Best-effort: if sync fails (e.g. track_set 404), still proceed with complete
       if (syncBeforeComplete) {
-        await syncBeforeComplete();
+        try {
+          await syncBeforeComplete();
+        } catch (syncErr) {
+          console.warn('Pre-complete sync failed, proceeding with complete:', syncErr);
+        }
       }
 
       // Build sets_data from current setsData prop to preserve per-set completion

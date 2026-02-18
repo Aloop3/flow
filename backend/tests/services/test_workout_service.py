@@ -86,6 +86,19 @@ class TestWorkoutService(unittest.TestCase):
 
         # Configure mock to return test data
         self.workout_repository_mock.get_workout.return_value = mock_workout_data
+        self.exercise_service_mock.get_exercises_for_workout.return_value = [
+            Exercise(
+                exercise_id="ex1",
+                workout_id="workout123",
+                exercise_type="Bench Press",
+                sets=3,
+                reps=5,
+                weight=225.0,
+                status="completed",
+                rpe=8.0,
+                notes="Good form",
+            )
+        ]
 
         # Call the service method
         result = self.workout_service.get_workout("workout123")
@@ -544,6 +557,68 @@ class TestWorkoutService(unittest.TestCase):
 
         # Configure mock to return workout
         self.workout_repository_mock.get_workout.return_value = workout_data
+        self.exercise_service_mock.get_exercises_for_workout.side_effect = [
+            [
+                Exercise(
+                    exercise_id="ex1",
+                    workout_id="workout123",
+                    exercise_type="Bench Press",
+                    sets=3,
+                    reps=5,
+                    weight=225.0,
+                    status="planned",
+                ),
+                Exercise(
+                    exercise_id="ex2",
+                    workout_id="workout123",
+                    exercise_type="Squat",
+                    sets=3,
+                    reps=5,
+                    weight=315.0,
+                    status="planned",
+                ),
+            ],
+            [
+                Exercise(
+                    exercise_id="ex1",
+                    workout_id="workout123",
+                    exercise_type="Bench Press",
+                    sets=3,
+                    reps=5,
+                    weight=225.0,
+                    status="completed",
+                ),
+                Exercise(
+                    exercise_id="ex2",
+                    workout_id="workout123",
+                    exercise_type="Squat",
+                    sets=3,
+                    reps=5,
+                    weight=315.0,
+                    status="planned",
+                ),
+            ],
+            [
+                Exercise(
+                    exercise_id="ex1",
+                    workout_id="workout123",
+                    exercise_type="Bench Press",
+                    sets=3,
+                    reps=5,
+                    weight=225.0,
+                    status="completed",
+                ),
+                Exercise(
+                    exercise_id="ex2",
+                    workout_id="workout123",
+                    exercise_type="Squat",
+                    sets=3,
+                    reps=5,
+                    weight=315.0,
+                    status="completed",
+                ),
+            ],
+        ]
 
         # Call the private method
         self.workout_service._update_workout_status("workout123")
@@ -830,6 +905,45 @@ class TestWorkoutService(unittest.TestCase):
             ],
         }
 
+        self.exercise_service_mock.get_exercises_for_workout.side_effect = [
+            # Call 1: initial get_workout in update_workout (existing check)
+            [
+                Exercise(
+                    exercise_id="ex1",
+                    workout_id="workout123",
+                    exercise_type="Squat",
+                    sets=3,
+                    reps=5,
+                    weight=315.0,
+                    status="planned",
+                    notes="Initial notes",
+                ),
+            ],
+            # Call 2: final get_workout return after update
+            [
+                Exercise(
+                    exercise_id="ex1",
+                    workout_id="workout123",
+                    exercise_type="Squat",
+                    sets=3,
+                    reps=6,
+                    weight=325.0,
+                    status="completed",
+                    notes="Updated notes",
+                ),
+                Exercise(
+                    exercise_id="ex2",
+                    workout_id="workout123",
+                    exercise_type="Bench Press",
+                    sets=3,
+                    reps=8,
+                    weight=225.0,
+                    status="planned",
+                    notes="New exercise",
+                ),
+            ],
+        ]
+
         # Call the service method
         result = self.workout_service.update_workout("workout123", update_data)
 
@@ -1069,6 +1183,33 @@ class TestWorkoutService(unittest.TestCase):
             existing_workout_data,  # First call in get_workout
             existing_workout_data,  # Second call in update_workout (existing check)
             updated_workout_data,  # Third call in update_workout (return updated)
+        ]
+        completed_exercises = [
+            Exercise(
+                exercise_id="ex1",
+                workout_id="workout123",
+                exercise_type="Squat",
+                sets=3,
+                reps=5,
+                weight=225.0,
+                status="completed",
+                order=1,
+            ),
+            Exercise(
+                exercise_id="ex2",
+                workout_id="workout123",
+                exercise_type="Bench Press",
+                sets=3,
+                reps=8,
+                weight=185.0,
+                status="completed",
+                order=2,
+            ),
+        ]
+        self.exercise_service_mock.get_exercises_for_workout.side_effect = [
+            completed_exercises,
+            completed_exercises,
+            completed_exercises,
         ]
 
         # Call the service method
@@ -1325,6 +1466,21 @@ class TestWorkoutService(unittest.TestCase):
             existing_workout_data,
             updated_workout_data,
         ]
+        ex1_completed = Exercise(
+            exercise_id="ex1",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="completed",
+            order=1,
+        )
+        self.exercise_service_mock.get_exercises_for_workout.side_effect = [
+            [ex1_completed],
+            [ex1_completed],
+            [ex1_completed],
+        ]
 
         # Call the service method
         with patch("src.services.workout_service.dt.datetime") as mock_datetime:
@@ -1434,6 +1590,34 @@ class TestWorkoutService(unittest.TestCase):
             started_workout_data,  # get_workout call in finish_workout_session
             started_workout_data,  # get_workout call in update_workout (existing check)
             finished_workout_data,  # get_workout call in update_workout (return updated)
+        ]
+        ex1_planned = Exercise(
+            exercise_id="ex1",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="planned",
+            order=1,
+        )
+        ex1_completed = Exercise(
+            exercise_id="ex1",
+            workout_id="workout123",
+            exercise_type="Squat",
+            sets=3,
+            reps=5,
+            weight=225.0,
+            status="completed",
+            order=1,
+        )
+        self.exercise_service_mock.get_exercises_for_workout.side_effect = [
+            [ex1_planned],  # start_workout_session's get_workout
+            [ex1_planned],  # update_workout's existing check
+            [ex1_completed],  # update_workout's return
+            [ex1_completed],  # finish_workout_session's get_workout
+            [ex1_completed],  # update_workout's existing check
+            [ex1_completed],  # update_workout's return
         ]
 
         # Start the session
