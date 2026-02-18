@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from .base_repository import BaseRepository
 from boto3.dynamodb.conditions import Key
 from typing import Dict, Any, Optional, List
@@ -31,6 +32,20 @@ class DayRepository(BaseRepository):
         )
 
         return response.get("Items", [])
+
+    def batch_get_days_by_week_ids(self, week_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get days for multiple week_ids in parallel.
+        Returns a flat combined list; each day retains its week_id attribute.
+
+        :param week_ids: List of week IDs to fetch days for
+        :return: Combined list of days for all week IDs
+        """
+        if not week_ids:
+            return []
+        with ThreadPoolExecutor(max_workers=min(len(week_ids), 10)) as executor:
+            results = list(executor.map(self.get_days_by_week, week_ids))
+        return [day for days in results for day in days]
 
     def create_day(self, day_dict: Dict[str, Any]) -> Dict[str, Any]:
         """

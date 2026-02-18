@@ -653,13 +653,12 @@ class TestAnalyticsService(unittest.TestCase):
         # Configure mocks
         self.block_repository_mock.get_block.return_value = mock_block
         self.week_repository_mock.get_weeks_by_block.return_value = mock_weeks
-        self.day_repository_mock.get_days_by_week.side_effect = [
-            mock_days_week1,
-            mock_days_week2,
-        ]
-        self.exercise_repository_mock.get_exercises_by_day.side_effect = [
-            mock_exercises_day1,
-            mock_exercises_day2,
+        self.day_repository_mock.batch_get_days_by_week_ids.return_value = (
+            mock_days_week1 + mock_days_week2
+        )
+        self.exercise_repository_mock.batch_get_exercises_by_day_ids.return_value = [
+            {**mock_exercises_day1[0], "day_id": "day1"},
+            {**mock_exercises_day2[0], "day_id": "day2"},
         ]
 
         result = self.analytics_service.calculate_block_volume("block123")
@@ -667,8 +666,12 @@ class TestAnalyticsService(unittest.TestCase):
         # Assert repository calls
         self.block_repository_mock.get_block.assert_called_once_with("block123")
         self.week_repository_mock.get_weeks_by_block.assert_called_once_with("block123")
-        self.exercise_repository_mock.get_exercises_by_day.assert_any_call("day1")
-        self.exercise_repository_mock.get_exercises_by_day.assert_any_call("day2")
+        self.day_repository_mock.batch_get_days_by_week_ids.assert_called_once_with(
+            ["week1", "week2"]
+        )
+        self.exercise_repository_mock.batch_get_exercises_by_day_ids.assert_called_once_with(
+            ["day1", "day2"]
+        )
 
         # Assert calculations
         # Week 1: 500 + 525 = 1025
@@ -1120,8 +1123,8 @@ class TestAnalyticsService(unittest.TestCase):
 
         self.block_repository_mock.get_block.return_value = mock_block
         self.week_repository_mock.get_weeks_by_block.return_value = mock_weeks
-        self.day_repository_mock.get_days_by_week.return_value = mock_days
-        self.exercise_repository_mock.get_exercises_by_day.return_value = []
+        self.day_repository_mock.batch_get_days_by_week_ids.return_value = mock_days
+        self.exercise_repository_mock.batch_get_exercises_by_day_ids.return_value = []
 
         result = self.analytics_service.calculate_block_volume("block123")
 
@@ -1129,10 +1132,12 @@ class TestAnalyticsService(unittest.TestCase):
         self.assertEqual(result["block_id"], "block123")
         self.assertEqual(result["total_volume"], 0.0)
 
-        # Should only call get_days_by_week for valid week, and get_exercises_by_day for valid day
-        self.day_repository_mock.get_days_by_week.assert_called_once_with("week2")
-        self.exercise_repository_mock.get_exercises_by_day.assert_called_once_with(
-            "day2"
+        # Should only call batch methods with IDs that passed the validity filter
+        self.day_repository_mock.batch_get_days_by_week_ids.assert_called_once_with(
+            ["week2"]
+        )
+        self.exercise_repository_mock.batch_get_exercises_by_day_ids.assert_called_once_with(
+            ["day2"]
         )
 
     def test_compare_blocks_with_calculation_errors(self):
