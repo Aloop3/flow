@@ -1,4 +1,6 @@
+import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom/jest-globals';
 import CalendarView from '../CalendarView';
 import type { Day } from '../../services/api';
 
@@ -8,7 +10,7 @@ const day3: Day = { day_id: 'd3', week_id: 'w1', day_number: 3, date: '2026-03-0
 const daysMap = { w1: [day1, day2, day3] };
 const mockOnDayClick = jest.fn();
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => { jest.clearAllMocks(); });
 
 describe('CalendarView month header', () => {
   test('shows first month of block by default', () => {
