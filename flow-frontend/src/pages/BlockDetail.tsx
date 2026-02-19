@@ -33,6 +33,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '../utils/dateUtils';
 import { toast } from 'react-toastify';
+import CalendarView from '../components/CalendarView';
 
 
 
@@ -49,9 +50,6 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const [daysMap, setDaysMap] = useState<{ [weekId: string]: Day[] }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeWeek, setActiveWeek] = useState<string | null>(null);
-  const [weekLoadingStates, setWeekLoadingStates] = useState<{ [weekId: string]: boolean }>({});
-  const [loadedWeeks, setLoadedWeeks] = useState<Set<string>>(new Set());
-  const [weekLoadErrors, setWeekLoadErrors] = useState<{ [weekId: string]: string }>({});
   const [editingDay, setEditingDay] = useState<any>(null);
   const [selectedDays, setSelectedDays] = useState<{ [key: string]: boolean }>({});
   const [bulkFocus, setBulkFocus] = useState<string>('');
@@ -59,6 +57,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
   const [isSavingFocus, setIsSavingFocus] = useState(false);
   const [isBulkEditing, setIsBulkEditing] = useState(false);
   const [applyToAllWeeks, setApplyToAllWeeks] = useState(true);
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('list');
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isSavingDescription, setIsSavingDescription] = useState(false);
@@ -98,7 +97,7 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
             </button>
           </div>
           <p className="text-sm text-gray-500 mb-3">Select up to {MAX_FOCUS_SELECTIONS}</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {FOCUS_OPTIONS.map(option => {
               const isSelected = currentTags.includes(option.value);
               const isDisabled = !isSelected && currentTags.length >= MAX_FOCUS_SELECTIONS;
@@ -144,53 +143,6 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     );
   };
 
-  const loadWeekData = async (weekId: string, retryCount = 0): Promise<boolean> => {
-    if (loadedWeeks.has(weekId) || weekLoadingStates[weekId]) {
-      return true; // Already loaded or loading
-    }
-    
-    console.log(`🔄 Loading week data: ${weekId} (attempt ${retryCount + 1})`);
-    setWeekLoadingStates(prev => ({ ...prev, [weekId]: true }));
-    setWeekLoadErrors(prev => ({ ...prev, [weekId]: '' })); // Clear previous errors
-    
-    try {
-      const startTime = performance.now();
-      const daysData = await getDays(weekId);
-      const loadTime = performance.now() - startTime;
-      
-      console.log(`✅ Week ${weekId} loaded in ${loadTime.toFixed(0)}ms (${daysData.length} days)`);
-      
-      const sortedDays = Array.isArray(daysData)
-        ? [...daysData].sort((a, b) => a.day_number - b.day_number)
-        : [];
-      
-      setDaysMap(prev => ({ ...prev, [weekId]: sortedDays }));
-      setLoadedWeeks(prev => new Set([...prev, weekId]));
-      
-      return true;
-    } catch (error) {
-      console.error(`❌ Failed to load week ${weekId} (attempt ${retryCount + 1}):`, error);
-      
-      // Automatic retry with exponential backoff (max 2 retries)
-      if (retryCount < 2) {
-        const retryDelay = retryCount === 0 ? 200 : 500; // 200ms, 500ms 
-        console.log(`🔄 Retrying week ${weekId} in ${retryDelay}ms...`);
-        
-        setTimeout(async () => {
-          await loadWeekData(weekId, retryCount + 1);
-        }, retryDelay);
-        
-        return false;
-      } else {
-        // Max retries exceeded
-        const errorMessage = `Failed to load week data after 3 attempts`;
-        setWeekLoadErrors(prev => ({ ...prev, [weekId]: errorMessage }));
-        return false;
-      }
-    } finally {
-      setWeekLoadingStates(prev => ({ ...prev, [weekId]: false }));
-    }
-  };
 
   function handleFocusClick(dayId: string) {
     setEditingFocusDayId(dayId);
@@ -235,62 +187,57 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     }
   }
 
-  // Initial data loading - only load first week
+  // Initial data loading - load block, weeks, and all days in parallel
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!blockId) return;
-      
-      const startTime = performance.now();
       setIsLoading(true);
       try {
-        // Load block + weeks in parallel (not sequential)
-        console.log('🚀 Starting parallel fetch: block + weeks');
-        const parallelStart = performance.now();
-        
         const [blockData, weeksData] = await Promise.all([
           getBlock(blockId),
           getWeeks(blockId)
         ]);
-        
-        console.log(`⚡ Parallel fetch complete: ${(performance.now() - parallelStart).toFixed(0)}ms`);
-        
-        // Validate block data first
-        if (!blockData) {
-          console.log('❌ Block not found');
-          return;
-        }
+
+        if (!blockData) return;
         setBlock(blockData);
         setDescriptionContent(blockData.description || '');
 
-        // Process weeks data
         const sortedWeeks = Array.isArray(weeksData)
           ? [...weeksData].sort((a, b) => a.week_number - b.week_number)
           : [];
         setWeeks(sortedWeeks);
 
         if (sortedWeeks.length === 0) {
-          console.log('ℹ️ No weeks found for block');
           setActiveWeek(null);
           setDaysMap({});
           return;
         }
 
-        // Set active week immediately, load data in background
-        const firstWeek = sortedWeeks[0];
-        console.log(`🔄 Setting active week and loading data: ${firstWeek.week_id}`);
-        
-        // Set active week immediately for responsive UI
-        setActiveWeek(firstWeek.week_id);
-        
-        // Load first week in background (don't await)
-        loadWeekData(firstWeek.week_id);
+        setActiveWeek(sortedWeeks[0].week_id);
 
-        const totalTime = performance.now() - startTime;
-        console.log(`🎯 INITIAL LOAD COMPLETE: ${totalTime.toFixed(0)}ms`);
-        console.log(`📈 Loaded: Block + ${sortedWeeks.length} weeks metadata (first week loading in background)`);
-        
+        // Load all weeks in parallel
+        const daysResults = await Promise.all(
+          sortedWeeks.map(async (week) => {
+            try {
+              const daysData = await getDays(week.week_id);
+              return {
+                weekId: week.week_id,
+                days: Array.isArray(daysData)
+                  ? [...daysData].sort((a, b) => a.day_number - b.day_number)
+                  : []
+              };
+            } catch {
+              return { weekId: week.week_id, days: [] };
+            }
+          })
+        );
+
+        const newDaysMap: { [weekId: string]: Day[] } = {};
+        daysResults.forEach(r => { newDaysMap[r.weekId] = r.days; });
+        setDaysMap(newDaysMap);
+
       } catch (error) {
-        console.error('❌ Error fetching initial data:', error);
+        console.error('Error fetching block data:', error);
         toast.error('Failed to load block data');
       } finally {
         setIsLoading(false);
@@ -300,99 +247,10 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
     fetchInitialData();
   }, [blockId, location.pathname]);
 
-  // Week tab click handler with preloading
-  const handleWeekTabClick = async (weekId: string) => {
-    console.log(`🖱️ Week tab clicked: ${weekId}`);
-    
-    // Immediately switch active week for responsive UI
+  const handleWeekTabClick = (weekId: string) => {
     setActiveWeek(weekId);
-    
-    // Load week data if not already loaded
-    if (!loadedWeeks.has(weekId)) {
-      await loadWeekData(weekId);
-    }
-    
-    // OPTIMIZATION: Preload adjacent weeks for faster navigation
-    const currentWeekIndex = weeks.findIndex(w => w.week_id === weekId);
-    if (currentWeekIndex !== -1) {
-      // Preload next week in background (non-blocking)
-      if (currentWeekIndex < weeks.length - 1) {
-        const nextWeekId = weeks[currentWeekIndex + 1].week_id;
-        if (!loadedWeeks.has(nextWeekId) && !weekLoadingStates[nextWeekId]) {
-          console.log(`🔮 Preloading next week: ${nextWeekId}`);
-          loadWeekData(nextWeekId); // Don't await - background preload
-        }
-      }
-      
-      // Preload previous week in background (non-blocking)
-      if (currentWeekIndex > 0) {
-        const prevWeekId = weeks[currentWeekIndex - 1].week_id;
-        if (!loadedWeeks.has(prevWeekId) && !weekLoadingStates[prevWeekId]) {
-          console.log(`🔮 Preloading previous week: ${prevWeekId}`);
-          loadWeekData(prevWeekId); // Don't await - background preload
-        }
-      }
-    }
   };
 
-  // Week Loading Skeleton Component
-  const WeekLoadingSkeleton = () => (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <Skeleton className="h-6 w-20 mb-2" />
-          <Skeleton className="h-3 w-40" />
-        </div>
-        <Skeleton className="h-9 w-32" />
-      </div>
-
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Day</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Focus</TableHead>
-              <TableHead className="text-center">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Skeleton className="h-4 w-12" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-20" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-16" />
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-center">
-                    <Skeleton className="h-6 w-16" />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
-
-  // Week Error State Component
-  const WeekErrorState = ({ weekId, error }: { weekId: string; error: string }) => (
-    <div className="p-6">
-      <div className="text-center py-8">
-        <div className="text-red-500 mb-2">⚠️</div>
-        <p className="text-gray-600 mb-4">{error}</p>
-        <Button onClick={() => loadWeekData(weekId)}>
-          Retry Loading Week
-        </Button>
-      </div>
-    </div>
-  );
 
 
   useEffect(() => {
@@ -419,70 +277,14 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
       const updates: { dayId: string; weekId: string }[] = [];
       
       if (applyToAllWeeks) {
-        console.log(`🔄 Bulk update: fetching all ${weeks.length} weeks for day numbers: ${selectedItems.map(i => i.dayNumber).join(', ')}`);
-        
-        // Show loading state since we're fetching potentially many weeks
-        const originalBulkEditing = isBulkEditing;
-        setIsBulkEditing(false); // Hide controls during loading
-        
-        try {
-          const dayNumbers = selectedItems.map(item => item.dayNumber);
-          
-          // Fetch day data for all weeks that aren't already loaded
-          const weekFetchPromises = weeks.map(async (week) => {
-            if (daysMap[week.week_id]) {
-              // Week already loaded, use existing data
-              return { weekId: week.week_id, days: daysMap[week.week_id] };
-            } else {
-              // Week not loaded, fetch it
-              console.log(`📡 Fetching days for week ${week.week_number} (${week.week_id})`);
-              try {
-                const daysData = await getDays(week.week_id);
-                const sortedDays = Array.isArray(daysData)
-                  ? [...daysData].sort((a, b) => a.day_number - b.day_number)
-                  : [];
-                return { weekId: week.week_id, days: sortedDays };
-              } catch (error) {
-                console.error(`❌ Failed to fetch week ${week.week_number}:`, error);
-                return { weekId: week.week_id, days: [] };
-              }
+        const dayNumbers = selectedItems.map(item => item.dayNumber);
+        weeks.forEach(week => {
+          (daysMap[week.week_id] || []).forEach(day => {
+            if (dayNumbers.includes(day.day_number)) {
+              updates.push({ dayId: day.day_id, weekId: week.week_id });
             }
           });
-          
-          // Wait for all week data to be fetched
-          const allWeeksData = await Promise.all(weekFetchPromises);
-          
-          // Update daysMap with newly fetched weeks (for caching)
-          const newDaysMap = { ...daysMap };
-          allWeeksData.forEach(({ weekId, days }) => {
-            if (days.length > 0 && !newDaysMap[weekId]) {
-              newDaysMap[weekId] = days;
-              setLoadedWeeks(prev => new Set([...prev, weekId]));
-            }
-          });
-          setDaysMap(newDaysMap);
-          
-          // Now collect updates from ALL weeks
-          allWeeksData.forEach(({ weekId, days }) => {
-            days.forEach(day => {
-              if (dayNumbers.includes(day.day_number)) {
-                updates.push({ dayId: day.day_id, weekId });
-              }
-            });
-          });
-          
-          console.log(`✅ Collected ${updates.length} updates across ${allWeeksData.length} weeks`);
-          
-        } catch (error) {
-          console.error('❌ Failed to fetch week data for bulk update:', error);
-          toast.error('Failed to load all weeks for bulk update');
-          setIsBulkEditing(originalBulkEditing);
-          return;
-        }
-        
-        // Restore bulk editing controls
-        setIsBulkEditing(originalBulkEditing);
-        
+        });
       } else {
         // Single week - use existing logic
         selectedItems.forEach(item => {
@@ -542,18 +344,16 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
             .filter((weekId): weekId is string => weekId !== undefined)
         );
         
-        if (failedWeekIds.size > 0) {
-          console.log(`🔄 Invalidating failed weeks: ${Array.from(failedWeekIds).join(', ')}`);
-          setLoadedWeeks(prev => {
-            const newLoadedWeeks = new Set(prev);
-            failedWeekIds.forEach(weekId => newLoadedWeeks.delete(weekId));
-            return newLoadedWeeks;
-          });
-          
-          // Force reload current week if it failed
-          if (activeWeek && failedWeekIds.has(activeWeek)) {
-            await loadWeekData(activeWeek);
-          }
+        if (failedWeekIds.size > 0 && activeWeek && failedWeekIds.has(activeWeek)) {
+          try {
+            const freshDays = await getDays(activeWeek);
+            setDaysMap(prev => ({
+              ...prev,
+              [activeWeek]: Array.isArray(freshDays)
+                ? [...freshDays].sort((a, b) => a.day_number - b.day_number)
+                : []
+            }));
+          } catch { /* already showed error toast */ }
         }
       } else {
         toast.success(`Focus updated for ${updates.length} days across ${applyToAllWeeks ? weeks.length : 1} week${applyToAllWeeks && weeks.length > 1 ? 's' : ''}!`);
@@ -808,9 +608,44 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
             </Card>
 
             {weeks.length > 0 ? (
-              <Card className="overflow-hidden">
-                <div className="border-b border-gray-200">
-                  <nav className="flex overflow-x-auto">
+              <>
+                {/* View toggle */}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-1.5 text-sm rounded-md font-medium ${
+                      viewMode === 'list'
+                        ? 'bg-ocean-teal text-white'
+                        : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={() => setViewMode('calendar')}
+                    className={`px-3 py-1.5 text-sm rounded-md font-medium ${
+                      viewMode === 'calendar'
+                        ? 'bg-ocean-teal text-white'
+                        : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Calendar
+                  </button>
+                </div>
+
+                {viewMode === 'calendar' ? (
+                  <Card className="overflow-hidden">
+                    <CalendarView
+                      daysMap={daysMap}
+                      onDayClick={(day) => {
+                        window.location.href = `/days/${day.day_id}?blockId=${blockId}`;
+                      }}
+                    />
+                  </Card>
+                ) : (
+                  <Card className="overflow-hidden">
+                    <div className="border-b border-gray-200">
+                      <nav className="flex overflow-x-auto">
                     {weeks.map((week) => (
                       <button
                         key={week.week_id}
@@ -822,34 +657,14 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                         }`}
                       >
                         Week {week.week_number}
-                        {/* Loading indicator for week tab */}
-                        {weekLoadingStates[week.week_id] && (
-                          <div className="absolute top-1 right-1">
-                            <div className="w-2 h-2 bg-ocean-teal rounded-full animate-pulse"></div>
-                          </div>
-                        )}
-                        {/* Error indicator for week tab */}
-                        {weekLoadErrors[week.week_id] && (
-                          <div className="absolute top-1 right-1">
-                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                          </div>
-                        )}
                       </button>
                     ))}
                   </nav>
                 </div>
 
-                {/* Week content with lazy loading states */}
                 {activeWeek && (
                   <>
-                    {weekLoadingStates[activeWeek] ? (
-                      <WeekLoadingSkeleton />
-                    ) : weekLoadErrors[activeWeek] ? (
-                      <WeekErrorState 
-                        weekId={activeWeek} 
-                        error={weekLoadErrors[activeWeek]} 
-                      />
-                    ) : daysMap[activeWeek] ? (
+                    {daysMap[activeWeek] ? (
                       <div className="p-6">
                         <div className="flex justify-between items-center mb-6">
                           <div>
@@ -1081,7 +896,9 @@ const BlockDetail = ({ user, signOut }: BlockDetailProps) => {
                     ) : null}
                   </>
                 )}
-              </Card>
+                  </Card>
+                )}
+              </>
             ) : (
               <Card className="p-6 text-center">
                 <p className="text-muted-foreground">If you don't see any weeks, please refresh the page</p>
