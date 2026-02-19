@@ -433,6 +433,7 @@ def get_dashboard_summary(event, context):
     Returns SBD PR cards and weekly volume summary for the dashboard.
     """
     try:
+        # Extract path parameters and query parameters
         athlete_id = event["pathParameters"]["athlete_id"]
         query_params = event.get("queryStringParameters") or {}
         block_id = query_params.get("block_id")
