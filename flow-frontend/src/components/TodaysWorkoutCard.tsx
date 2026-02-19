@@ -119,7 +119,7 @@ const TodaysWorkoutCard: React.FC<TodaysWorkoutCardProps> = ({ activeBlock, user
       <div className="py-6">
         <h2 className="text-2xl font-bold font-display text-ocean-navy-dark mb-2">Today's Workout</h2>
         <p className="text-ocean-slate">Rest day</p>
-        <p className="text-sm text-ocean-slate-light mt-1">No workout scheduled — enjoy the recovery.</p>
+        <p className="text-sm text-ocean-slate-light mt-1">No workout scheduled, enjoy the recovery.</p>
       </div>
     );
   }

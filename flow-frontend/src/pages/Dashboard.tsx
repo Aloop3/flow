@@ -15,7 +15,6 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ user, signOut }: DashboardProps) => {
-  const [blocks, setBlocks] = useState<Block[]>([]);
   const [activeBlock, setActiveBlock] = useState<Block | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [athletes, setAthletes] = useState<any[]>([]);
@@ -26,13 +25,10 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
       setIsLoading(true);
       try {
         const blocksData = await getBlocks(user.user_id);
-        setBlocks(blocksData || []); // fallback here
-  
         const active = (blocksData || []).find(block => block.status === 'active');
         setActiveBlock(active || null);
       } catch (error) {
         console.error('Error fetching blocks:', error);
-        setBlocks([]);
         setActiveBlock(null);
       } finally {
         setIsLoading(false);
@@ -144,58 +140,6 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
               </div>
             )}
             
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-ocean-navy-dark">Your Programs</h2>
-                <Link
-                  to="/blocks"
-                  className="text-sm font-medium text-ocean-teal hover:text-ocean-navy"
-                >
-                  View all
-                </Link>
-              </div>
-              
-              {blocks.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {blocks.slice(0, 3).map((block) => (
-                    <Link key={block.block_id} to={`/blocks/${block.block_id}`}>
-                      <Card className="hover:shadow-md transition-shadow">
-                        <CardContent className="pt-4">
-                          <h3 className="text-lg font-medium text-ocean-navy">{block.title}</h3>
-                          <p className="mt-1 text-sm text-ocean-slate">{block.description}</p>
-                          <p className="mt-2 text-xs text-ocean-slate-light">
-                            {formatDate(block.start_date)} - {formatDate(block.end_date)}
-                          </p>
-                          <Badge className={`mt-2 ${
-                            block.status === 'active'
-                              ? 'bg-state-active/10 text-state-active hover:bg-state-active/10'
-                              : block.status === 'completed'
-                              ? 'bg-state-completed/10 text-state-completed hover:bg-state-completed/10'
-                              : 'bg-ocean-mist text-ocean-slate hover:bg-ocean-mist'
-                          }`}>
-                            {block.status.charAt(0).toUpperCase() + block.status.slice(1)}
-                          </Badge>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-ocean-slate py-2">Ready to start training? Create your first program.</p>
-              )}
-            </div>
-
-            {/* Analytics - simplified link */}
-            <div className="mt-8 flex items-center justify-between py-3 px-4 bg-ocean-mist/50 rounded-lg">
-              <span className="text-ocean-slate">Track your strength gains and training insights</span>
-              <Link
-                to="/analytics"
-                className="text-sm font-medium text-ocean-teal hover:text-ocean-navy"
-              >
-                View Analytics →
-              </Link>
-            </div>
-
             {user.role === 'coach' && (
                 <div className="mt-8">
                   <div className="flex items-center justify-between mb-4">
@@ -218,7 +162,7 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
                                 {athlete.activeProgram ? (
                                   <span className="text-state-active">Active: {athlete.activeProgram}</span>
                                 ) : (
-                                  <span className="text-ocean-slate">No active program</span>
+                                  <span className="text-ocean-slate">No active block</span>
                                 )}
                               </p>
                             </CardContent>
