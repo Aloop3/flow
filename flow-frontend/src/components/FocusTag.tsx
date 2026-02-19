@@ -44,7 +44,7 @@ const FocusTag: React.FC<FocusTagProps> = ({ focus, size = 'md' }) => {
   };
 
   return (
-    <span className={`inline-flex items-center font-medium rounded-full border ${getTagColor(focus)} ${sizeClasses[size]}`}>
+    <span className={`inline-flex items-center font-medium rounded-full border whitespace-nowrap ${getTagColor(focus)} ${sizeClasses[size]}`}>
       {focus ? getLabel(focus) : 'None'}
     </span>
   );
