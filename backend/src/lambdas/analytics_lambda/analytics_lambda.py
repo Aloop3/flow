@@ -14,6 +14,7 @@ ROUTE_MAP = {
     "GET /analytics/block-analysis/{athlete_id}/{block_id}": analytics_api.get_block_analysis,
     "GET /analytics/block-comparison/{athlete_id}": analytics_api.get_block_comparison,
     "GET /analytics/1rm-alltime/{athlete_id}": analytics_api.get_all_time_1rm,
+    "GET /analytics/dashboard-summary/{athlete_id}": analytics_api.get_dashboard_summary,
 }
 
 

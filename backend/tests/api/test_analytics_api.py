@@ -33,9 +33,13 @@ class TestAnalyticsAPI(unittest.TestCase):
         self.user_service_patcher = patch(
             "src.api.analytics_api.user_service", self.mock_user_service
         )
+        self.block_service_patcher = patch(
+            "src.api.analytics_api.block_service", self.mock_block_service
+        )
 
         self.analytics_service_patcher.start()
         self.user_service_patcher.start()
+        self.block_service_patcher.start()
 
         # Mock event structure
         self.base_event = {
@@ -51,6 +55,7 @@ class TestAnalyticsAPI(unittest.TestCase):
         self.uuid_patcher.stop()
         self.analytics_service_patcher.stop()
         self.user_service_patcher.stop()
+        self.block_service_patcher.stop()
 
     def test_validate_date_format_valid_dates(self):
         """Test validate_date_format with valid date strings"""
@@ -1379,6 +1384,77 @@ class TestAnalyticsAPI(unittest.TestCase):
 
         # Should not call analytics service
         self.mock_analytics_service.get_all_time_max_weight.assert_not_called()
+
+    def test_get_dashboard_summary_success(self):
+        """Returns 200 with summary data when block belongs to athlete"""
+        from src.api.analytics_api import get_dashboard_summary
+
+        self.mock_analytics_service.get_dashboard_summary.return_value = {
+            "prs": {
+                "Squat": {
+                    "current_block_best": 150.0,
+                    "previous_block_best": 140.0,
+                    "delta": 10.0,
+                },
+                "Bench Press": {
+                    "current_block_best": 100.0,
+                    "previous_block_best": 0.0,
+                    "delta": None,
+                },
+                "Deadlift": {
+                    "current_block_best": 0.0,
+                    "previous_block_best": 0.0,
+                    "delta": None,
+                },
+            },
+            "weekly_volume": {
+                "current_week_number": 2,
+                "current_week_volume": 5000.0,
+                "previous_week_number": 1,
+                "previous_week_volume": 4500.0,
+            },
+        }
+
+        mock_block = MagicMock()
+        mock_block.athlete_id = "test-athlete-id"
+        self.mock_block_service.get_block.return_value = mock_block
+
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"block_id": "test-block-id"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-athlete-id"}}},
+        }
+        with patch("src.api.analytics_api.validate_athlete_access", return_value=True):
+            response = get_dashboard_summary(event, self.context)
+
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIn("prs", body)
+        self.assertIn("weekly_volume", body)
+        self.mock_analytics_service.get_dashboard_summary.assert_called_once_with(
+            "test-athlete-id", "test-block-id"
+        )
+
+    def test_get_dashboard_summary_missing_block_id(self):
+        """Returns 400 when block_id query param is missing"""
+        from src.api.analytics_api import get_dashboard_summary
+
+        event = {**self.base_event, "queryStringParameters": {}}
+        with patch("src.api.analytics_api.validate_athlete_access", return_value=True):
+            response = get_dashboard_summary(event, self.context)
+        self.assertEqual(response["statusCode"], 400)
+
+    def test_get_dashboard_summary_unauthorized(self):
+        """Returns 403 when user cannot access athlete data"""
+        from src.api.analytics_api import get_dashboard_summary
+
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"block_id": "test-block-id"},
+        }
+        with patch("src.api.analytics_api.validate_athlete_access", return_value=False):
+            response = get_dashboard_summary(event, self.context)
+        self.assertEqual(response["statusCode"], 403)
 
 
 if __name__ == "__main__":

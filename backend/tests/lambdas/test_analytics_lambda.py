@@ -375,6 +375,7 @@ class TestAnalyticsLambda(BaseTest):
             "GET /analytics/block-analysis/{athlete_id}/{block_id}",
             "GET /analytics/block-comparison/{athlete_id}",
             "GET /analytics/1rm-alltime/{athlete_id}",
+            "GET /analytics/dashboard-summary/{athlete_id}",
         ]
 
         # Verify all expected routes are in ROUTE_MAP
