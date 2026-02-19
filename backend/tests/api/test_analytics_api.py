@@ -1456,6 +1456,74 @@ class TestAnalyticsAPI(unittest.TestCase):
             response = get_dashboard_summary(event, self.context)
         self.assertEqual(response["statusCode"], 403)
 
+    def test_get_dashboard_summary_block_not_found(self):
+        """Returns 404 when block does not exist"""
+        from src.api.analytics_api import get_dashboard_summary
+
+        self.mock_block_service.get_block.return_value = None
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"block_id": "nonexistent-block"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-athlete-id"}}},
+        }
+        with patch("src.api.analytics_api.validate_athlete_access", return_value=True):
+            response = get_dashboard_summary(event, self.context)
+        self.assertEqual(response["statusCode"], 404)
+
+    def test_get_dashboard_summary_block_wrong_athlete(self):
+        """Returns 403 when block belongs to a different athlete"""
+        from src.api.analytics_api import get_dashboard_summary
+
+        mock_block = MagicMock()
+        mock_block.athlete_id = "different-athlete-id"
+        self.mock_block_service.get_block.return_value = mock_block
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"block_id": "test-block-id"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-athlete-id"}}},
+        }
+        with patch("src.api.analytics_api.validate_athlete_access", return_value=True):
+            response = get_dashboard_summary(event, self.context)
+        self.assertEqual(response["statusCode"], 403)
+
+    def test_get_dashboard_summary_service_returns_error(self):
+        """Returns 400 when analytics service returns an error dict"""
+        from src.api.analytics_api import get_dashboard_summary
+
+        self.mock_analytics_service.get_dashboard_summary.return_value = {
+            "error": "Block not found"
+        }
+        mock_block = MagicMock()
+        mock_block.athlete_id = "test-athlete-id"
+        self.mock_block_service.get_block.return_value = mock_block
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"block_id": "test-block-id"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-athlete-id"}}},
+        }
+        with patch("src.api.analytics_api.validate_athlete_access", return_value=True):
+            response = get_dashboard_summary(event, self.context)
+        self.assertEqual(response["statusCode"], 400)
+
+    def test_get_dashboard_summary_service_exception(self):
+        """Returns 500 when analytics service raises an exception"""
+        from src.api.analytics_api import get_dashboard_summary
+
+        self.mock_analytics_service.get_dashboard_summary.side_effect = Exception(
+            "Unexpected error"
+        )
+        mock_block = MagicMock()
+        mock_block.athlete_id = "test-athlete-id"
+        self.mock_block_service.get_block.return_value = mock_block
+        event = {
+            **self.base_event,
+            "queryStringParameters": {"block_id": "test-block-id"},
+            "requestContext": {"authorizer": {"claims": {"sub": "test-athlete-id"}}},
+        }
+        with patch("src.api.analytics_api.validate_athlete_access", return_value=True):
+            response = get_dashboard_summary(event, self.context)
+        self.assertEqual(response["statusCode"], 500)
+
 
 if __name__ == "__main__":
     unittest.main()
