@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Optional
 from src.repositories.exercise_repository import ExerciseRepository
 from src.repositories.block_repository import BlockRepository
 from src.repositories.week_repository import WeekRepository
@@ -7,6 +7,8 @@ import datetime as dt
 
 
 class AnalyticsService:
+    _SBD_EXERCISES = ["Squat", "Bench Press", "Deadlift"]
+
     def __init__(self):
         self.exercise_repository: ExerciseRepository = ExerciseRepository()
         self.block_repository: BlockRepository = BlockRepository()
@@ -440,6 +442,202 @@ class AnalyticsService:
         except Exception as e:
             print(f"Error in calculate_block_volume: {e}")
             return {"error": f"Failed to calculate block volume: {str(e)}"}
+
+    def get_dashboard_summary(
+        self, athlete_id: str, active_block_id: str
+    ) -> Dict[str, Any]:
+        """
+        Return SBD PR cards and weekly volume summary for the dashboard.
+        Fetches active block exercises once; reuses data for both PRs and volume.
+
+        :param athlete_id: The athlete's user ID
+        :param active_block_id: The ID of the active training block
+        :return: Dict with 'prs' and 'weekly_volume' keys
+        """
+        if not athlete_id or not active_block_id:
+            return {"error": "athlete_id and block_id are required"}
+
+        try:
+            active_block = self.block_repository.get_block(active_block_id)
+            if not active_block:
+                return {"error": "Block not found"}
+
+            # Fetch active block data once — reused for both PRs and weekly volume
+            weeks = self.week_repository.get_weeks_by_block(active_block_id)
+            week_ids = [w["week_id"] for w in weeks if w.get("week_id")]
+            all_days = self.day_repository.batch_get_days_by_week_ids(week_ids)
+            block_end = active_block.get("end_date", "9999-99-99")
+            all_exercises = [
+                e
+                for e in self.exercise_repository.get_exercises_with_workout_context(
+                    athlete_id, start_date=active_block.get("start_date")
+                )
+                if e.get("workout_date", "") <= block_end
+            ]
+
+            # --- PR cards ---
+            current_prs = self._extract_sbd_bests(all_exercises)
+
+            all_blocks = self.block_repository.get_blocks_by_athlete(athlete_id)
+            prev_block = self._find_previous_block(all_blocks, active_block)
+            previous_prs = (
+                self._get_block_sbd_bests(prev_block["block_id"], athlete_id)
+                if prev_block
+                else {}
+            )
+
+            prs = {}
+            for lift in self._SBD_EXERCISES:
+                current_best = current_prs.get(lift, 0.0)
+                previous_best = previous_prs.get(lift, 0.0)
+                prs[lift] = {
+                    "current_block_best": current_best,
+                    "previous_block_best": previous_best,
+                    "delta": (
+                        round(current_best - previous_best, 2)
+                        if previous_best > 0
+                        else None
+                    ),
+                }
+
+            # --- Weekly volume ---
+            weekly_volume = self._compute_weekly_volume(weeks, all_days, all_exercises)
+
+            return {"prs": prs, "weekly_volume": weekly_volume}
+
+        except Exception as e:
+            print(f"Error in get_dashboard_summary: {e}")
+            return {"error": "Failed to get dashboard summary"}
+
+    def _extract_sbd_bests(self, exercises: List[Dict[str, Any]]) -> Dict[str, float]:
+        """Return best top-set weight for each SBD lift from a list of exercises."""
+        # Case-insensitive lookup: lowercase key -> canonical name
+        lower_to_canonical = {lift.lower(): lift for lift in self._SBD_EXERCISES}
+        bests: Dict[str, float] = {lift: 0.0 for lift in self._SBD_EXERCISES}
+        for exercise in exercises:
+            ex_type = exercise.get("exercise_type", "")
+            canonical = lower_to_canonical.get(ex_type.lower())
+            if canonical:
+                max_w = self._get_max_weight_from_exercise(exercise)
+                if max_w > bests[canonical]:
+                    bests[canonical] = max_w
+        return bests
+
+    def _get_block_sbd_bests(self, block_id: str, athlete_id: str) -> Dict[str, float]:
+        """Fetch exercises for a block and return SBD bests (used for previous block)."""
+        try:
+            block = self.block_repository.get_block(block_id)
+            if not block:
+                return {}
+            start_date = block.get("start_date")
+            end_date = block.get("end_date", "9999-99-99")
+            exercises = [
+                e
+                for e in self.exercise_repository.get_exercises_with_workout_context(
+                    athlete_id, start_date=start_date
+                )
+                if e.get("workout_date", "") <= end_date
+            ]
+            return self._extract_sbd_bests(exercises)
+        except Exception as e:
+            print(f"Error fetching previous block SBD bests for {block_id}: {e}")
+            return {}
+
+    def _find_previous_block(
+        self, all_blocks: List[Dict[str, Any]], active_block: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Return the most recent block whose end_date is before active_block start_date."""
+        active_start = active_block.get("start_date", "")
+        candidates = [
+            b
+            for b in all_blocks
+            if b.get("block_id") != active_block.get("block_id")
+            and b.get("end_date", "") < active_start
+        ]
+        if not candidates:
+            return None
+        return max(
+            candidates, key=lambda b: (b.get("end_date", ""), b.get("block_id", ""))
+        )
+
+    def _compute_weekly_volume(
+        self,
+        weeks: List[Dict[str, Any]],
+        all_days: List[Dict[str, Any]],
+        all_exercises: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
+        Identify current week (contains today, or latest week if today is past block end)
+        and its previous week. Return their volumes.
+        """
+        today = dt.date.today().isoformat()
+        week_lookup = {w["week_id"]: w for w in weeks if w.get("week_id")}
+
+        # week_id -> list of day dates
+        week_dates: Dict[str, List[str]] = {}
+        for day in all_days:
+            wid = day.get("week_id")
+            date = day.get("date")
+            if wid and date:
+                week_dates.setdefault(wid, []).append(date)
+
+        sorted_weeks = sorted(weeks, key=lambda w: w.get("week_number", 0))
+
+        # Find current week: day range contains today
+        current_week_id = None
+        for week in sorted_weeks:
+            wid = week.get("week_id")
+            if not wid or wid not in week_dates:
+                continue
+            dates = week_dates[wid]
+            if min(dates) <= today <= max(dates):
+                current_week_id = wid
+                break
+
+        # Fallback: today is past block end — use last week
+        if not current_week_id and sorted_weeks:
+            current_week_id = sorted_weeks[-1].get("week_id")
+
+        if not current_week_id:
+            return {}
+
+        current_week_number = week_lookup[current_week_id].get("week_number", 0)
+        prev_week_id = next(
+            (
+                w["week_id"]
+                for w in sorted_weeks
+                if w.get("week_number") == current_week_number - 1
+            ),
+            None,
+        )
+
+        # Build date -> week_id lookup for fast matching
+        date_to_week: Dict[str, str] = {}
+        for wid, dates in week_dates.items():
+            for date in dates:
+                date_to_week[date] = wid
+
+        # Calculate volume per week using completed exercises
+        week_volumes: Dict[str, float] = {}
+        for exercise in all_exercises:
+            workout_date = exercise.get("workout_date")
+            if not workout_date:
+                continue
+            wid = date_to_week.get(workout_date)
+            if wid and self._is_exercise_analytics_complete(exercise):
+                vol = self._calculate_exercise_volume(exercise)
+                week_volumes[wid] = week_volumes.get(wid, 0.0) + vol
+
+        result: Dict[str, Any] = {
+            "current_week_number": current_week_number,
+            "current_week_volume": round(week_volumes.get(current_week_id, 0.0), 2),
+        }
+        if prev_week_id:
+            result["previous_week_number"] = current_week_number - 1
+            result["previous_week_volume"] = round(
+                week_volumes.get(prev_week_id, 0.0), 2
+            )
+        return result
 
     def compare_blocks(self, block_id1: str, block_id2: str) -> Dict[str, Any]:
         """

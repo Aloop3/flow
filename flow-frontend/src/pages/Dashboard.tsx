@@ -4,8 +4,8 @@ import Layout from '../components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getBlocks, getCoachRelationships, getUser } from '../services/api';
-import type { Block } from '../services/api';
+import { getBlocks, getCoachRelationships, getUser, getDashboardSummary } from '../services/api';
+import type { Block, DashboardSummary } from '../services/api';
 import { formatDate } from '../utils/dateUtils';
 import TodaysWorkoutCard from '../components/TodaysWorkoutCard';
 
@@ -19,6 +19,7 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [athletes, setAthletes] = useState<any[]>([]);
   const [isLoadingAthletes, setIsLoadingAthletes] = useState(false);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -27,6 +28,14 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
         const blocksData = await getBlocks(user.user_id);
         const active = (blocksData || []).find(block => block.status === 'active');
         setActiveBlock(active || null);
+        if (active) {
+          try {
+            const summary = await getDashboardSummary(user.user_id, active.block_id);
+            setDashboardSummary(summary);
+          } catch {
+            // summary cards are best-effort; fail silently
+          }
+        }
       } catch (error) {
         console.error('Error fetching blocks:', error);
         setActiveBlock(null);
@@ -115,6 +124,71 @@ const Dashboard = ({ user, signOut }: DashboardProps) => {
           <>
             {/* Today's Workout - PRIMARY FOCUS */}
             <TodaysWorkoutCard activeBlock={activeBlock} userId={user.user_id} />
+
+            {/* SBD PR Cards */}
+            {dashboardSummary && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(['Squat', 'Bench Press', 'Deadlift'] as const).map((lift) => {
+                  const pr = dashboardSummary.prs[lift];
+                  if (!pr) return null;
+                  return (
+                    <div key={lift} className="bg-white rounded-lg border border-gray-200 p-3 text-center">
+                      <p className="text-xs font-medium text-ocean-slate truncate">{lift}</p>
+                      <p className="text-xl font-bold text-ocean-navy mt-1">
+                        {pr.current_block_best > 0
+                          ? `${pr.current_block_best}${user.weight_unit_preference === 'lb' ? 'lb' : 'kg'}`
+                          : '—'}
+                      </p>
+                      {pr.delta !== null && (
+                        <p className={`text-xs mt-0.5 ${pr.delta >= 0 ? 'text-state-active' : 'text-red-600'}`}>
+                          {pr.delta >= 0 ? '↑' : '↓'}{Math.abs(pr.delta)}{user.weight_unit_preference === 'lb' ? 'lb' : 'kg'}
+                        </p>
+                      )}
+                      {pr.delta === null && pr.current_block_best > 0 && (
+                        <p className="text-xs mt-0.5 text-ocean-slate-light">first block</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Weekly Volume Card */}
+            {dashboardSummary?.weekly_volume?.current_week_number && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-ocean-slate">
+                      Week {dashboardSummary.weekly_volume.current_week_number} Volume
+                    </p>
+                    <p className="text-2xl font-bold text-ocean-navy mt-0.5">
+                      {dashboardSummary.weekly_volume.current_week_volume > 0
+                        ? `${dashboardSummary.weekly_volume.current_week_volume.toLocaleString()}${user.weight_unit_preference === 'lb' ? 'lb' : 'kg'}`
+                        : '—'}
+                    </p>
+                    {dashboardSummary.weekly_volume.previous_week_volume !== undefined && (
+                      (() => {
+                        const delta =
+                          dashboardSummary.weekly_volume.current_week_volume -
+                          dashboardSummary.weekly_volume.previous_week_volume!;
+                        return (
+                          <p className={`text-xs mt-0.5 ${delta >= 0 ? 'text-state-active' : 'text-red-600'}`}>
+                            {delta >= 0 ? '↑' : '↓'}{Math.abs(delta).toLocaleString()}{user.weight_unit_preference === 'lb' ? 'lb' : 'kg'}
+                            {' '}vs Week {dashboardSummary.weekly_volume.previous_week_number}
+                          </p>
+                        );
+                      })()
+                    )}
+                  </div>
+                  <Link
+                    to="/analytics"
+                    className="text-sm font-medium text-ocean-teal hover:text-ocean-navy"
+                  >
+                    Analytics →
+                  </Link>
+                </div>
+              </div>
+            )}
 
             {/* Current Program - demoted to context line */}
             {activeBlock && (

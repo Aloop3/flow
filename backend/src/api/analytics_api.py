@@ -424,3 +424,46 @@ def get_all_time_1rm(event, context):
     except Exception as e:
         logger.error(f"Error getting all-time 1RM: {str(e)}")
         return create_response(500, {"error": "Internal server error"})
+
+
+@with_middleware([log_request, handle_errors])
+def get_dashboard_summary(event, context):
+    """
+    Handle GET /analytics/dashboard-summary/{athlete_id}?block_id=<block_id>
+    Returns SBD PR cards and weekly volume summary for the dashboard.
+    """
+    try:
+        # Extract path parameters and query parameters
+        athlete_id = event["pathParameters"]["athlete_id"]
+        query_params = event.get("queryStringParameters") or {}
+        block_id = query_params.get("block_id")
+
+        if not block_id:
+            return create_response(
+                400, {"error": "block_id query parameter is required"}
+            )
+
+        user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+        if not validate_athlete_access(user_id, athlete_id):
+            return create_response(
+                403, {"error": "Unauthorized access to athlete data"}
+            )
+
+        block = block_service.get_block(block_id)
+        if not block:
+            return create_response(404, {"error": "Block not found"})
+        if block.athlete_id != athlete_id:
+            return create_response(
+                403, {"error": "Block does not belong to specified athlete"}
+            )
+
+        result = analytics_service.get_dashboard_summary(athlete_id, block_id)
+
+        if "error" in result:
+            return create_response(400, result)
+
+        return create_response(200, result)
+
+    except Exception as e:
+        logger.error(f"Error getting dashboard summary: {str(e)}", exc_info=True)
+        return create_response(500, {"error": "Internal server error"})

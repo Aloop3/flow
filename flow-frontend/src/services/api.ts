@@ -1741,6 +1741,58 @@ export const getBlockAnalysis = async (
   }
 };
 
+export interface DashboardSummary {
+  prs: {
+    [lift: string]: {
+      current_block_best: number;
+      previous_block_best: number;
+      delta: number | null;
+    };
+  };
+  weekly_volume: {
+    current_week_number: number;
+    current_week_volume: number;
+    previous_week_number?: number;
+    previous_week_volume?: number;
+  };
+}
+
+export const getDashboardSummary = async (
+  athleteId: string,
+  blockId: string
+): Promise<DashboardSummary | null> => {
+  try {
+    const headers = await getAuthHeaders();
+
+    const path = `/analytics/dashboard-summary/${athleteId}?block_id=${blockId}`;
+
+    console.log('Fetching dashboard summary for athlete:', athleteId, 'block:', blockId);
+    const apiResponse = await get({
+      apiName: 'flow-api',
+      path,
+      options: { headers },
+    });
+
+    const actualResponse = await apiResponse.response;
+
+    if (actualResponse && actualResponse.body) {
+      try {
+        const responseData = await actualResponse.body.json() as any;
+        console.log('Dashboard summary data:', responseData);
+        return responseData as DashboardSummary;
+      } catch (e) {
+        console.error('Failed to parse dashboard summary data:', e);
+        return null;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching dashboard summary:', error);
+    return null;
+  }
+};
+
 export const getBlockComparison = async (
   athleteId: string,
   block1Id: string,

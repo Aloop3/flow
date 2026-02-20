@@ -1651,6 +1651,145 @@ class TestAnalyticsService(unittest.TestCase):
         # Should return 140 (highest deadlift), ignoring 200 (squat) and 150 (bench press)
         self.assertEqual(max_weight, 140.0)
 
+    def test_get_dashboard_summary_success(self):
+        """Happy path: active block + previous block → PRs with deltas + weekly volume"""
+        import datetime as dt
+
+        today = dt.date.today().isoformat()
+
+        active_block = {
+            "block_id": "active-block",
+            "athlete_id": "athlete-1",
+            "start_date": "2026-01-15",
+            "end_date": "2026-03-15",
+        }
+        prev_block = {
+            "block_id": "prev-block",
+            "athlete_id": "athlete-1",
+            "start_date": "2025-10-01",
+            "end_date": "2026-01-14",
+        }
+        self.block_repository_mock.get_block.side_effect = (
+            lambda bid: active_block if bid == "active-block" else prev_block
+        )
+        self.block_repository_mock.get_blocks_by_athlete.return_value = [
+            active_block,
+            prev_block,
+        ]
+
+        active_weeks = [
+            {"week_id": "w1", "week_number": 1},
+            {"week_id": "w2", "week_number": 2},
+        ]
+        self.week_repository_mock.get_weeks_by_block.return_value = active_weeks
+
+        active_days = [
+            {"day_id": "d1", "week_id": "w1", "date": "2026-01-20"},
+            {"day_id": "d2", "week_id": "w2", "date": today},
+        ]
+        self.day_repository_mock.batch_get_days_by_week_ids.return_value = active_days
+
+        active_exercises = [
+            {
+                "workout_date": "2026-01-20",
+                "exercise_type": "Squat",
+                "status": "completed",
+                "sets_data": [{"completed": True, "weight": 150, "reps": 5}],
+            },
+            {
+                "workout_date": today,
+                "exercise_type": "Bench Press",
+                "status": "completed",
+                "sets_data": [{"completed": True, "weight": 100, "reps": 3}],
+            },
+        ]
+        prev_exercises = [
+            {
+                "workout_date": "2025-10-10",
+                "exercise_type": "Squat",
+                "status": "completed",
+                "sets_data": [{"completed": True, "weight": 140, "reps": 5}],
+            },
+        ]
+
+        def mock_get_exercises(athlete_id, start_date=None):
+            if start_date == "2026-01-15":
+                return active_exercises
+            elif start_date == "2025-10-01":
+                return prev_exercises
+            return []
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.side_effect = (
+            mock_get_exercises
+        )
+
+        result = self.analytics_service.get_dashboard_summary(
+            "athlete-1", "active-block"
+        )
+
+        self.assertNotIn("error", result)
+        self.assertEqual(result["prs"]["Squat"]["current_block_best"], 150.0)
+        self.assertEqual(result["prs"]["Squat"]["previous_block_best"], 140.0)
+        self.assertEqual(result["prs"]["Squat"]["delta"], 10.0)
+        self.assertEqual(result["prs"]["Bench Press"]["current_block_best"], 100.0)
+        self.assertIsNone(result["prs"]["Bench Press"]["delta"])  # no prev bench
+        self.assertEqual(result["prs"]["Deadlift"]["current_block_best"], 0.0)
+        self.assertEqual(result["weekly_volume"]["current_week_number"], 2)
+        self.assertIn("current_week_volume", result["weekly_volume"])
+
+    def test_get_dashboard_summary_no_previous_block(self):
+        """When athlete has only one block, all deltas are None"""
+        import datetime as dt
+
+        today = dt.date.today().isoformat()
+
+        active_block = {
+            "block_id": "only-block",
+            "athlete_id": "athlete-1",
+            "start_date": "2026-01-01",
+            "end_date": "2026-03-01",
+        }
+        self.block_repository_mock.get_block.return_value = active_block
+        self.block_repository_mock.get_blocks_by_athlete.return_value = [active_block]
+        self.week_repository_mock.get_weeks_by_block.return_value = [
+            {"week_id": "w1", "week_number": 1}
+        ]
+        self.day_repository_mock.batch_get_days_by_week_ids.return_value = [
+            {"day_id": "d1", "week_id": "w1", "date": today}
+        ]
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            []
+        )
+
+        result = self.analytics_service.get_dashboard_summary("athlete-1", "only-block")
+
+        self.assertNotIn("error", result)
+        for lift in ["Squat", "Bench Press", "Deadlift"]:
+            self.assertIsNone(result["prs"][lift]["delta"])
+
+    def test_get_dashboard_summary_missing_params(self):
+        """Returns error dict when athlete_id or block_id is empty"""
+        result = self.analytics_service.get_dashboard_summary("", "block-1")
+        self.assertIn("error", result)
+
+        result = self.analytics_service.get_dashboard_summary("athlete-1", "")
+        self.assertIn("error", result)
+
+    def test_get_block_sbd_bests_repository_failure_returns_empty(self):
+        """If previous block repository calls fail, _get_block_sbd_bests returns {} gracefully"""
+        self.block_repository_mock.get_block.return_value = {
+            "block_id": "some-block-id",
+            "start_date": "2025-01-01",
+            "end_date": "2025-03-01",
+        }
+        self.exercise_repository_mock.get_exercises_with_workout_context.side_effect = (
+            Exception("DynamoDB unavailable")
+        )
+        result = self.analytics_service._get_block_sbd_bests(
+            "some-block-id", "athlete-1"
+        )
+        self.assertEqual(result, {})
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
