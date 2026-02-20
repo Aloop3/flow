@@ -1669,7 +1669,9 @@ class TestAnalyticsService(unittest.TestCase):
             "start_date": "2025-10-01",
             "end_date": "2026-01-14",
         }
-        self.block_repository_mock.get_block.return_value = active_block
+        self.block_repository_mock.get_block.side_effect = (
+            lambda bid: active_block if bid == "active-block" else prev_block
+        )
         self.block_repository_mock.get_blocks_by_athlete.return_value = [
             active_block,
             prev_block,
@@ -1679,29 +1681,23 @@ class TestAnalyticsService(unittest.TestCase):
             {"week_id": "w1", "week_number": 1},
             {"week_id": "w2", "week_number": 2},
         ]
-        prev_weeks = [{"week_id": "pw1", "week_number": 1}]
-        self.week_repository_mock.get_weeks_by_block.side_effect = (
-            lambda bid: active_weeks if bid == "active-block" else prev_weeks
-        )
+        self.week_repository_mock.get_weeks_by_block.return_value = active_weeks
 
         active_days = [
             {"day_id": "d1", "week_id": "w1", "date": "2026-01-20"},
             {"day_id": "d2", "week_id": "w2", "date": today},
         ]
-        prev_days = [{"day_id": "pd1", "week_id": "pw1", "date": "2025-10-10"}]
-        self.day_repository_mock.batch_get_days_by_week_ids.side_effect = (
-            lambda ids: active_days if "w1" in ids else prev_days
-        )
+        self.day_repository_mock.batch_get_days_by_week_ids.return_value = active_days
 
         active_exercises = [
             {
-                "day_id": "d1",
+                "workout_date": "2026-01-20",
                 "exercise_type": "Squat",
                 "status": "completed",
                 "sets_data": [{"completed": True, "weight": 150, "reps": 5}],
             },
             {
-                "day_id": "d2",
+                "workout_date": today,
                 "exercise_type": "Bench Press",
                 "status": "completed",
                 "sets_data": [{"completed": True, "weight": 100, "reps": 3}],
@@ -1709,14 +1705,22 @@ class TestAnalyticsService(unittest.TestCase):
         ]
         prev_exercises = [
             {
-                "day_id": "pd1",
+                "workout_date": "2025-10-10",
                 "exercise_type": "Squat",
                 "status": "completed",
                 "sets_data": [{"completed": True, "weight": 140, "reps": 5}],
             },
         ]
-        self.exercise_repository_mock.batch_get_exercises_by_day_ids.side_effect = (
-            lambda ids: active_exercises if "d1" in ids else prev_exercises
+
+        def mock_get_exercises(athlete_id, start_date=None):
+            if start_date == "2026-01-15":
+                return active_exercises
+            elif start_date == "2025-10-01":
+                return prev_exercises
+            return []
+
+        self.exercise_repository_mock.get_exercises_with_workout_context.side_effect = (
+            mock_get_exercises
         )
 
         result = self.analytics_service.get_dashboard_summary(
@@ -1753,7 +1757,9 @@ class TestAnalyticsService(unittest.TestCase):
         self.day_repository_mock.batch_get_days_by_week_ids.return_value = [
             {"day_id": "d1", "week_id": "w1", "date": today}
         ]
-        self.exercise_repository_mock.batch_get_exercises_by_day_ids.return_value = []
+        self.exercise_repository_mock.get_exercises_with_workout_context.return_value = (
+            []
+        )
 
         result = self.analytics_service.get_dashboard_summary("athlete-1", "only-block")
 
@@ -1771,10 +1777,17 @@ class TestAnalyticsService(unittest.TestCase):
 
     def test_get_block_sbd_bests_repository_failure_returns_empty(self):
         """If previous block repository calls fail, _get_block_sbd_bests returns {} gracefully"""
-        self.week_repository_mock.get_weeks_by_block.side_effect = Exception(
-            "DynamoDB unavailable"
+        self.block_repository_mock.get_block.return_value = {
+            "block_id": "some-block-id",
+            "start_date": "2025-01-01",
+            "end_date": "2025-03-01",
+        }
+        self.exercise_repository_mock.get_exercises_with_workout_context.side_effect = (
+            Exception("DynamoDB unavailable")
         )
-        result = self.analytics_service._get_block_sbd_bests("some-block-id")
+        result = self.analytics_service._get_block_sbd_bests(
+            "some-block-id", "athlete-1"
+        )
         self.assertEqual(result, {})
 
 

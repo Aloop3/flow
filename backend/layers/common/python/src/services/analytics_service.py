@@ -466,10 +466,14 @@ class AnalyticsService:
             weeks = self.week_repository.get_weeks_by_block(active_block_id)
             week_ids = [w["week_id"] for w in weeks if w.get("week_id")]
             all_days = self.day_repository.batch_get_days_by_week_ids(week_ids)
-            day_ids = [d["day_id"] for d in all_days if d.get("day_id")]
-            all_exercises = self.exercise_repository.batch_get_exercises_by_day_ids(
-                day_ids
-            )
+            block_end = active_block.get("end_date", "9999-99-99")
+            all_exercises = [
+                e
+                for e in self.exercise_repository.get_exercises_with_workout_context(
+                    athlete_id, start_date=active_block.get("start_date")
+                )
+                if e.get("workout_date", "") <= block_end
+            ]
 
             # --- PR cards ---
             current_prs = self._extract_sbd_bests(all_exercises)
@@ -477,7 +481,9 @@ class AnalyticsService:
             all_blocks = self.block_repository.get_blocks_by_athlete(athlete_id)
             prev_block = self._find_previous_block(all_blocks, active_block)
             previous_prs = (
-                self._get_block_sbd_bests(prev_block["block_id"]) if prev_block else {}
+                self._get_block_sbd_bests(prev_block["block_id"], athlete_id)
+                if prev_block
+                else {}
             )
 
             prs = {}
@@ -517,14 +523,21 @@ class AnalyticsService:
                     bests[canonical] = max_w
         return bests
 
-    def _get_block_sbd_bests(self, block_id: str) -> Dict[str, float]:
+    def _get_block_sbd_bests(self, block_id: str, athlete_id: str) -> Dict[str, float]:
         """Fetch exercises for a block and return SBD bests (used for previous block)."""
         try:
-            weeks = self.week_repository.get_weeks_by_block(block_id)
-            week_ids = [w["week_id"] for w in weeks if w.get("week_id")]
-            all_days = self.day_repository.batch_get_days_by_week_ids(week_ids)
-            day_ids = [d["day_id"] for d in all_days if d.get("day_id")]
-            exercises = self.exercise_repository.batch_get_exercises_by_day_ids(day_ids)
+            block = self.block_repository.get_block(block_id)
+            if not block:
+                return {}
+            start_date = block.get("start_date")
+            end_date = block.get("end_date", "9999-99-99")
+            exercises = [
+                e
+                for e in self.exercise_repository.get_exercises_with_workout_context(
+                    athlete_id, start_date=start_date
+                )
+                if e.get("workout_date", "") <= end_date
+            ]
             return self._extract_sbd_bests(exercises)
         except Exception as e:
             print(f"Error fetching previous block SBD bests for {block_id}: {e}")
@@ -559,7 +572,6 @@ class AnalyticsService:
         """
         today = dt.date.today().isoformat()
         week_lookup = {w["week_id"]: w for w in weeks if w.get("week_id")}
-        day_lookup = {d["day_id"]: d for d in all_days if d.get("day_id")}
 
         # week_id -> list of day dates
         week_dates: Dict[str, List[str]] = {}
@@ -599,14 +611,19 @@ class AnalyticsService:
             None,
         )
 
+        # Build date -> week_id lookup for fast matching
+        date_to_week: Dict[str, str] = {}
+        for wid, dates in week_dates.items():
+            for date in dates:
+                date_to_week[date] = wid
+
         # Calculate volume per week using completed exercises
         week_volumes: Dict[str, float] = {}
         for exercise in all_exercises:
-            did = exercise.get("day_id")
-            if not did:
+            workout_date = exercise.get("workout_date")
+            if not workout_date:
                 continue
-            day_data = day_lookup.get(did, {})
-            wid = day_data.get("week_id")
+            wid = date_to_week.get(workout_date)
             if wid and self._is_exercise_analytics_complete(exercise):
                 vol = self._calculate_exercise_volume(exercise)
                 week_volumes[wid] = week_volumes.get(wid, 0.0) + vol
